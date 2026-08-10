@@ -1,0 +1,50 @@
+"""Fetch paper chunks from academic-paper-system API for evaluation.
+
+Usage:
+    python scripts/fetch_papers.py --api-url http://localhost:8020 --out data/chunks.json
+"""
+import argparse
+import json
+import sys
+from pathlib import Path
+from urllib.parse import urlencode
+from urllib.request import urlopen
+
+
+def fetch_papers(api_url: str, limit: int = 100) -> list[dict]:
+    url = f"{api_url}/papers?{urlencode({'limit': limit, 'sort': 'score'})}"
+    return json.loads(urlopen(url, timeout=15).read())["papers"]
+
+
+def fetch_chunks_for_paper(api_url: str, paper_id: int, query: str) -> list[dict]:
+    url = f"{api_url}/search?{urlencode({'q': query, 'mode': 'hybrid', 'paper_id': paper_id, 'limit': 20})}"
+    results = json.loads(urlopen(url, timeout=15).read())["results"]
+    return [{"paper_id": paper_id, "chunk_index": r["chunk_index"], "text": r["snippet"], "score": r["score"]} for r in results]
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--api-url", default="http://localhost:8020")
+    parser.add_argument("--out", default="data/chunks.json")
+    parser.add_argument("--query", default="method results contribution")
+    args = parser.parse_args()
+
+    api = args.api_url.rstrip("/")
+    papers = fetch_papers(api)
+    print(f"Found {len(papers)} papers", file=sys.stderr)
+
+    all_chunks = []
+    for p in papers:
+        pid = p["id"]
+        chunks = fetch_chunks_for_paper(api, pid, args.query)
+        all_chunks.extend(chunks)
+        print(f"  paper {pid}: {len(chunks)} chunks", file=sys.stderr)
+
+    out = Path(args.out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(all_chunks, ensure_ascii=False, indent=2))
+    print(f"Wrote {len(all_chunks)} chunks to {out}", file=sys.stderr)
+
+
+if __name__ == "__main__":
+    main()

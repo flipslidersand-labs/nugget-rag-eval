@@ -1,0 +1,11 @@
+[
+  {
+    "query": "KV cache reuse in RAG",
+    "paper_id": 25,
+    "answer_spans": [
+      "CoinRAG compositionally reuses offline-computed, fine-grained nugget caches",
+      "KV cache computed offline"
+    ],
+    "notes": "CoinRAG core mechanism"
+  }
+]
