@@ -27,6 +27,10 @@ def main():
     parser.add_argument("--api-url", default="http://localhost:8020")
     parser.add_argument("--out", default="data/chunks.json")
     parser.add_argument("--query", default="method results contribution")
+    parser.add_argument("--chunk-mode", choices=["small", "large"], default="small",
+                        help="small: individual chunks (~20 tokens), large: combined chunks (~512 tokens)")
+    parser.add_argument("--large-chunk-target", type=int, default=512,
+                        help="Target token count for large chunk mode")
     args = parser.parse_args()
 
     api = args.api_url.rstrip("/")
@@ -37,8 +41,35 @@ def main():
     for p in papers:
         pid = p["id"]
         chunks = fetch_chunks_for_paper(api, pid, args.query)
-        all_chunks.extend(chunks)
-        print(f"  paper {pid}: {len(chunks)} chunks", file=sys.stderr)
+
+        if args.chunk_mode == "large":
+            # Combine consecutive chunks until target size
+            combined = []
+            current = None
+            current_size = 0
+            for chunk in chunks:
+                chunk_size = len(chunk["text"].split())
+                if current is None:
+                    current = {"paper_id": pid, "chunk_indices": [chunk["chunk_index"]],
+                              "text": chunk["text"], "score": chunk["score"]}
+                    current_size = chunk_size
+                elif current_size + chunk_size <= args.large_chunk_target:
+                    current["text"] += " " + chunk["text"]
+                    current["chunk_indices"].append(chunk["chunk_index"])
+                    current["score"] = max(current["score"], chunk["score"])
+                    current_size += chunk_size
+                else:
+                    combined.append(current)
+                    current = {"paper_id": pid, "chunk_indices": [chunk["chunk_index"]],
+                              "text": chunk["text"], "score": chunk["score"]}
+                    current_size = chunk_size
+            if current:
+                combined.append(current)
+            all_chunks.extend(combined)
+            print(f"  paper {pid}: {len(chunks)} → {len(combined)} large chunks", file=sys.stderr)
+        else:
+            all_chunks.extend(chunks)
+            print(f"  paper {pid}: {len(chunks)} chunks", file=sys.stderr)
 
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
