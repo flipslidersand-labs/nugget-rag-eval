@@ -7,5 +7,86 @@
       "KV cache computed offline"
     ],
     "notes": "CoinRAG core mechanism"
+  },
+  {
+    "query": "multi-agent reinforcement learning edge computing",
+    "paper_id": 60,
+    "answer_spans": [
+      "Multi-Agent Reinforcement Learning based Edge Content Caching",
+      "connected autonomous vehicles in IoV"
+    ],
+    "notes": "MARL for vehicular networks"
+  },
+  {
+    "query": "cooperative learning distributed UAV systems",
+    "paper_id": 61,
+    "answer_spans": [
+      "Cooperative UAVs with Asynchronous Multi-agent Learning",
+      "Remote Data Collection"
+    ],
+    "notes": "Multi-agent coordination for drone swarms"
+  },
+  {
+    "query": "LLM safety pruning mechanism neural networks",
+    "paper_id": 56,
+    "answer_spans": [
+      "Nexus Scissor: Enhance Open-Access Language Model Safety",
+      "Connection Pruning"
+    ],
+    "notes": "Safety through structured pruning"
+  },
+  {
+    "query": "multimodal LLM concept application safety",
+    "paper_id": 57,
+    "answer_spans": [
+      "A Comprehensive Survey of Multimodal Large Language Models",
+      "Concept, Application and Safety"
+    ],
+    "notes": "Survey covering modality fusion and safety"
+  },
+  {
+    "query": "linguistic discrimination bias language models fairness",
+    "paper_id": 59,
+    "answer_spans": [
+      "Evaluating and Mitigating Linguistic Discrimination",
+      "Large Language Models"
+    ],
+    "notes": "Cross-lingual fairness in LLMs"
+  },
+  {
+    "query": "agent learning self-improvement capability",
+    "paper_id": 60,
+    "answer_spans": [
+      "edge computing with reinforcement learning",
+      "policy optimization"
+    ],
+    "notes": "Agent adaptation in dynamic environments"
+  },
+  {
+    "query": "retrieval augmented generation nugget span extraction",
+    "paper_id": 25,
+    "answer_spans": [
+      "nuggets are fine-grained, query-relevant spans",
+      "retrieval-augmented generation"
+    ],
+    "notes": "Nugget-based RAG foundation"
+  },
+  {
+    "query": "knowledge extraction hospital discharge medical NLP",
+    "paper_id": 58,
+    "answer_spans": [
+      "Physician and Large Language Model-Generated Hospital Discharge Summaries",
+      "LLM for clinical document generation"
+    ],
+    "notes": "Domain-specific LLM application in healthcare"
+  },
+  {
+    "query": "construction safety regulation information extraction",
+    "paper_id": 55,
+    "answer_spans": [
+      "LLM for enhanced construction safety",
+      "regulation extraction"
+    ],
+    "notes": "Safety compliance automation via NLP"
   }
 ]
