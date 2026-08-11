@@ -88,5 +88,83 @@
       "regulation extraction"
     ],
     "notes": "Safety compliance automation via NLP"
+  },
+  {
+    "query": "cooperative cache edge computing MARL",
+    "paper_id": 60,
+    "answer_spans": [
+      "Algorithm 1: cooperative cache process",
+      "rewards obtained by all agents"
+    ],
+    "notes": "Cache management via multi-agent RL"
+  },
+  {
+    "query": "asynchronous UAV data collection reinforcement learning",
+    "paper_id": 61,
+    "answer_spans": [
+      "instantaneous reward R(s_m, u_m, t) contributed by all UAVs",
+      "asynchronous algorithm"
+    ],
+    "notes": "Async communication in drone swarms"
+  },
+  {
+    "query": "LLM connection pruning safety enhancement",
+    "paper_id": 56,
+    "answer_spans": [
+      "Nexus Scissor: Enhance Open-Access Language Model Safety",
+      "Connection Pruning"
+    ],
+    "notes": "Structured pruning for safety"
+  },
+  {
+    "query": "multimodal LLM safety benchmark evaluation",
+    "paper_id": 57,
+    "answer_spans": ["Model Safety Assessment", "MM-SafetyBench, VLSafe"],
+    "notes": "Cross-modal safety evaluation"
+  },
+  {
+    "query": "unlearning class-wise accuracy calibration",
+    "paper_id": 59,
+    "answer_spans": [
+      "calibrating the decision space",
+      "maintains decision boundaries"
+    ],
+    "notes": "Selective forgetting in LLMs"
+  },
+  {
+    "query": "finite automata world model learning gameplay video",
+    "paper_id": 63,
+    "answer_spans": [
+      "Finite Automata Extraction",
+      "World Model Learning as Programs"
+    ],
+    "notes": "Interpretable world models from video"
+  },
+  {
+    "query": "animal vocalization representation encoding",
+    "paper_id": 62,
+    "answer_spans": [
+      "AVEX: What Matters for Animal Vocalization Encoding",
+      "multi-institutional research"
+    ],
+    "notes": "Bioacoustic representation learning"
+  },
+  {
+    "query": "clinical language model hospital discharge generation quality",
+    "paper_id": 58,
+    "answer_spans": [
+      "Physician and LLM-Generated Hospital Discharge Summaries",
+      "quality and safety comparison"
+    ],
+    "notes": "Medical document generation evaluation"
+  },
+  {
+    "query": "hybrid search retrieval ranking semantic similarity",
+    "paper_id": 25,
+    "answer_spans": [
+      "hybrid search combines BM25 and semantic embeddings",
+      "nugget-based retrieval ranking"
+    ],
+    "notes": "Multi-signal retrieval for RAG"
   }
 ]
