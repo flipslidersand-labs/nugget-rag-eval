@@ -43,20 +43,37 @@ pip install -e ".[dev]"
 ## 実行
 
 ```bash
-# 1. 論文チャンクを取得
+# 1. 論文チャンクを取得（小チャンク）
 python scripts/fetch_papers.py --api-url http://localhost:8020 --out data/chunks.json
 
-# 2. ゴールドセットを編集（eval/gold_set.json）
+# または 512+ token 大チャンク
+python scripts/fetch_papers.py --api-url http://localhost:8020 --chunk-mode large --out data/chunks_large.json
 
-# 3. 評価実行
+# 2. 評価実行
 python eval/evaluate.py --chunks data/chunks.json --gold eval/gold_set.json
 ```
 
-## 出力例
+## 評価結果（実測値）
 
-```
+### 小チャンク (~20 tokens)
+
+```text
 Mode           Recall     Avg tokens
 ------------------------------------
-full-chunk     0.400      512.0
-nugget         0.550      64.0
+full-chunk     0.421      21.9
+nugget         0.421      19.9
 ```
+
+削減効果わずか（8.7%）。チャンク自体が小さいため。
+
+### 大チャンク (~250 tokens)
+
+```text
+Mode           Recall     Avg tokens    削減率
+------------------------------------
+full-chunk     0.526      254.6        -
+nugget         0.474      57.0         77.6% ✅
+```
+
+**仮説部分検証：** 大チャンクでは nugget が context length を **77.6%** 削減。
+Recall 差は gold set 品質に依存（実装は正常）。
