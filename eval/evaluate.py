@@ -1,13 +1,23 @@
 """Evaluate full-chunk vs nugget retrieval using Recall@k and token count.
 
 Usage:
+    # BM25-only (default)
     python eval/evaluate.py --chunks data/chunks.json --gold eval/gold_set.json
+
+    # BM25 + embedding hybrid nugget scoring
+    python eval/evaluate.py --chunks data/chunks_large_perquery.json \
+        --gold eval/gold_set.json \
+        --embedding-url http://192.168.68.63:9092 \
+        --embedding-api-key <key> \
+        --embed-weight 0.5
 """
 from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
+from typing import Callable
 
 from nugget_rag.retriever import retrieve_full_chunk, retrieve_nuggets
 
@@ -22,7 +32,14 @@ def avg_tokens(results: list[dict], field: str = "text") -> float:
     return sum(len(t.split()) for t in texts) / max(len(texts), 1)
 
 
-def evaluate(chunks_by_paper: dict[int, list[dict]], gold: list[dict], top_k: int = 5, verbose: bool = False) -> dict:
+def evaluate(
+    chunks_by_paper: dict[int, list[dict]],
+    gold: list[dict],
+    top_k: int = 5,
+    verbose: bool = False,
+    embed_fn: Callable[[list[str]], list[list[float]]] | None = None,
+    embed_weight: float = 0.5,
+) -> dict:
     full_hits = nugget_hits = 0
     full_tokens = nugget_tokens = 0.0
     nugget_misses = []
@@ -34,7 +51,11 @@ def evaluate(chunks_by_paper: dict[int, list[dict]], gold: list[dict], top_k: in
         chunks = chunks_by_paper.get(paper_id, [])
 
         full = retrieve_full_chunk(chunks, query, top_k)
-        nugget = retrieve_nuggets(chunks, query, top_k)
+        nugget = retrieve_nuggets(
+            chunks, query, top_k,
+            embed_fn=embed_fn,
+            embed_weight=embed_weight,
+        )
 
         full_hit = recall_at_k(full, spans, "text")
         nugget_hit = recall_at_k(nugget, spans, "nugget")
@@ -51,7 +72,6 @@ def evaluate(chunks_by_paper: dict[int, list[dict]], gold: list[dict], top_k: in
 
     n = len(gold)
     if verbose and nugget_misses:
-        import sys
         print("\n## Nugget Recall Misses:", file=sys.stderr)
         for idx, q, span in nugget_misses[:5]:
             print(f"  [{idx}] {q}... → {span}...", file=sys.stderr)
@@ -68,8 +88,26 @@ def main():
     parser.add_argument("--chunks", required=True)
     parser.add_argument("--gold", required=True)
     parser.add_argument("--top-k", type=int, default=5)
-    parser.add_argument("--verbose", action="store_true", help="Show miss details")
+    parser.add_argument("--verbose", action="store_true")
+    parser.add_argument("--embedding-url", default=None,
+                        help="Embedding service URL (e.g. http://192.168.68.63:9092). "
+                             "When set, nugget scoring uses BM25 + embedding hybrid.")
+    parser.add_argument("--embedding-api-key", default=None,
+                        help="X-API-Key for the embedding service")
+    parser.add_argument("--embed-weight", type=float, default=0.5,
+                        help="Embedding weight in hybrid score: 0=BM25-only, 1=embed-only (default: 0.5)")
     args = parser.parse_args()
+
+    embed_fn = None
+    if args.embedding_url:
+        from nugget_rag.embedder import EmbedClient
+        client = EmbedClient(
+            args.embedding_url,
+            api_key=args.embedding_api_key or "",
+            collection="search-engine",
+        )
+        embed_fn = client.embed
+        print(f"Embedding: {args.embedding_url}  weight={args.embed_weight}", file=sys.stderr)
 
     chunks_data: list[dict] = json.loads(Path(args.chunks).read_text())
     gold: list[dict] = json.loads(Path(args.gold).read_text())
@@ -78,12 +116,19 @@ def main():
     for c in chunks_data:
         chunks_by_paper.setdefault(c["paper_id"], []).append(c)
 
-    result = evaluate(chunks_by_paper, gold, top_k=args.top_k, verbose=args.verbose)
+    result = evaluate(
+        chunks_by_paper, gold,
+        top_k=args.top_k,
+        verbose=args.verbose,
+        embed_fn=embed_fn,
+        embed_weight=args.embed_weight,
+    )
 
-    print(f"{'Mode':<14} {'Recall':<10} {'Avg tokens'}")
-    print("-" * 36)
-    print(f"{'full-chunk':<14} {result['full_chunk']['recall']:<10} {result['full_chunk']['avg_tokens']}")
-    print(f"{'nugget':<14} {result['nugget']['recall']:<10} {result['nugget']['avg_tokens']}")
+    mode_label = f"nugget(e{args.embed_weight:.1f})" if embed_fn else "nugget"
+    print(f"{'Mode':<18} {'Recall':<10} {'Avg tokens'}")
+    print("-" * 40)
+    print(f"{'full-chunk':<18} {result['full_chunk']['recall']:<10} {result['full_chunk']['avg_tokens']}")
+    print(f"{mode_label:<18} {result['nugget']['recall']:<10} {result['nugget']['avg_tokens']}")
     print()
     print(json.dumps(result, indent=2))
 
