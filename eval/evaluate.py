@@ -22,11 +22,12 @@ def avg_tokens(results: list[dict], field: str = "text") -> float:
     return sum(len(t.split()) for t in texts) / max(len(texts), 1)
 
 
-def evaluate(chunks_by_paper: dict[int, list[dict]], gold: list[dict], top_k: int = 5) -> dict:
+def evaluate(chunks_by_paper: dict[int, list[dict]], gold: list[dict], top_k: int = 5, verbose: bool = False) -> dict:
     full_hits = nugget_hits = 0
     full_tokens = nugget_tokens = 0.0
+    nugget_misses = []
 
-    for item in gold:
+    for i, item in enumerate(gold):
         paper_id = item["paper_id"]
         query = item["query"]
         spans = item["answer_spans"]
@@ -35,15 +36,26 @@ def evaluate(chunks_by_paper: dict[int, list[dict]], gold: list[dict], top_k: in
         full = retrieve_full_chunk(chunks, query, top_k)
         nugget = retrieve_nuggets(chunks, query, top_k)
 
-        if recall_at_k(full, spans, "text"):
+        full_hit = recall_at_k(full, spans, "text")
+        nugget_hit = recall_at_k(nugget, spans, "nugget")
+
+        if full_hit:
             full_hits += 1
-        if recall_at_k(nugget, spans, "nugget"):
+        if nugget_hit:
             nugget_hits += 1
+        else:
+            nugget_misses.append((i, query[:40], spans[0][:50]))
 
         full_tokens += avg_tokens(full, "text")
         nugget_tokens += avg_tokens(nugget, "nugget")
 
     n = len(gold)
+    if verbose and nugget_misses:
+        import sys
+        print("\n## Nugget Recall Misses:", file=sys.stderr)
+        for idx, q, span in nugget_misses[:5]:
+            print(f"  [{idx}] {q}... → {span}...", file=sys.stderr)
+
     return {
         "n_queries": n,
         "full_chunk": {"recall": round(full_hits / n, 3) if n else 0, "avg_tokens": round(full_tokens / n, 1) if n else 0},
@@ -56,6 +68,7 @@ def main():
     parser.add_argument("--chunks", required=True)
     parser.add_argument("--gold", required=True)
     parser.add_argument("--top-k", type=int, default=5)
+    parser.add_argument("--verbose", action="store_true", help="Show miss details")
     args = parser.parse_args()
 
     chunks_data: list[dict] = json.loads(Path(args.chunks).read_text())
@@ -65,7 +78,7 @@ def main():
     for c in chunks_data:
         chunks_by_paper.setdefault(c["paper_id"], []).append(c)
 
-    result = evaluate(chunks_by_paper, gold, top_k=args.top_k)
+    result = evaluate(chunks_by_paper, gold, top_k=args.top_k, verbose=args.verbose)
 
     print(f"{'Mode':<14} {'Recall':<10} {'Avg tokens'}")
     print("-" * 36)
