@@ -43,14 +43,18 @@ pip install -e ".[dev]"
 ## 実行
 
 ```bash
-# 1. 論文チャンクを取得（小チャンク）
+# 1. 論文チャンクを取得（推奨: per-query fetch）
+python scripts/fetch_papers.py \
+  --api-url http://localhost:8020 \
+  --gold-set eval/gold_set.json \
+  --chunk-mode large \
+  --out data/chunks_large_perquery.json
+
+# または generic query で一括取得（小チャンク）
 python scripts/fetch_papers.py --api-url http://localhost:8020 --out data/chunks.json
 
-# または 512+ token 大チャンク
-python scripts/fetch_papers.py --api-url http://localhost:8020 --chunk-mode large --out data/chunks_large.json
-
 # 2. 評価実行
-python eval/evaluate.py --chunks data/chunks.json --gold eval/gold_set.json
+python eval/evaluate.py --chunks data/chunks_large_perquery.json --gold eval/gold_set.json
 ```
 
 ## 評価結果（実測値）
@@ -66,14 +70,25 @@ nugget         0.421      19.9
 
 削減効果わずか（8.7%）。チャンク自体が小さいため。
 
-### 大チャンク (~250 tokens)
+### 大チャンク + generic fetch（旧方式）
 
 ```text
 Mode           Recall     Avg tokens    削減率
 ------------------------------------
 full-chunk     0.526      254.6        -
-nugget         0.474      57.0         77.6% ✅
+nugget         0.474      57.0         77.6%
 ```
 
-**仮説部分検証：** 大チャンクでは nugget が context length を **77.6%** 削減。
-Recall 差は gold set 品質に依存（実装は正常）。
+retriever がクエリを無視して先頭 k チャンクを返す実装バグにより nugget Recall が低く出ていた。
+
+### 大チャンク + per-query fetch（現行・推奨）
+
+```text
+Mode           Recall     Avg tokens    削減率
+------------------------------------
+full-chunk     0.526      248.9        -
+nugget         0.526      79.9         67.9% ✅
+```
+
+**仮説検証：** BM25 クエリランキング修正 + per-query fetch により nugget Recall が
+full-chunk と同率（0.526）に改善。context length を **67.9%** 削減しながら Recall を維持。

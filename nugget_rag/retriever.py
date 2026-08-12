@@ -2,12 +2,22 @@
 from __future__ import annotations
 
 from nugget_rag.chunker import split_sentences
-from nugget_rag.scorer import top_nuggets
+from nugget_rag.scorer import bm25_scores, top_nuggets
+
+
+def _rank_chunks(chunks: list[dict], query: str) -> list[dict]:
+    """Rank chunks by BM25 score against query."""
+    if not chunks:
+        return []
+    texts = [c.get("text", "") for c in chunks]
+    scores = bm25_scores(query, texts)
+    ranked = sorted(zip(scores, chunks), key=lambda x: x[0], reverse=True)
+    return [c for _, c in ranked]
 
 
 def retrieve_full_chunk(chunks: list[dict], query: str, top_k: int = 5) -> list[dict]:
-    """Return top-k chunks as-is (baseline)."""
-    return chunks[:top_k]
+    """Return top-k chunks ranked by BM25 relevance to query."""
+    return _rank_chunks(chunks, query)[:top_k]
 
 
 def retrieve_nuggets(
@@ -16,16 +26,9 @@ def retrieve_nuggets(
     top_k: int = 5,
     nuggets_per_chunk: int = 3,
 ) -> list[dict]:
-    """Extract top nugget sentences from each chunk, then return top-k.
-
-    Args:
-        chunks: List of chunk dicts with "text" field
-        query: Query string
-        top_k: Number of chunks to process
-        nuggets_per_chunk: Number of sentences per chunk (default: 3)
-    """
+    """Extract top nugget sentences from query-ranked chunks, then return top-k."""
     results = []
-    for chunk in chunks[:top_k]:
+    for chunk in _rank_chunks(chunks, query)[:top_k]:
         sentences = split_sentences(chunk["text"])
         nugget_sents = top_nuggets(query, sentences, top_k=nuggets_per_chunk)
         results.append({**chunk, "nugget": " ".join(nugget_sents)})
