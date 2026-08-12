@@ -14,9 +14,16 @@ def retrieve_nuggets(
     chunks: list[dict],
     query: str,
     top_k: int = 5,
-    nuggets_per_chunk: int = 2,
+    nuggets_per_chunk: int = 3,
 ) -> list[dict]:
-    """Extract top nugget sentences from each chunk, then return top-k."""
+    """Extract top nugget sentences from each chunk, then return top-k.
+
+    Args:
+        chunks: List of chunk dicts with "text" field
+        query: Query string
+        top_k: Number of chunks to process
+        nuggets_per_chunk: Number of sentences per chunk (default: 3)
+    """
     results = []
     for chunk in chunks[:top_k]:
         sentences = split_sentences(chunk["text"])
