@@ -1,7 +1,12 @@
 """Fetch paper chunks from academic-paper-system API for evaluation.
 
 Usage:
+    # Generic query (baseline)
     python scripts/fetch_papers.py --api-url http://localhost:8020 --out data/chunks.json
+
+    # Per-evaluation-query fetch (recommended for accurate Recall measurement)
+    python scripts/fetch_papers.py --api-url http://localhost:8020 --out data/chunks.json \
+        --gold-set eval/gold_set.json
 """
 import argparse
 import json
@@ -16,17 +21,77 @@ def fetch_papers(api_url: str, limit: int = 100) -> list[dict]:
     return json.loads(urlopen(url, timeout=15).read())["papers"]
 
 
-def fetch_chunks_for_paper(api_url: str, paper_id: int, query: str) -> list[dict]:
-    url = f"{api_url}/search?{urlencode({'q': query, 'mode': 'hybrid', 'paper_id': paper_id, 'limit': 20})}"
+def fetch_chunks_for_paper(api_url: str, paper_id: int, query: str, limit: int = 20) -> list[dict]:
+    url = f"{api_url}/search?{urlencode({'q': query, 'mode': 'hybrid', 'paper_id': paper_id, 'limit': limit})}"
     results = json.loads(urlopen(url, timeout=15).read())["results"]
     return [{"paper_id": paper_id, "chunk_index": r["chunk_index"], "text": r["snippet"], "score": r["score"]} for r in results]
+
+
+def combine_large_chunks(chunks: list[dict], paper_id: int, target_tokens: int) -> list[dict]:
+    """Merge consecutive chunks up to target_tokens words."""
+    combined = []
+    current = None
+    current_size = 0
+    for chunk in chunks:
+        chunk_size = len(chunk["text"].split())
+        if current is None:
+            current = {"paper_id": paper_id, "chunk_indices": [chunk["chunk_index"]],
+                       "text": chunk["text"], "score": chunk["score"]}
+            current_size = chunk_size
+        elif current_size + chunk_size <= target_tokens:
+            current["text"] += " " + chunk["text"]
+            current["chunk_indices"].append(chunk["chunk_index"])
+            current["score"] = max(current["score"], chunk["score"])
+            current_size += chunk_size
+        else:
+            combined.append(current)
+            current = {"paper_id": paper_id, "chunk_indices": [chunk["chunk_index"]],
+                       "text": chunk["text"], "score": chunk["score"]}
+            current_size = chunk_size
+    if current:
+        combined.append(current)
+    return combined
+
+
+def fetch_per_query(api_url: str, gold: list[dict], chunk_mode: str, target_tokens: int) -> list[dict]:
+    """Fetch chunks using each gold set query for its target paper.
+
+    Returns deduplicated chunks. A chunk is keyed by (paper_id, chunk_index) so
+    the same physical chunk fetched by multiple queries is stored only once —
+    the highest-scoring copy wins.
+    """
+    seen: dict[tuple, dict] = {}
+    for item in gold:
+        pid = item["paper_id"]
+        query = item["query"]
+        raw = fetch_chunks_for_paper(api_url, pid, query, limit=30)
+
+        if chunk_mode == "large":
+            chunks = combine_large_chunks(raw, pid, target_tokens)
+            key_field = lambda c: (c["paper_id"], tuple(c["chunk_indices"]))
+        else:
+            chunks = raw
+            key_field = lambda c: (c["paper_id"], c["chunk_index"])
+
+        for c in chunks:
+            k = key_field(c)
+            if k not in seen or c["score"] > seen[k]["score"]:
+                seen[k] = c
+
+        print(f"  paper {pid} | query '{query[:40]}': {len(raw)} → {len(chunks)} chunks", file=sys.stderr)
+
+    return list(seen.values())
 
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--api-url", default="http://localhost:8020")
     parser.add_argument("--out", default="data/chunks.json")
-    parser.add_argument("--query", default="method results contribution")
+    parser.add_argument("--query", default="method results contribution",
+                        help="Generic query used when --gold-set is not provided")
+    parser.add_argument("--gold-set", default=None,
+                        help="Path to gold_set.json. When provided, fetches chunks per evaluation query "
+                             "for each paper so relevant chunks are guaranteed to be in the pool.")
     parser.add_argument("--chunk-mode", choices=["small", "large"], default="small",
                         help="small: individual chunks (~20 tokens), large: combined chunks (~512 tokens)")
     parser.add_argument("--large-chunk-target", type=int, default=512,
@@ -34,42 +99,25 @@ def main():
     args = parser.parse_args()
 
     api = args.api_url.rstrip("/")
-    papers = fetch_papers(api)
-    print(f"Found {len(papers)} papers", file=sys.stderr)
 
-    all_chunks = []
-    for p in papers:
-        pid = p["id"]
-        chunks = fetch_chunks_for_paper(api, pid, args.query)
-
-        if args.chunk_mode == "large":
-            # Combine consecutive chunks until target size
-            combined = []
-            current = None
-            current_size = 0
-            for chunk in chunks:
-                chunk_size = len(chunk["text"].split())
-                if current is None:
-                    current = {"paper_id": pid, "chunk_indices": [chunk["chunk_index"]],
-                              "text": chunk["text"], "score": chunk["score"]}
-                    current_size = chunk_size
-                elif current_size + chunk_size <= args.large_chunk_target:
-                    current["text"] += " " + chunk["text"]
-                    current["chunk_indices"].append(chunk["chunk_index"])
-                    current["score"] = max(current["score"], chunk["score"])
-                    current_size += chunk_size
-                else:
-                    combined.append(current)
-                    current = {"paper_id": pid, "chunk_indices": [chunk["chunk_index"]],
-                              "text": chunk["text"], "score": chunk["score"]}
-                    current_size = chunk_size
-            if current:
-                combined.append(current)
-            all_chunks.extend(combined)
-            print(f"  paper {pid}: {len(chunks)} → {len(combined)} large chunks", file=sys.stderr)
-        else:
+    if args.gold_set:
+        gold = json.loads(Path(args.gold_set).read_text())
+        print(f"Per-query fetch for {len(gold)} gold items", file=sys.stderr)
+        all_chunks = fetch_per_query(api, gold, args.chunk_mode, args.large_chunk_target)
+    else:
+        papers = fetch_papers(api)
+        print(f"Found {len(papers)} papers", file=sys.stderr)
+        all_chunks = []
+        for p in papers:
+            pid = p["id"]
+            raw = fetch_chunks_for_paper(api, pid, args.query)
+            if args.chunk_mode == "large":
+                chunks = combine_large_chunks(raw, pid, args.large_chunk_target)
+                print(f"  paper {pid}: {len(raw)} → {len(chunks)} large chunks", file=sys.stderr)
+            else:
+                chunks = raw
+                print(f"  paper {pid}: {len(chunks)} chunks", file=sys.stderr)
             all_chunks.extend(chunks)
-            print(f"  paper {pid}: {len(chunks)} chunks", file=sys.stderr)
 
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
