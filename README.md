@@ -84,11 +84,19 @@ retriever がクエリを無視して先頭 k チャンクを返す実装バグ�
 ### 大チャンク + per-query fetch（現行・推奨）
 
 ```text
-Mode           Recall     Avg tokens    削減率
-------------------------------------
-full-chunk     0.526      248.9        -
-nugget         0.526      79.9         67.9% ✅
+Mode                Recall     Avg tokens    削減率
+-----------------------------------------------
+full-chunk          0.526      248.9        -
+nugget (BM25-only)  0.526      79.9         67.9%
+nugget (e5 w=0.3)   0.526      66.1         73.4%
+nugget (e5 w=0.5)   0.526      65.2         73.8%
+nugget (e5 w=0.7)   0.526      61.8         75.2% ✅ best
 ```
 
+embedding モデル: intfloat/multilingual-e5-base（MINIPC embedding-svc :9092）
+
 **仮説検証：** BM25 クエリランキング修正 + per-query fetch により nugget Recall が
-full-chunk と同率（0.526）に改善。context length を **67.9%** 削減しながら Recall を維持。
+full-chunk と同率（0.526）に改善。BM25 + e5-base ハイブリッドスコアリング（w=0.7）で
+context length を **75.2%** 削減しながら Recall を完全維持。
+
+**推奨設定**: `--embed-weight 0.7` — Recall を維持しながら最大トークン削減。
