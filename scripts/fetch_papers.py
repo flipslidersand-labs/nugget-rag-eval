@@ -21,9 +21,16 @@ def fetch_papers(api_url: str, limit: int = 100) -> list[dict]:
     return json.loads(urlopen(url, timeout=15).read())["papers"]
 
 
+def _sanitize_query(query: str) -> str:
+    """Strip FTS5 special chars that cause SQLite parse errors (e.g. '-' → NOT operator)."""
+    import re
+    return re.sub(r"[^\w\s]", " ", query).strip()
+
+
 def fetch_chunks_for_paper(api_url: str, paper_id: int, query: str, limit: int = 20) -> list[dict]:
-    url = f"{api_url}/search?{urlencode({'q': query, 'mode': 'hybrid', 'paper_id': paper_id, 'limit': limit})}"
-    results = json.loads(urlopen(url, timeout=15).read())["results"]
+    safe_query = _sanitize_query(query)
+    url = f"{api_url}/search?{urlencode({'q': safe_query, 'mode': 'hybrid', 'paper_id': paper_id, 'limit': limit})}"
+    results = json.loads(urlopen(url, timeout=30).read())["results"]
     return [{"paper_id": paper_id, "chunk_index": r["chunk_index"], "text": r["snippet"], "score": r["score"]} for r in results]
 
 
