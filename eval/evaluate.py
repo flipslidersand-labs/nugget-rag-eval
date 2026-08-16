@@ -16,8 +16,8 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable
 
 from nugget_rag.retriever import retrieve_full_chunk, retrieve_nuggets
 
