@@ -1,7 +1,7 @@
 """Full-chunk and nugget retrieval modes for comparison."""
 from __future__ import annotations
 
-from typing import Callable
+from collections.abc import Callable
 
 from nugget_rag.chunker import split_sentences
 from nugget_rag.scorer import bm25_scores, top_nuggets
