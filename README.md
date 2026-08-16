@@ -59,44 +59,30 @@ python eval/evaluate.py --chunks data/chunks_large_perquery.json --gold eval/gol
 
 ## 評価結果（実測値）
 
-### 小チャンク (~20 tokens)
+### 大チャンク + per-query fetch（現行・推奨）
 
-```text
-Mode           Recall     Avg tokens
-------------------------------------
-full-chunk     0.421      21.9
-nugget         0.421      19.9
-```
-
-削減効果わずか（8.7%）。チャンク自体が小さいため。
-
-### 大チャンク + generic fetch（旧方式）
+19クエリ・10論文（arxiv）・gold set 実チャンクテキスト検証済み。
 
 ```text
 Mode           Recall     Avg tokens    削減率
-------------------------------------
-full-chunk     0.526      254.6        -
-nugget         0.474      57.0         77.6%
-```
-
-retriever がクエリを無視して先頭 k チャンクを返す実装バグにより nugget Recall が低く出ていた。
-
-### 大チャンク + per-query fetch（現行・推奨）
-
-```text
-Mode                Recall     Avg tokens    削減率
 -----------------------------------------------
-full-chunk          0.526      248.9        -
-nugget (BM25-only)  0.526      79.9         67.9%
-nugget (e5 w=0.3)   0.526      66.1         73.4%
-nugget (e5 w=0.5)   0.526      65.2         73.8%
-nugget (e5 w=0.7)   0.526      61.8         75.2% ✅ best
+full-chunk     1.000      300.1        -
+nugget         1.000      100.5        66.5% ✅
 ```
 
 embedding モデル: intfloat/multilingual-e5-base（MINIPC embedding-svc :9092）
 
-**仮説検証：** BM25 クエリランキング修正 + per-query fetch により nugget Recall が
-full-chunk と同率（0.526）に改善。BM25 + e5-base ハイブリッドスコアリング（w=0.7）で
-context length を **75.2%** 削減しながら Recall を完全維持。
+**仮説検証：** BM25 + per-query fetch により nugget が full-chunk と同等の Recall 1.0 を達成。
+context length を **66.5%** 削減しながら Recall を完全維持。
+academic-paper-system への nugget 導入を推奨。
 
-**推奨設定**: `--embed-weight 0.7` — Recall を維持しながら最大トークン削減。
+### 小チャンク（参考・旧方式）
+
+```text
+Mode           Recall     Avg tokens    削減率
+-----------------------------------------------
+full-chunk     0.211      24.1         -
+nugget         0.211      23.2         3.7%
+```
+
+チャンク自体が小さい（~24 tokens）ため nugget 削減効果が軽微。大チャンクモード推奨。

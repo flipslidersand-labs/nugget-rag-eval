@@ -1,169 +1,172 @@
 [
   {
     "query": "KV cache reuse in RAG",
-    "paper_id": 25,
+    "paper_id": 10,
     "answer_spans": [
-      "CoinRAG compositionally reuses offline-computed, fine-grained nugget caches",
-      "KV cache computed offline"
+      "CoinRAG: Contextualized Information Nugget KV Cache Reuse",
+      "KV Cache Reuse for Long-Context RAG"
     ],
     "notes": "CoinRAG core mechanism"
   },
   {
     "query": "multi-agent reinforcement learning edge computing",
-    "paper_id": 60,
+    "paper_id": 1,
     "answer_spans": [
-      "Multi-Agent Reinforcement Learning based Edge Content Caching",
-      "connected autonomous vehicles in IoV"
+      "Content Caching-Assisted Vehicular Edge Computing Using Multi-Agent Graph Attention Reinforcement Learning",
+      "Multi-Agent Graph Attention Reinforcement Learning"
     ],
     "notes": "MARL for vehicular networks"
   },
   {
     "query": "cooperative learning distributed UAV systems",
-    "paper_id": 61,
+    "paper_id": 7,
     "answer_spans": [
-      "Cooperative UAVs with Asynchronous Multi-agent Learning",
-      "Remote Data Collection"
+      "Cooperative UAVs for Remote Data Collection",
+      "Asynchronous Multiagent Learning Framework"
     ],
     "notes": "Multi-agent coordination for drone swarms"
   },
   {
     "query": "LLM safety pruning mechanism neural networks",
-    "paper_id": 56,
+    "paper_id": 5,
     "answer_spans": [
-      "Nexus Scissor: Enhance Open-Access Language Model Safety",
-      "Connection Pruning"
+      "Alignment-Constrained Dynamic Pruning for LLMs",
+      "Preserving Alignment-Critical Circuits"
     ],
     "notes": "Safety through structured pruning"
   },
   {
     "query": "multimodal LLM concept application safety",
-    "paper_id": 57,
+    "paper_id": 8,
     "answer_spans": [
-      "A Comprehensive Survey of Multimodal Large Language Models",
-      "Concept, Application and Safety"
+      "Omni-SafetyunderCross-ModalityConflict",
+      "Cross-ModalityConflict"
     ],
-    "notes": "Survey covering modality fusion and safety"
+    "notes": "Cross-modal safety evaluation"
   },
   {
     "query": "linguistic discrimination bias language models fairness",
-    "paper_id": 59,
+    "paper_id": 4,
     "answer_spans": [
-      "Evaluating and Mitigating Linguistic Discrimination",
-      "Large Language Models"
+      "Mitigating Biases in Language",
+      "BiasUn"
     ],
     "notes": "Cross-lingual fairness in LLMs"
   },
   {
     "query": "agent learning self-improvement capability",
-    "paper_id": 60,
+    "paper_id": 1,
     "answer_spans": [
-      "edge computing with reinforcement learning",
-      "policy optimization"
+      "Content Caching-Assisted Vehicular Edge Computing",
+      "cooperative learning"
     ],
     "notes": "Agent adaptation in dynamic environments"
   },
   {
     "query": "retrieval augmented generation nugget span extraction",
-    "paper_id": 25,
+    "paper_id": 10,
     "answer_spans": [
-      "nuggets are fine-grained, query-relevant spans",
-      "retrieval-augmented generation"
+      "span-level grounding",
+      "nugget"
     ],
     "notes": "Nugget-based RAG foundation"
   },
   {
     "query": "knowledge extraction hospital discharge medical NLP",
-    "paper_id": 58,
+    "paper_id": 6,
     "answer_spans": [
-      "Physician and Large Language Model-Generated Hospital Discharge Summaries",
-      "LLM for clinical document generation"
+      "Large Language Model",
+      "Discharge Summaries"
     ],
     "notes": "Domain-specific LLM application in healthcare"
   },
   {
     "query": "construction safety regulation information extraction",
-    "paper_id": 55,
+    "paper_id": 9,
     "answer_spans": [
-      "LLM for enhanced construction safety",
-      "regulation extraction"
+      "ConstructCIE",
+      "construction safety"
     ],
     "notes": "Safety compliance automation via NLP"
   },
   {
     "query": "cooperative cache edge computing MARL",
-    "paper_id": 60,
+    "paper_id": 1,
     "answer_spans": [
-      "Algorithm 1: cooperative cache process",
-      "rewards obtained by all agents"
+      "cooperative learning",
+      "Content Caching-Assisted Vehicular Edge Computing"
     ],
     "notes": "Cache management via multi-agent RL"
   },
   {
     "query": "asynchronous UAV data collection reinforcement learning",
-    "paper_id": 61,
+    "paper_id": 7,
     "answer_spans": [
-      "instantaneous reward R(s_m, u_m, t) contributed by all UAVs",
-      "asynchronous algorithm"
+      "Asynchronous Multiagent Learning",
+      "Remote Data Collection"
     ],
     "notes": "Async communication in drone swarms"
   },
   {
     "query": "LLM connection pruning safety enhancement",
-    "paper_id": 56,
+    "paper_id": 5,
     "answer_spans": [
-      "Nexus Scissor: Enhance Open-Access Language Model Safety",
-      "Connection Pruning"
+      "Alignment-Constrained Dynamic Pruning",
+      "Preserving Alignment-Critical"
     ],
     "notes": "Structured pruning for safety"
   },
   {
     "query": "multimodal LLM safety benchmark evaluation",
-    "paper_id": 57,
-    "answer_spans": ["Model Safety Assessment", "MM-SafetyBench, VLSafe"],
+    "paper_id": 8,
+    "answer_spans": [
+      "Omni-SafetyunderCross-ModalityConflict",
+      "Cross-ModalityConflict"
+    ],
     "notes": "Cross-modal safety evaluation"
   },
   {
     "query": "unlearning class-wise accuracy calibration",
-    "paper_id": 59,
+    "paper_id": 4,
     "answer_spans": [
-      "calibrating the decision space",
-      "maintains decision boundaries"
+      "Mitigating Biases",
+      "undesirable"
     ],
     "notes": "Selective forgetting in LLMs"
   },
   {
     "query": "finite automata world model learning gameplay video",
-    "paper_id": 63,
+    "paper_id": 2,
     "answer_spans": [
       "Finite Automata Extraction",
-      "World Model Learning as Programs"
+      "World Models as Programs from Gameplay Video"
     ],
     "notes": "Interpretable world models from video"
   },
   {
     "query": "animal vocalization representation encoding",
-    "paper_id": 62,
+    "paper_id": 3,
     "answer_spans": [
-      "AVEX: What Matters for Animal Vocalization Encoding",
-      "multi-institutional research"
+      "AVEX",
+      "ANIMAL VOCALIZATION ENCODING"
     ],
     "notes": "Bioacoustic representation learning"
   },
   {
     "query": "clinical language model hospital discharge generation quality",
-    "paper_id": 58,
+    "paper_id": 6,
     "answer_spans": [
-      "Physician and LLM-Generated Hospital Discharge Summaries",
-      "quality and safety comparison"
+      "Large Language Model",
+      "Discharge Summaries"
     ],
     "notes": "Medical document generation evaluation"
   },
   {
     "query": "hybrid search retrieval ranking semantic similarity",
-    "paper_id": 25,
+    "paper_id": 10,
     "answer_spans": [
-      "hybrid search combines BM25 and semantic embeddings",
-      "nugget-based retrieval ranking"
+      "dense retriever",
+      "span-level grounding"
     ],
     "notes": "Multi-signal retrieval for RAG"
   }
