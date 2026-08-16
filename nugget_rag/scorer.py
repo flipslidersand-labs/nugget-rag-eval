@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import math
 from collections import Counter
-from typing import Callable
+from collections.abc import Callable
 
 
 def _tokenize(text: str) -> list[str]:
