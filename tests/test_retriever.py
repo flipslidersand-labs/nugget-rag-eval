@@ -1,6 +1,5 @@
 from nugget_rag.retriever import retrieve_full_chunk, retrieve_nuggets
 
-
 CHUNKS = [
     {"paper_id": 1, "chunk_index": 0, "text": "Diffusion models generate images by iterative denoising.", "score": 0.9},
     {"paper_id": 1, "chunk_index": 1, "text": "KV cache reuse reduces inference cost in transformer models.", "score": 0.8},
