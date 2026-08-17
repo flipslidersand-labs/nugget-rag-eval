@@ -1,4 +1,5 @@
 """Full-chunk and nugget retrieval modes for comparison."""
+
 from __future__ import annotations
 
 from collections.abc import Callable
@@ -38,7 +39,8 @@ def retrieve_nuggets(
     for chunk in _rank_chunks(chunks, query)[:top_k]:
         sentences = split_sentences(chunk["text"])
         nugget_sents = top_nuggets(
-            query, sentences,
+            query,
+            sentences,
             top_k=nuggets_per_chunk,
             embed_fn=embed_fn,
             embed_weight=embed_weight,

@@ -1,12 +1,42 @@
 from nugget_rag.retriever import retrieve_full_chunk, retrieve_nuggets
 
 CHUNKS = [
-    {"paper_id": 1, "chunk_index": 0, "text": "Diffusion models generate images by iterative denoising.", "score": 0.9},
-    {"paper_id": 1, "chunk_index": 1, "text": "KV cache reuse reduces inference cost in transformer models.", "score": 0.8},
-    {"paper_id": 1, "chunk_index": 2, "text": "BM25 is a classical term-matching retrieval algorithm.", "score": 0.7},
-    {"paper_id": 1, "chunk_index": 3, "text": "RAG combines retrieval with language model generation.", "score": 0.6},
-    {"paper_id": 1, "chunk_index": 4, "text": "Nugget extraction selects query-relevant spans.", "score": 0.5},
-    {"paper_id": 1, "chunk_index": 5, "text": "Image segmentation uses pixel-level labels.", "score": 0.4},
+    {
+        "paper_id": 1,
+        "chunk_index": 0,
+        "text": "Diffusion models generate images by iterative denoising.",
+        "score": 0.9,
+    },
+    {
+        "paper_id": 1,
+        "chunk_index": 1,
+        "text": "KV cache reuse reduces inference cost in transformer models.",
+        "score": 0.8,
+    },
+    {
+        "paper_id": 1,
+        "chunk_index": 2,
+        "text": "BM25 is a classical term-matching retrieval algorithm.",
+        "score": 0.7,
+    },
+    {
+        "paper_id": 1,
+        "chunk_index": 3,
+        "text": "RAG combines retrieval with language model generation.",
+        "score": 0.6,
+    },
+    {
+        "paper_id": 1,
+        "chunk_index": 4,
+        "text": "Nugget extraction selects query-relevant spans.",
+        "score": 0.5,
+    },
+    {
+        "paper_id": 1,
+        "chunk_index": 5,
+        "text": "Image segmentation uses pixel-level labels.",
+        "score": 0.4,
+    },
 ]
 
 

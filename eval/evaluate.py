@@ -11,6 +11,7 @@ Usage:
         --embedding-api-key <key> \
         --embed-weight 0.5
 """
+
 from __future__ import annotations
 
 import argparse
@@ -52,7 +53,9 @@ def evaluate(
 
         full = retrieve_full_chunk(chunks, query, top_k)
         nugget = retrieve_nuggets(
-            chunks, query, top_k,
+            chunks,
+            query,
+            top_k,
             embed_fn=embed_fn,
             embed_weight=embed_weight,
         )
@@ -78,8 +81,14 @@ def evaluate(
 
     return {
         "n_queries": n,
-        "full_chunk": {"recall": round(full_hits / n, 3) if n else 0, "avg_tokens": round(full_tokens / n, 1) if n else 0},
-        "nugget": {"recall": round(nugget_hits / n, 3) if n else 0, "avg_tokens": round(nugget_tokens / n, 1) if n else 0},
+        "full_chunk": {
+            "recall": round(full_hits / n, 3) if n else 0,
+            "avg_tokens": round(full_tokens / n, 1) if n else 0,
+        },
+        "nugget": {
+            "recall": round(nugget_hits / n, 3) if n else 0,
+            "avg_tokens": round(nugget_tokens / n, 1) if n else 0,
+        },
     }
 
 
@@ -89,18 +98,27 @@ def main():
     parser.add_argument("--gold", required=True)
     parser.add_argument("--top-k", type=int, default=5)
     parser.add_argument("--verbose", action="store_true")
-    parser.add_argument("--embedding-url", default=None,
-                        help="Embedding service URL (e.g. http://192.168.68.63:9092). "
-                             "When set, nugget scoring uses BM25 + embedding hybrid.")
-    parser.add_argument("--embedding-api-key", default=None,
-                        help="X-API-Key for the embedding service")
-    parser.add_argument("--embed-weight", type=float, default=0.5,
-                        help="Embedding weight in hybrid score: 0=BM25-only, 1=embed-only (default: 0.5)")
+    parser.add_argument(
+        "--embedding-url",
+        default=None,
+        help="Embedding service URL (e.g. http://192.168.68.63:9092). "
+        "When set, nugget scoring uses BM25 + embedding hybrid.",
+    )
+    parser.add_argument(
+        "--embedding-api-key", default=None, help="X-API-Key for the embedding service"
+    )
+    parser.add_argument(
+        "--embed-weight",
+        type=float,
+        default=0.5,
+        help="Embedding weight in hybrid score: 0=BM25-only, 1=embed-only (default: 0.5)",
+    )
     args = parser.parse_args()
 
     embed_fn = None
     if args.embedding_url:
         from nugget_rag.embedder import EmbedClient
+
         client = EmbedClient(
             args.embedding_url,
             api_key=args.embedding_api_key or "",
@@ -117,7 +135,8 @@ def main():
         chunks_by_paper.setdefault(c["paper_id"], []).append(c)
 
     result = evaluate(
-        chunks_by_paper, gold,
+        chunks_by_paper,
+        gold,
         top_k=args.top_k,
         verbose=args.verbose,
         embed_fn=embed_fn,
@@ -127,7 +146,9 @@ def main():
     mode_label = f"nugget(e{args.embed_weight:.1f})" if embed_fn else "nugget"
     print(f"{'Mode':<18} {'Recall':<10} {'Avg tokens'}")
     print("-" * 40)
-    print(f"{'full-chunk':<18} {result['full_chunk']['recall']:<10} {result['full_chunk']['avg_tokens']}")
+    print(
+        f"{'full-chunk':<18} {result['full_chunk']['recall']:<10} {result['full_chunk']['avg_tokens']}"
+    )
     print(f"{mode_label:<18} {result['nugget']['recall']:<10} {result['nugget']['avg_tokens']}")
     print()
     print(json.dumps(result, indent=2))

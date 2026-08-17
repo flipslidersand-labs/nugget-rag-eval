@@ -35,6 +35,7 @@ def test_top_nuggets_with_embed_fn():
         "Diffusion models generate images.",
         "KV caching is essential for transformer efficiency.",
     ]
+
     # Mock embed_fn: returns fixed vectors where KV sentences are close to query
     def mock_embed(texts):
         vecs = {
@@ -45,7 +46,9 @@ def test_top_nuggets_with_embed_fn():
         }
         return [vecs.get(t, [0.0, 0.0, 1.0]) for t in texts]
 
-    result = top_nuggets("KV cache reuse", sentences, top_k=2, embed_fn=mock_embed, embed_weight=0.8)
+    result = top_nuggets(
+        "KV cache reuse", sentences, top_k=2, embed_fn=mock_embed, embed_weight=0.8
+    )
     assert len(result) == 2
     # Both KV-related sentences should win
     assert all("KV" in r or "kv" in r.lower() for r in result)

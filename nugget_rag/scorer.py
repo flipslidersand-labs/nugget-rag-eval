@@ -1,4 +1,5 @@
 """Score sentences within a chunk against a query."""
+
 from __future__ import annotations
 
 import math
@@ -65,13 +66,11 @@ def top_nuggets(
 
     if embed_fn is not None:
         from nugget_rag.embedder import embed_scores
+
         vecs = embed_fn([query] + sentences)
         query_vec, sent_vecs = vecs[0], vecs[1:]
         emb = _normalize(embed_scores(query_vec, sent_vecs))
-        combined = [
-            (1 - embed_weight) * b + embed_weight * e
-            for b, e in zip(bm25, emb)
-        ]
+        combined = [(1 - embed_weight) * b + embed_weight * e for b, e in zip(bm25, emb)]
     else:
         combined = bm25
 

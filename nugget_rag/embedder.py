@@ -7,6 +7,7 @@ Usage:
     client = EmbedClient("http://192.168.68.63:9092", api_key="...")
     vecs = client.embed(["query text", "sentence one", "sentence two"])
 """
+
 from __future__ import annotations
 
 import json
