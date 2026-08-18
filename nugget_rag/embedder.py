@@ -4,7 +4,7 @@ The service accepts POST /embed/batch with {"texts": [...]} and returns
 {"embeddings": [[float, ...], ...]}.
 
 Usage:
-    client = EmbedClient("http://<internal-ip>:9092", api_key="...")
+    client = EmbedClient("http://<internal-host>:9092", api_key="...")
     vecs = client.embed(["query text", "sentence one", "sentence two"])
 """
 
