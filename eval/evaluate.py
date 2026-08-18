@@ -7,7 +7,7 @@ Usage:
     # BM25 + embedding hybrid nugget scoring
     python eval/evaluate.py --chunks data/chunks_large_perquery.json \
         --gold eval/gold_set.json \
-        --embedding-url http://192.168.68.63:9092 \
+        --embedding-url http://<internal-host>:9092 \
         --embedding-api-key <key> \
         --embed-weight 0.5
 """
@@ -101,7 +101,7 @@ def main():
     parser.add_argument(
         "--embedding-url",
         default=None,
-        help="Embedding service URL (e.g. http://192.168.68.63:9092). "
+        help="Embedding service URL (e.g. http://<internal-host>:9092). "
         "When set, nugget scoring uses BM25 + embedding hybrid.",
     )
     parser.add_argument(
