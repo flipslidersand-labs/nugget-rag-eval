@@ -11,3 +11,14 @@ jobs:
     uses: flipslidersand-labs/qa-workflows/.github/workflows/python-test.yml@main
     with:
       coverage-threshold: 90
+
+  eval-regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e ".[dev]"
+      - name: Eval regression check (BM25-only)
+        run: python eval/check_regression.py --chunks data/chunks_large.json --gold eval/gold_set.json --threshold 0.95
