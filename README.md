@@ -1,7 +1,5 @@
 # nugget-rag-eval
 
-[![CI](https://github.com/flipslidersand-labs/nugget-rag-eval/actions/workflows/ci.yml/badge.svg)](https://github.com/flipslidersand-labs/nugget-rag-eval/actions/workflows/ci.yml)
-
 CoinRAG ([arxiv 2608.07458](https://arxiv.org/abs/2608.07458)) のコアアイデア —
 **チャンク全体でなくクエリ関連スパン（ナゲット）だけを LLM に渡す** — を
 academic-paper-system に導入する前に定量評価するためのリポジトリ。
@@ -59,6 +57,14 @@ python scripts/fetch_papers.py --api-url http://localhost:8020 --out data/chunks
 python eval/evaluate.py --chunks data/chunks_large_perquery.json --gold eval/gold_set.json
 ```
 
+## 評価指標
+
+| 指標 | 説明 |
+| ------ | ------ |
+| **Recall@k** | 上位 k 件の中に正解スパンが含まれるかどうかの割合（ヒット/ミスの2値）。順位は考慮しない。 |
+| **MRR@k** | Mean Reciprocal Rank。クエリごとに最初にヒットした順位の逆数（1/rank）を平均したもの。1位でヒット→1.0、2位→0.5、3位→0.333…。Recall@k が同じでも、より上位でヒットするほど MRR は高くなる。 |
+| **Avg tokens** | 取得結果の平均トークン数（単語数）。コンテキスト長の代理指標。 |
+
 ## 評価結果（実測値）
 
 ### 大チャンク + per-query fetch（現行・推奨）
@@ -66,10 +72,10 @@ python eval/evaluate.py --chunks data/chunks_large_perquery.json --gold eval/gol
 19クエリ・10論文（arxiv）・gold set 実チャンクテキスト検証済み。
 
 ```text
-Mode           Recall     Avg tokens    削減率
------------------------------------------------
-full-chunk     1.000      300.1        -
-nugget         1.000      100.5        66.5% ✅
+Mode           Recall@5   MRR@5    Avg tokens    削減率
+------------------------------------------------------
+full-chunk     1.000      0.823    300.1        -
+nugget         1.000      0.791    100.5        66.5% ✅
 ```
 
 embedding モデル: intfloat/multilingual-e5-base（MINIPC embedding-svc :9092）
@@ -81,10 +87,10 @@ academic-paper-system への nugget 導入を推奨。
 ### 小チャンク（参考・旧方式）
 
 ```text
-Mode           Recall     Avg tokens    削減率
------------------------------------------------
-full-chunk     0.211      24.1         -
-nugget         0.211      23.2         3.7%
+Mode           Recall@5   MRR@5    Avg tokens    削減率
+------------------------------------------------------
+full-chunk     0.211      -        24.1         -
+nugget         0.211      -        23.2         3.7%
 ```
 
 チャンク自体が小さい（~24 tokens）ため nugget 削減効果が軽微。大チャンクモード推奨。
