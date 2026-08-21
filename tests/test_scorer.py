@@ -21,3 +21,32 @@ def test_top_nuggets_returns_top_k():
 
 def test_top_nuggets_empty():
     assert top_nuggets("query", []) == []
+
+
+def test_top_nuggets_preserves_original_order():
+    """Test that top_nuggets returns results in original document order.
+
+    This ensures that when multiple sentences are selected, they appear
+    in the same order as they appear in the original text, preserving
+    context flow and causal relationships.
+    """
+    sentences = [
+        "First sentence about KV cache.",
+        "Second sentence with unrelated content.",
+        "Third sentence also about KV cache.",
+        "Fourth sentence unrelated.",
+        "Fifth sentence mentioning KV cache again.",
+    ]
+    result = top_nuggets("KV cache", sentences, top_k=3)
+
+    # All results should mention KV cache
+    assert all("KV cache" in s for s in result)
+
+    # Results should be in original order: 0, 2, 4
+    # We select top-3, which should be sentences at indices 0, 2, 4
+    # After sorting by original index, they should appear as: [0, 2, 4]
+    assert result == [
+        "First sentence about KV cache.",
+        "Third sentence also about KV cache.",
+        "Fifth sentence mentioning KV cache again.",
+    ]
