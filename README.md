@@ -1,5 +1,7 @@
 # nugget-rag-eval
 
+[![CI](https://github.com/flipslidersand-labs/nugget-rag-eval/actions/workflows/ci.yml/badge.svg)](https://github.com/flipslidersand-labs/nugget-rag-eval/actions/workflows/ci.yml)
+
 CoinRAG ([arxiv 2608.07458](https://arxiv.org/abs/2608.07458)) のコアアイデア —
 **チャンク全体でなくクエリ関連スパン（ナゲット）だけを LLM に渡す** — を
 academic-paper-system に導入する前に定量評価するためのリポジトリ。
