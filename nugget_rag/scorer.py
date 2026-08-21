@@ -7,8 +7,22 @@ from collections import Counter
 from collections.abc import Callable
 
 
+def _char_ngrams(text: str, n: int = 2) -> list[str]:
+    """Return character n-grams for CJK (whitespace-free) text."""
+    text = text.lower().replace(" ", "")
+    return [text[i : i + n] for i in range(len(text) - n + 1)] if len(text) >= n else list(text)
+
+
 def _tokenize(text: str) -> list[str]:
-    return text.lower().split()
+    """Tokenize text with language-aware strategy.
+
+    ASCII ratio > 0.5  → whitespace split (English / Latin-script)
+    ASCII ratio <= 0.5 → character bigrams (CJK / Japanese)
+    """
+    ascii_ratio = sum(1 for c in text if c.isascii()) / max(len(text), 1)
+    if ascii_ratio > 0.5:
+        return text.lower().split()
+    return _char_ngrams(text)
 
 
 def bm25_scores(
