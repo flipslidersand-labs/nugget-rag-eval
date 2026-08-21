@@ -16,6 +16,22 @@ from pathlib import Path
 from urllib.parse import urlencode
 from urllib.request import urlopen
 
+# Stable arxiv_id → internal paper_id mapping (paper_id may change on DB rebuild)
+ARXIV_TO_PAPER_ID: dict[str, int] = {
+    "2410.10071": 1,
+    "2508.11836": 2,
+    "2508.11845": 3,
+    "2509.25673": 4,
+    "2511.07482": 5,
+    "2512.06812": 6,
+    "2601.10849": 7,
+    "2602.10161": 8,
+    "2608.06495": 9,
+    "2608.07458": 10,
+}
+# Reverse map for convenience
+PAPER_ID_TO_ARXIV: dict[int, str] = {v: k for k, v in ARXIV_TO_PAPER_ID.items()}
+
 
 def fetch_papers(api_url: str, limit: int = 100) -> list[dict]:
     url = f"{api_url}/papers?{urlencode({'limit': limit, 'sort': 'score'})}"
@@ -33,31 +49,53 @@ def fetch_chunks_for_paper(api_url: str, paper_id: int, query: str, limit: int =
     safe_query = _sanitize_query(query)
     url = f"{api_url}/search?{urlencode({'q': safe_query, 'mode': 'hybrid', 'paper_id': paper_id, 'limit': limit})}"
     results = json.loads(urlopen(url, timeout=30).read())["results"]
+<<<<<<< HEAD
     return [
         {
+=======
+    arxiv_id = PAPER_ID_TO_ARXIV.get(paper_id)
+    chunks = []
+    for r in results:
+        chunk = {
+>>>>>>> 9b49a08 (feat(gold-set): paper_id を arxiv_id に移行 (Closes #18))
             "paper_id": paper_id,
             "chunk_index": r["chunk_index"],
             "text": r["snippet"],
             "score": r["score"],
         }
+<<<<<<< HEAD
         for r in results
     ]
+=======
+        if arxiv_id is not None:
+            chunk["arxiv_id"] = arxiv_id
+        chunks.append(chunk)
+    return chunks
+>>>>>>> 9b49a08 (feat(gold-set): paper_id を arxiv_id に移行 (Closes #18))
 
 
 def combine_large_chunks(chunks: list[dict], paper_id: int, target_tokens: int) -> list[dict]:
     """Merge consecutive chunks up to target_tokens words."""
+    arxiv_id = PAPER_ID_TO_ARXIV.get(paper_id)
     combined = []
     current = None
     current_size = 0
     for chunk in chunks:
         chunk_size = len(chunk["text"].split())
         if current is None:
+<<<<<<< HEAD
             current = {
                 "paper_id": paper_id,
                 "chunk_indices": [chunk["chunk_index"]],
                 "text": chunk["text"],
                 "score": chunk["score"],
             }
+=======
+            current = {"paper_id": paper_id, "chunk_indices": [chunk["chunk_index"]],
+                       "text": chunk["text"], "score": chunk["score"]}
+            if arxiv_id is not None:
+                current["arxiv_id"] = arxiv_id
+>>>>>>> 9b49a08 (feat(gold-set): paper_id を arxiv_id に移行 (Closes #18))
             current_size = chunk_size
         elif current_size + chunk_size <= target_tokens:
             current["text"] += " " + chunk["text"]
@@ -66,12 +104,19 @@ def combine_large_chunks(chunks: list[dict], paper_id: int, target_tokens: int) 
             current_size += chunk_size
         else:
             combined.append(current)
+<<<<<<< HEAD
             current = {
                 "paper_id": paper_id,
                 "chunk_indices": [chunk["chunk_index"]],
                 "text": chunk["text"],
                 "score": chunk["score"],
             }
+=======
+            current = {"paper_id": paper_id, "chunk_indices": [chunk["chunk_index"]],
+                       "text": chunk["text"], "score": chunk["score"]}
+            if arxiv_id is not None:
+                current["arxiv_id"] = arxiv_id
+>>>>>>> 9b49a08 (feat(gold-set): paper_id を arxiv_id に移行 (Closes #18))
             current_size = chunk_size
     if current:
         combined.append(current)
@@ -86,10 +131,19 @@ def fetch_per_query(
     Returns deduplicated chunks. A chunk is keyed by (paper_id, chunk_index) so
     the same physical chunk fetched by multiple queries is stored only once —
     the highest-scoring copy wins.
+
+    Gold items may use ``arxiv_id`` (preferred) or ``paper_id`` (legacy).
     """
     seen: dict[tuple, dict] = {}
     for item in gold:
-        pid = item["paper_id"]
+        # Resolve paper_id: prefer arxiv_id field, fall back to paper_id int
+        if "arxiv_id" in item:
+            pid = ARXIV_TO_PAPER_ID.get(item["arxiv_id"])
+            if pid is None:
+                print(f"  WARNING: unknown arxiv_id '{item['arxiv_id']}', skipping", file=sys.stderr)
+                continue
+        else:
+            pid = item["paper_id"]
         query = item["query"]
         raw = fetch_chunks_for_paper(api_url, pid, query, limit=30)
 

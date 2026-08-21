@@ -1,7 +1,7 @@
 [
   {
     "query": "KV cache reuse in RAG",
-    "paper_id": 10,
+    "arxiv_id": "2608.07458",
     "answer_spans": [
       "CoinRAG: Contextualized Information Nugget KV Cache Reuse",
       "KV Cache Reuse for Long-Context RAG"
@@ -10,7 +10,7 @@
   },
   {
     "query": "multi-agent reinforcement learning edge computing",
-    "paper_id": 1,
+    "arxiv_id": "2410.10071",
     "answer_spans": [
       "Content Caching-Assisted Vehicular Edge Computing Using Multi-Agent Graph Attention Reinforcement Learning",
       "Multi-Agent Graph Attention Reinforcement Learning"
@@ -19,7 +19,7 @@
   },
   {
     "query": "cooperative learning distributed UAV systems",
-    "paper_id": 7,
+    "arxiv_id": "2601.10849",
     "answer_spans": [
       "Cooperative UAVs for Remote Data Collection",
       "Asynchronous Multiagent Learning Framework"
@@ -28,7 +28,7 @@
   },
   {
     "query": "LLM safety pruning mechanism neural networks",
-    "paper_id": 5,
+    "arxiv_id": "2511.07482",
     "answer_spans": [
       "Alignment-Constrained Dynamic Pruning for LLMs",
       "Preserving Alignment-Critical Circuits"
@@ -37,7 +37,7 @@
   },
   {
     "query": "multimodal LLM concept application safety",
-    "paper_id": 8,
+    "arxiv_id": "2602.10161",
     "answer_spans": [
       "Omni-SafetyunderCross-ModalityConflict",
       "Cross-ModalityConflict"
@@ -46,7 +46,7 @@
   },
   {
     "query": "linguistic discrimination bias language models fairness",
-    "paper_id": 4,
+    "arxiv_id": "2509.25673",
     "answer_spans": [
       "Mitigating Biases in Language",
       "BiasUn"
@@ -55,7 +55,7 @@
   },
   {
     "query": "agent learning self-improvement capability",
-    "paper_id": 1,
+    "arxiv_id": "2410.10071",
     "answer_spans": [
       "Content Caching-Assisted Vehicular Edge Computing",
       "cooperative learning"
@@ -64,7 +64,7 @@
   },
   {
     "query": "retrieval augmented generation nugget span extraction",
-    "paper_id": 10,
+    "arxiv_id": "2608.07458",
     "answer_spans": [
       "span-level grounding",
       "nugget"
@@ -73,7 +73,7 @@
   },
   {
     "query": "knowledge extraction hospital discharge medical NLP",
-    "paper_id": 6,
+    "arxiv_id": "2512.06812",
     "answer_spans": [
       "Large Language Model",
       "Discharge Summaries"
@@ -82,7 +82,7 @@
   },
   {
     "query": "construction safety regulation information extraction",
-    "paper_id": 9,
+    "arxiv_id": "2608.06495",
     "answer_spans": [
       "ConstructCIE",
       "construction safety"
@@ -91,7 +91,7 @@
   },
   {
     "query": "cooperative cache edge computing MARL",
-    "paper_id": 1,
+    "arxiv_id": "2410.10071",
     "answer_spans": [
       "cooperative learning",
       "Content Caching-Assisted Vehicular Edge Computing"
@@ -100,7 +100,7 @@
   },
   {
     "query": "asynchronous UAV data collection reinforcement learning",
-    "paper_id": 7,
+    "arxiv_id": "2601.10849",
     "answer_spans": [
       "Asynchronous Multiagent Learning",
       "Remote Data Collection"
@@ -109,7 +109,7 @@
   },
   {
     "query": "LLM connection pruning safety enhancement",
-    "paper_id": 5,
+    "arxiv_id": "2511.07482",
     "answer_spans": [
       "Alignment-Constrained Dynamic Pruning",
       "Preserving Alignment-Critical"
@@ -118,7 +118,7 @@
   },
   {
     "query": "multimodal LLM safety benchmark evaluation",
-    "paper_id": 8,
+    "arxiv_id": "2602.10161",
     "answer_spans": [
       "Omni-SafetyunderCross-ModalityConflict",
       "Cross-ModalityConflict"
@@ -127,7 +127,7 @@
   },
   {
     "query": "unlearning class-wise accuracy calibration",
-    "paper_id": 4,
+    "arxiv_id": "2509.25673",
     "answer_spans": [
       "Mitigating Biases",
       "undesirable"
@@ -136,7 +136,7 @@
   },
   {
     "query": "finite automata world model learning gameplay video",
-    "paper_id": 2,
+    "arxiv_id": "2508.11836",
     "answer_spans": [
       "Finite Automata Extraction",
       "World Models as Programs from Gameplay Video"
@@ -145,7 +145,7 @@
   },
   {
     "query": "animal vocalization representation encoding",
-    "paper_id": 3,
+    "arxiv_id": "2508.11845",
     "answer_spans": [
       "AVEX",
       "ANIMAL VOCALIZATION ENCODING"
@@ -154,7 +154,7 @@
   },
   {
     "query": "clinical language model hospital discharge generation quality",
-    "paper_id": 6,
+    "arxiv_id": "2512.06812",
     "answer_spans": [
       "Large Language Model",
       "Discharge Summaries"
@@ -163,7 +163,7 @@
   },
   {
     "query": "hybrid search retrieval ranking semantic similarity",
-    "paper_id": 10,
+    "arxiv_id": "2608.07458",
     "answer_spans": [
       "dense retriever",
       "span-level grounding"
