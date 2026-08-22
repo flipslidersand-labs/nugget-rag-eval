@@ -39,13 +39,11 @@ def _failing_data(tmp_path):
 @pytest.fixture(autouse=True)
 def _ensure_eval_on_path(monkeypatch):
     """Make sure eval/ dir is importable for check_regression's relative import."""
-    import importlib
     import pathlib
 
     eval_dir = str(pathlib.Path(__file__).parent.parent / "eval")
     if eval_dir not in sys.path:
         monkeypatch.syspath_prepend(eval_dir)
-    # Re-import so the path fix takes effect in case it was already partially imported
     yield
 
 
@@ -54,7 +52,6 @@ def _run_main(monkeypatch, args: list[str]):
     import importlib
     import eval.check_regression as cr_module
 
-    # reload to pick up any sys.path changes
     importlib.reload(cr_module)
     monkeypatch.setattr(sys, "argv", ["check_regression.py", *args])
     cr_module.main()
@@ -129,11 +126,24 @@ def test_main_fail_threshold_zero_still_passes(tmp_path, monkeypatch, capsys):
     assert "[PASS]" in out
 
 
-# ── edge cases ────────────────────────────────────────────────────────────────
-
 def test_main_default_threshold_is_0_95(tmp_path, monkeypatch, capsys):
     """Running without --threshold uses 0.95 default and prints it."""
     c_path, g_path = _passing_data(tmp_path)
     _run_main(monkeypatch, ["--chunks", str(c_path), "--gold", str(g_path)])
     out = capsys.readouterr().out
     assert "0.95" in out
+
+
+# ── arxiv_id-keyed chunks (PR #78 追加テスト) ────────────────────────────────
+
+def test_arxiv_id_only_chunks_do_not_raise_key_error(tmp_path, monkeypatch):
+    """arxiv_id のみを持つチャンク（paper_id なし）でも KeyError が出ない。"""
+    chunks = [{"arxiv_id": "2410.10071", "text": "answer text", "nugget": "answer text"}]
+    gold = [{"arxiv_id": "2410.10071", "query": "q", "answer_spans": ["answer"]}]
+    c_path, g_path = tmp_path / "c.json", tmp_path / "g.json"
+    _write_json(c_path, chunks)
+    _write_json(g_path, gold)
+    try:
+        _run_main(monkeypatch, ["--chunks", str(c_path), "--gold", str(g_path), "--threshold", "0.0"])
+    except SystemExit as e:
+        assert e.code != "KeyError", "KeyError が発生した"
