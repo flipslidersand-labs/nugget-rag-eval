@@ -99,3 +99,41 @@ def test_evaluate_legacy_paper_id_still_works():
     gold = [{"paper_id": 10, "query": "KV cache", "answer_spans": ["KV cache"]}]
     result = evaluate(chunks_by_paper, gold, top_k=5)
     assert result["full_chunk"]["recall"] == 1.0
+
+
+# ── arxiv_id / paper_id 両存在時の優先度 (#54) ───────────────────────────
+
+def test_evaluate_arxiv_id_takes_priority_over_paper_id():
+    """gold に arxiv_id と paper_id が両存在する場合、arxiv_id が優先される。"""
+    real_paper_id = ARXIV_MAP["2410.10071"]   # == 1
+    # chunks は arxiv_id 解決先（paper_id=1）に置く
+    chunks_by_paper = {
+        real_paper_id: [{"text": "correct answer here", "nugget": "correct answer here"}],
+        999: [{"text": "wrong chunk", "nugget": "wrong chunk"}],
+    }
+    # paper_id=999 だが arxiv_id=2410.10071 → ARXIV_MAP 経由で paper_id=1 を選ぶ
+    gold = [{"arxiv_id": "2410.10071", "paper_id": 999, "query": "q", "answer_spans": ["correct answer"]}]
+    result = evaluate(chunks_by_paper, gold, top_k=5)
+    assert result["full_chunk"]["recall"] == 1.0   # arxiv_id 優先で正解チャンクに当たる
+
+def test_evaluate_empty_string_arxiv_id_falls_back_to_paper_id():
+    """arxiv_id が空文字列（falsy）なら paper_id にフォールバック。"""
+    chunks_by_paper = {42: [{"text": "answer here", "nugget": "answer here"}]}
+    gold = [{"arxiv_id": "", "paper_id": 42, "query": "q", "answer_spans": ["answer here"]}]
+    result = evaluate(chunks_by_paper, gold, top_k=5)
+    assert result["full_chunk"]["recall"] == 1.0
+
+def test_evaluate_none_arxiv_id_falls_back_to_paper_id():
+    """arxiv_id が None（falsy）なら paper_id にフォールバック。"""
+    chunks_by_paper = {42: [{"text": "answer here", "nugget": "answer here"}]}
+    gold = [{"arxiv_id": None, "paper_id": 42, "query": "q", "answer_spans": ["answer here"]}]
+    result = evaluate(chunks_by_paper, gold, top_k=5)
+    assert result["full_chunk"]["recall"] == 1.0
+
+def test_evaluate_unknown_arxiv_id_returns_zero_recall():
+    """ARXIV_MAP にない arxiv_id は str キーとして使われ chunks を見つけられない。"""
+    chunks_by_paper = {1: [{"text": "answer", "nugget": "answer"}]}
+    gold = [{"arxiv_id": "9999.99999", "query": "q", "answer_spans": ["answer"]}]
+    result = evaluate(chunks_by_paper, gold, top_k=5)
+    # 9999.99999 は ARXIV_MAP にないので str キーで探し、chunks は int キー → miss
+    assert result["full_chunk"]["recall"] == 0.0
