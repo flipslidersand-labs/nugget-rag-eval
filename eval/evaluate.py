@@ -76,7 +76,7 @@ def evaluate(
         # Support both arxiv_id (new) and paper_id (legacy)
         arxiv_id = item.get("arxiv_id")
         if arxiv_id:
-            key: str | int = arxiv_id
+            key: str | int = ARXIV_MAP.get(arxiv_id, arxiv_id)
         else:
             key = item["paper_id"]
         query = item["query"]
