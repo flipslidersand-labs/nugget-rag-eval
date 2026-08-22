@@ -16,7 +16,8 @@ from pathlib import Path
 from urllib.parse import urlencode
 from urllib.request import urlopen
 
-from nugget_rag.paper_registry import ARXIV_MAP as ARXIV_TO_PAPER_ID, PAPER_ID_TO_ARXIV
+from nugget_rag.paper_registry import ARXIV_MAP as ARXIV_TO_PAPER_ID
+from nugget_rag.paper_registry import PAPER_ID_TO_ARXIV
 
 
 def fetch_papers(api_url: str, limit: int = 100) -> list[dict]:
