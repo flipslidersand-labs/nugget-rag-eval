@@ -17,7 +17,7 @@ from pathlib import Path
 
 # Ensure eval/ is importable when run as a script
 sys.path.insert(0, str(Path(__file__).parent))
-from evaluate import evaluate  # noqa: E402
+from evaluate import evaluate, ARXIV_MAP  # noqa: E402
 
 
 def main() -> None:
@@ -36,9 +36,20 @@ def main() -> None:
     chunks_data: list[dict] = json.loads(Path(args.chunks).read_text())
     gold: list[dict] = json.loads(Path(args.gold).read_text())
 
+    # Build a reverse map: arxiv_id → paper_id for arxiv_id-keyed chunks
+    _arxiv_to_paper = {v: k for k, v in ARXIV_MAP.items()}  # noqa: F841 (unused but kept for clarity)
+
     chunks_by_paper: dict[int, list[dict]] = {}
     for c in chunks_data:
-        chunks_by_paper.setdefault(c["paper_id"], []).append(c)
+        if "paper_id" in c:
+            pid = c["paper_id"]
+        elif "arxiv_id" in c:
+            pid = ARXIV_MAP.get(c["arxiv_id"])
+            if pid is None:
+                continue  # unknown arxiv_id — skip
+        else:
+            continue  # no usable key — skip
+        chunks_by_paper.setdefault(pid, []).append(c)
 
     result = evaluate(chunks_by_paper, gold, top_k=args.top_k)
 
