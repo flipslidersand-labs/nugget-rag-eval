@@ -112,3 +112,63 @@ def test_top_nuggets_embed_fn_none_unchanged():
     result_no_embed = top_nuggets("KV cache", sentences, top_k=1)
     result_bm25 = top_nuggets("KV cache", sentences, top_k=1, embed_fn=None)
     assert result_no_embed == result_bm25
+
+
+# --- バッチ分割テスト (MAX_BATCH_SIZE) ---
+
+from nugget_rag.embedder import MAX_BATCH_SIZE
+
+
+@patch("nugget_rag.embedder.urlopen")
+def test_embed_splits_large_batch(mock_open):
+    """texts > MAX_BATCH_SIZE のとき urlopen が複数回呼ばれる。"""
+    single_vec = [[0.1, 0.2]]
+
+    import json as _json
+
+    def side_effect(req, timeout):
+        batch_size = len(_json.loads(req.data)["texts"])
+        resp = MagicMock()
+        resp.read.return_value = _json.dumps({"vectors": [[0.1, 0.2]] * batch_size}).encode()
+        return resp
+
+    mock_open.side_effect = side_effect
+
+    n = MAX_BATCH_SIZE + 10
+    vecs = _client().embed(["text"] * n)
+    assert len(vecs) == n
+    assert mock_open.call_count == 2  # 256 + 10
+
+
+@patch("nugget_rag.embedder.urlopen")
+def test_embed_exact_batch_size_single_call(mock_open):
+    """texts == MAX_BATCH_SIZE のとき urlopen は 1 回だけ。"""
+    mock_open.return_value = MagicMock(
+        read=lambda: __import__("json").dumps({"vectors": [[0.0]] * MAX_BATCH_SIZE}).encode()
+    )
+    vecs = _client().embed(["t"] * MAX_BATCH_SIZE)
+    assert len(vecs) == MAX_BATCH_SIZE
+    assert mock_open.call_count == 1
+
+
+@patch("nugget_rag.embedder.urlopen")
+def test_embed_batch_preserves_order(mock_open):
+    """複数バッチでもベクトルの順序が保たれる。"""
+    import json as _json
+
+    call_idx = [0]
+
+    def side_effect(req, timeout):
+        batch = _json.loads(req.data)["texts"]
+        vecs = [[float(i + call_idx[0] * MAX_BATCH_SIZE)] for i in range(len(batch))]
+        call_idx[0] += 1
+        resp = MagicMock()
+        resp.read.return_value = _json.dumps({"vectors": vecs}).encode()
+        return resp
+
+    mock_open.side_effect = side_effect
+    n = MAX_BATCH_SIZE + 5
+    vecs = _client().embed(["t"] * n)
+    assert len(vecs) == n
+    for i, v in enumerate(vecs):
+        assert v == [float(i)]
