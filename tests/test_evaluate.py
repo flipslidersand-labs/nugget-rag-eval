@@ -1,5 +1,5 @@
-"""Tests for evaluate.py — mrr_at_k."""
-from eval.evaluate import mrr_at_k
+"""Tests for evaluate.py — mrr_at_k, evaluate() arxiv_id resolution."""
+from eval.evaluate import ARXIV_MAP, evaluate, mrr_at_k
 
 
 def _make_results(texts: list[str], field: str = "text") -> list[dict]:
@@ -69,3 +69,33 @@ def test_mrr_rank_ordering_affects_score():
     assert rr_early > rr_late
     assert abs(rr_early - 1.0) < 1e-9
     assert abs(rr_late - 1 / 3) < 1e-9
+
+
+# ---- evaluate() arxiv_id → paper_id resolution (#39) ----
+
+def test_evaluate_arxiv_id_resolves_via_arxiv_map():
+    """evaluate() must resolve arxiv_id through ARXIV_MAP to find chunks."""
+    paper_id = ARXIV_MAP["2608.07458"]  # == 10
+    chunks_by_paper = {
+        paper_id: [{"text": "KV cache reuse answer", "nugget": "KV cache reuse"}]
+    }
+    gold = [{"arxiv_id": "2608.07458", "query": "KV cache", "answer_spans": ["KV cache"]}]
+    result = evaluate(chunks_by_paper, gold, top_k=5)
+    assert result["full_chunk"]["recall"] == 1.0
+    assert result["nugget"]["recall"] == 1.0
+
+
+def test_evaluate_arxiv_id_not_in_map_returns_zero():
+    """Unknown arxiv_id falls back to str key — chunks not found → recall 0."""
+    chunks_by_paper = {99: [{"text": "something", "nugget": "something"}]}
+    gold = [{"arxiv_id": "9999.99999", "query": "q", "answer_spans": ["something"]}]
+    result = evaluate(chunks_by_paper, gold, top_k=5)
+    assert result["full_chunk"]["recall"] == 0.0
+
+
+def test_evaluate_legacy_paper_id_still_works():
+    """Gold items with paper_id (no arxiv_id) continue to work."""
+    chunks_by_paper = {10: [{"text": "KV cache answer", "nugget": "KV cache"}]}
+    gold = [{"paper_id": 10, "query": "KV cache", "answer_spans": ["KV cache"]}]
+    result = evaluate(chunks_by_paper, gold, top_k=5)
+    assert result["full_chunk"]["recall"] == 1.0
