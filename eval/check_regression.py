@@ -11,6 +11,7 @@ Usage:
     # Show which queries caused regression:
     python eval/check_regression.py ... --verbose
 """
+
 from __future__ import annotations
 
 import argparse
@@ -35,7 +36,8 @@ def main() -> None:
     )
     parser.add_argument("--top-k", type=int, default=5, help="Top-k for retrieval (default: 5)")
     parser.add_argument(
-        "--verbose", "-v",
+        "--verbose",
+        "-v",
         action="store_true",
         help="Print failing query details to stderr when recall drops below threshold",
     )
