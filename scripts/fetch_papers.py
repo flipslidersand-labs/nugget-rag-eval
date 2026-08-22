@@ -49,29 +49,19 @@ def fetch_chunks_for_paper(api_url: str, paper_id: int, query: str, limit: int =
     safe_query = _sanitize_query(query)
     url = f"{api_url}/search?{urlencode({'q': safe_query, 'mode': 'hybrid', 'paper_id': paper_id, 'limit': limit})}"
     results = json.loads(urlopen(url, timeout=30).read())["results"]
-<<<<<<< HEAD
-    return [
-        {
-=======
     arxiv_id = PAPER_ID_TO_ARXIV.get(paper_id)
     chunks = []
     for r in results:
         chunk = {
->>>>>>> 9b49a08 (feat(gold-set): paper_id を arxiv_id に移行 (Closes #18))
             "paper_id": paper_id,
             "chunk_index": r["chunk_index"],
             "text": r["snippet"],
             "score": r["score"],
         }
-<<<<<<< HEAD
-        for r in results
-    ]
-=======
         if arxiv_id is not None:
             chunk["arxiv_id"] = arxiv_id
         chunks.append(chunk)
     return chunks
->>>>>>> 9b49a08 (feat(gold-set): paper_id を arxiv_id に移行 (Closes #18))
 
 
 def combine_large_chunks(chunks: list[dict], paper_id: int, target_tokens: int) -> list[dict]:
@@ -83,19 +73,14 @@ def combine_large_chunks(chunks: list[dict], paper_id: int, target_tokens: int) 
     for chunk in chunks:
         chunk_size = len(chunk["text"].split())
         if current is None:
-<<<<<<< HEAD
             current = {
                 "paper_id": paper_id,
                 "chunk_indices": [chunk["chunk_index"]],
                 "text": chunk["text"],
                 "score": chunk["score"],
             }
-=======
-            current = {"paper_id": paper_id, "chunk_indices": [chunk["chunk_index"]],
-                       "text": chunk["text"], "score": chunk["score"]}
             if arxiv_id is not None:
                 current["arxiv_id"] = arxiv_id
->>>>>>> 9b49a08 (feat(gold-set): paper_id を arxiv_id に移行 (Closes #18))
             current_size = chunk_size
         elif current_size + chunk_size <= target_tokens:
             current["text"] += " " + chunk["text"]
@@ -104,19 +89,14 @@ def combine_large_chunks(chunks: list[dict], paper_id: int, target_tokens: int) 
             current_size += chunk_size
         else:
             combined.append(current)
-<<<<<<< HEAD
             current = {
                 "paper_id": paper_id,
                 "chunk_indices": [chunk["chunk_index"]],
                 "text": chunk["text"],
                 "score": chunk["score"],
             }
-=======
-            current = {"paper_id": paper_id, "chunk_indices": [chunk["chunk_index"]],
-                       "text": chunk["text"], "score": chunk["score"]}
             if arxiv_id is not None:
                 current["arxiv_id"] = arxiv_id
->>>>>>> 9b49a08 (feat(gold-set): paper_id を arxiv_id に移行 (Closes #18))
             current_size = chunk_size
     if current:
         combined.append(current)
