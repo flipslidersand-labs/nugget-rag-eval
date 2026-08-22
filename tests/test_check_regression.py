@@ -39,7 +39,6 @@ def _failing_data(tmp_path):
 @pytest.fixture(autouse=True)
 def _ensure_eval_on_path(monkeypatch):
     """Make sure eval/ dir is importable for check_regression's relative import."""
-    import importlib
     import pathlib
 
     eval_dir = str(pathlib.Path(__file__).parent.parent / "eval")
@@ -52,6 +51,7 @@ def _ensure_eval_on_path(monkeypatch):
 def _run_main(monkeypatch, args: list[str]):
     """Import and call check_regression.main() with given CLI args."""
     import importlib
+
     import eval.check_regression as cr_module
 
     # reload to pick up any sys.path changes
