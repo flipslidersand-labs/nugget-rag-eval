@@ -1,0 +1,17 @@
+[
+  {
+    "arxiv_id": "2410.10071",
+    "query": "KV cache inference",
+    "answer_spans": ["KV cache reuse"]
+  },
+  {
+    "arxiv_id": "2410.10071",
+    "query": "attention similarity",
+    "answer_spans": ["scaled dot-product similarity"]
+  },
+  {
+    "arxiv_id": "2508.11836",
+    "query": "retrieval augmented generation",
+    "answer_spans": ["retrieval with language model generation"]
+  }
+]
