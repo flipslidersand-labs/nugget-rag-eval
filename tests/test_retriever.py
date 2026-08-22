@@ -83,12 +83,14 @@ def test_nuggets_empty():
 
 # ── text キーなし・空テキスト (#47) ──────────────────────────────────────
 
+
 def test_retrieve_full_chunk_empty_text_does_not_crash():
     """text が空文字列のチャンクはスコア 0 で返る（クラッシュしない）。"""
     chunks = [{"paper_id": 1, "text": "", "score": 0.5}]
     results = retrieve_full_chunk(chunks, "query", top_k=1)
     assert len(results) == 1
     assert results[0]["text"] == ""
+
 
 def test_retrieve_nuggets_empty_text_produces_empty_nugget():
     """text が空のチャンクは nugget フィールドが空文字列になる。"""
@@ -97,9 +99,18 @@ def test_retrieve_nuggets_empty_text_produces_empty_nugget():
     assert len(results) == 1
     assert results[0]["nugget"] == ""
 
+
 def test_retrieve_nuggets_preserves_all_original_fields():
     """retrieve_nuggets は元チャンクのフィールドをすべて保持する。"""
-    chunks = [{"paper_id": 99, "chunk_index": 7, "text": "KV cache answer", "score": 0.9, "arxiv_id": "2608.07458"}]
+    chunks = [
+        {
+            "paper_id": 99,
+            "chunk_index": 7,
+            "text": "KV cache answer",
+            "score": 0.9,
+            "arxiv_id": "2608.07458",
+        }
+    ]
     results = retrieve_nuggets(chunks, "KV cache", top_k=1)
     r = results[0]
     assert r["paper_id"] == 99
@@ -108,7 +119,9 @@ def test_retrieve_nuggets_preserves_all_original_fields():
     assert r["arxiv_id"] == "2608.07458"
     assert "nugget" in r
 
+
 # ── 空センテンスリスト → nugget="" (#55) ─────────────────────────────────
+
 
 def test_retrieve_nuggets_whitespace_only_text_returns_empty_nugget():
     """空白のみの text → split_sentences が空 → nugget="" になる。"""
@@ -116,11 +129,13 @@ def test_retrieve_nuggets_whitespace_only_text_returns_empty_nugget():
     results = retrieve_nuggets(chunks, "query", top_k=1)
     assert results[0]["nugget"] == ""
 
+
 def test_retrieve_nuggets_single_sentence_returns_that_sentence():
     """1文のチャンクは nugget にその文が入る。"""
     chunks = [{"paper_id": 1, "text": "KV cache reuse reduces cost.", "score": 0.9}]
     results = retrieve_nuggets(chunks, "KV cache", top_k=1)
     assert "KV cache" in results[0]["nugget"]
+
 
 def test_retrieve_nuggets_top_k_less_than_chunks():
     """top_k=2 で 6チャンクから 2件だけ返る。"""

@@ -1,8 +1,8 @@
 """Tests for --token-estimator option (words/chars modes) in avg_tokens."""
+
 from __future__ import annotations
 
 from eval.evaluate import avg_tokens
-
 from tests.conftest import make_results
 
 

@@ -201,7 +201,9 @@ def main():
 
     tok_label = f"Avg tokens({args.token_estimator})"
     mode_label = f"nugget(e{args.embed_weight:.1f})" if embed_fn else "nugget"
-    print(f"{'Mode':<18} {'Recall@' + str(args.top_k):<12} {'MRR@' + str(args.top_k):<12} {tok_label}")
+    print(
+        f"{'Mode':<18} {'Recall@' + str(args.top_k):<12} {'MRR@' + str(args.top_k):<12} {tok_label}"
+    )
     print("-" * 60)
     fc = result["full_chunk"]
     ng = result["nugget"]

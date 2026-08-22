@@ -120,7 +120,9 @@ def fetch_per_query(
         if "arxiv_id" in item:
             pid = ARXIV_TO_PAPER_ID.get(item["arxiv_id"])
             if pid is None:
-                print(f"  WARNING: unknown arxiv_id '{item['arxiv_id']}', skipping", file=sys.stderr)
+                print(
+                    f"  WARNING: unknown arxiv_id '{item['arxiv_id']}', skipping", file=sys.stderr
+                )
                 continue
         else:
             pid = item["paper_id"]
