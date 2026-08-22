@@ -1,4 +1,5 @@
 """Tests for eval/check_regression.py — main() PASS / FAIL paths."""
+
 from __future__ import annotations
 
 import json
@@ -16,7 +17,9 @@ def _write_json(path, data):
 def _passing_data(tmp_path):
     """Chunks and gold where both full-chunk and nugget recall = 1.0."""
     paper_id = ARXIV_MAP["2410.10071"]  # == 1
-    chunks = [{"paper_id": paper_id, "text": "correct answer here", "nugget": "correct answer here"}]
+    chunks = [
+        {"paper_id": paper_id, "text": "correct answer here", "nugget": "correct answer here"}
+    ]
     gold = [{"arxiv_id": "2410.10071", "query": "q", "answer_spans": ["correct answer here"]}]
     c_path, g_path = tmp_path / "chunks.json", tmp_path / "gold.json"
     _write_json(c_path, chunks)
@@ -35,6 +38,7 @@ def _failing_data(tmp_path):
 
 
 # ── import check_regression.main ─────────────────────────────────────────────
+
 
 @pytest.fixture(autouse=True)
 def _ensure_eval_on_path(monkeypatch):
@@ -59,6 +63,7 @@ def _run_main(monkeypatch, args: list[str]):
 
 
 # ── PASS tests ────────────────────────────────────────────────────────────────
+
 
 def test_main_pass_exits_zero(tmp_path, monkeypatch, capsys):
     c_path, g_path = _passing_data(tmp_path)
@@ -86,7 +91,10 @@ def test_main_pass_custom_threshold(tmp_path, monkeypatch, capsys):
 
 def test_main_pass_custom_top_k(tmp_path, monkeypatch, capsys):
     c_path, g_path = _passing_data(tmp_path)
-    _run_main(monkeypatch, ["--chunks", str(c_path), "--gold", str(g_path), "--threshold", "0.5", "--top-k", "3"])
+    _run_main(
+        monkeypatch,
+        ["--chunks", str(c_path), "--gold", str(g_path), "--threshold", "0.5", "--top-k", "3"],
+    )
     out = capsys.readouterr().out
     assert "[PASS]" in out
     assert "Recall@3" in out
@@ -94,17 +102,22 @@ def test_main_pass_custom_top_k(tmp_path, monkeypatch, capsys):
 
 # ── FAIL tests ────────────────────────────────────────────────────────────────
 
+
 def test_main_fail_exits_one_on_low_recall(tmp_path, monkeypatch):
     c_path, g_path = _failing_data(tmp_path)
     with pytest.raises(SystemExit) as exc_info:
-        _run_main(monkeypatch, ["--chunks", str(c_path), "--gold", str(g_path), "--threshold", "0.95"])
+        _run_main(
+            monkeypatch, ["--chunks", str(c_path), "--gold", str(g_path), "--threshold", "0.95"]
+        )
     assert exc_info.value.code == 1
 
 
 def test_main_fail_prints_fail_message(tmp_path, monkeypatch, capsys):
     c_path, g_path = _failing_data(tmp_path)
     with pytest.raises(SystemExit):
-        _run_main(monkeypatch, ["--chunks", str(c_path), "--gold", str(g_path), "--threshold", "0.95"])
+        _run_main(
+            monkeypatch, ["--chunks", str(c_path), "--gold", str(g_path), "--threshold", "0.95"]
+        )
     out = capsys.readouterr().out
     assert "[FAIL]" in out
     assert "Recall regression" in out
@@ -113,7 +126,9 @@ def test_main_fail_prints_fail_message(tmp_path, monkeypatch, capsys):
 def test_main_fail_mentions_both_failing_modes(tmp_path, monkeypatch, capsys):
     c_path, g_path = _failing_data(tmp_path)
     with pytest.raises(SystemExit):
-        _run_main(monkeypatch, ["--chunks", str(c_path), "--gold", str(g_path), "--threshold", "0.95"])
+        _run_main(
+            monkeypatch, ["--chunks", str(c_path), "--gold", str(g_path), "--threshold", "0.95"]
+        )
     out = capsys.readouterr().out
     assert "full-chunk" in out
     assert "nugget" in out
@@ -137,6 +152,7 @@ def test_main_default_threshold_is_0_95(tmp_path, monkeypatch, capsys):
 
 # ── arxiv_id-keyed chunks (PR #78 追加テスト) ────────────────────────────────
 
+
 def test_arxiv_id_only_chunks_do_not_raise_key_error(tmp_path, monkeypatch):
     """arxiv_id のみを持つチャンク（paper_id なし）でも KeyError が出ない。"""
     chunks = [{"arxiv_id": "2410.10071", "text": "answer text", "nugget": "answer text"}]
@@ -145,6 +161,60 @@ def test_arxiv_id_only_chunks_do_not_raise_key_error(tmp_path, monkeypatch):
     _write_json(c_path, chunks)
     _write_json(g_path, gold)
     try:
-        _run_main(monkeypatch, ["--chunks", str(c_path), "--gold", str(g_path), "--threshold", "0.0"])
+        _run_main(
+            monkeypatch, ["--chunks", str(c_path), "--gold", str(g_path), "--threshold", "0.0"]
+        )
     except SystemExit as e:
         assert e.code != "KeyError", "KeyError が発生した"
+
+
+# ── --verbose flag ────────────────────────────────────────────────────────────
+
+
+def test_verbose_on_fail_prints_nugget_miss_to_stderr(tmp_path, monkeypatch, capsys):
+    """--verbose + FAIL: 失敗クエリの情報が stderr に出力される。"""
+    paper_id = ARXIV_MAP["2410.10071"]
+    chunks = [{"paper_id": paper_id, "text": "unrelated content here", "nugget": "unrelated"}]
+    gold = [{"arxiv_id": "2410.10071", "query": "KV cache", "answer_spans": ["KV cache"]}]
+    c_path, g_path = tmp_path / "c.json", tmp_path / "g.json"
+    _write_json(c_path, chunks)
+    _write_json(g_path, gold)
+    with pytest.raises(SystemExit):
+        _run_main(
+            monkeypatch,
+            [
+                "--chunks",
+                str(c_path),
+                "--gold",
+                str(g_path),
+                "--threshold",
+                "0.95",
+                "--verbose",
+            ],
+        )
+    err = capsys.readouterr().err
+    assert "Nugget Recall Misses" in err
+
+
+def test_verbose_not_set_no_miss_output(tmp_path, monkeypatch, capsys):
+    """--verbose なし: stderr に Nugget Recall Misses が出ない。"""
+    paper_id = ARXIV_MAP["2410.10071"]
+    chunks = [{"paper_id": paper_id, "text": "unrelated", "nugget": "unrelated"}]
+    gold = [{"arxiv_id": "2410.10071", "query": "KV cache", "answer_spans": ["KV cache"]}]
+    c_path, g_path = tmp_path / "c.json", tmp_path / "g.json"
+    _write_json(c_path, chunks)
+    _write_json(g_path, gold)
+    with pytest.raises(SystemExit):
+        _run_main(
+            monkeypatch,
+            [
+                "--chunks",
+                str(c_path),
+                "--gold",
+                str(g_path),
+                "--threshold",
+                "0.95",
+            ],
+        )
+    err = capsys.readouterr().err
+    assert "Nugget Recall Misses" not in err

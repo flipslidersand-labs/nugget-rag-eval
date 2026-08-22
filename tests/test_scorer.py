@@ -79,11 +79,14 @@ def test_bm25_english_unchanged():
 
 # ── _normalize 均一スコア (#48) ────────────────────────────────────────────
 
+
 def test_normalize_uniform_returns_all_zeros():
     assert _normalize([0.5, 0.5, 0.5]) == [0.0, 0.0, 0.0]
 
+
 def test_normalize_single_value_returns_zero():
     assert _normalize([1.0]) == [0.0]
+
 
 def test_top_nuggets_uniform_bm25_returns_k_items():
     """全スコア均一時は k 件返る（先頭 k 件）。"""
@@ -94,13 +97,16 @@ def test_top_nuggets_uniform_bm25_returns_k_items():
 
 # ── bm25_scores 空クエリ・空センテンス (#49) ──────────────────────────────
 
+
 def test_bm25_empty_query_returns_zero_scores():
     scores = bm25_scores("", ["hello world", "foo bar"])
     assert scores == [0.0, 0.0]
 
+
 def test_bm25_all_empty_sentences_returns_zeros():
     scores = bm25_scores("query", ["", ""])
     assert all(s == 0.0 for s in scores)
+
 
 def test_bm25_single_empty_sentence():
     scores = bm25_scores("query", [""])
@@ -109,12 +115,15 @@ def test_bm25_single_empty_sentence():
 
 # ── top_k クリップ (#51) ──────────────────────────────────────────────────
 
+
 def test_top_nuggets_top_k_larger_than_sentences_returns_all():
     result = top_nuggets("query", ["A", "B"], top_k=10)
     assert sorted(result) == ["A", "B"]
 
+
 def test_top_nuggets_top_k_zero_returns_empty():
     assert top_nuggets("query", ["A", "B"], top_k=0) == []
+
 
 def test_top_nuggets_top_k_equals_len_returns_all():
     sentences = ["X", "Y", "Z"]
@@ -124,22 +133,26 @@ def test_top_nuggets_top_k_equals_len_returns_all():
 
 # ── ASCII ratio 境界 (#52) ────────────────────────────────────────────────
 
+
 def test_tokenize_exactly_half_ascii_uses_bigrams():
     """ASCII 2文字 + 非ASCII 2文字 → ratio=0.5 → NOT > 0.5 → bigrams。"""
     tokens = _tokenize("AB東京")
     # ratio = 2/4 = 0.5 → bigram branch
     assert all(len(t) <= 2 for t in tokens)
 
+
 def test_tokenize_above_half_ascii_uses_split():
     """ASCII 3文字 + 非ASCII 1文字 → ratio=0.75 > 0.5 → split。"""
     tokens = _tokenize("ABC東")
     assert tokens == ["abc東"]
+
 
 def test_tokenize_empty_string_returns_empty():
     assert _tokenize("") == []
 
 
 # ── embed_weight 極端値 (#53) ────────────────────────────────────────────
+
 
 def test_top_nuggets_embed_weight_zero_equals_bm25_only():
     """embed_weight=0.0 では embed_fn を渡しても BM25-only と同じ結果。"""
@@ -152,6 +165,7 @@ def test_top_nuggets_embed_weight_zero_equals_bm25_only():
     result_w0 = top_nuggets("KV", sentences, top_k=1, embed_fn=mock_embed, embed_weight=0.0)
     result_bm25 = top_nuggets("KV", sentences, top_k=1)
     assert result_w0 == result_bm25
+
 
 def test_top_nuggets_embed_weight_one_uses_only_embedding():
     """embed_weight=1.0 では BM25 を無視し embedding 順になる。"""
