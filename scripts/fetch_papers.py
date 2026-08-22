@@ -13,6 +13,7 @@ import argparse
 import json
 import sys
 from pathlib import Path
+from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import urlopen
 
@@ -35,7 +36,11 @@ PAPER_ID_TO_ARXIV: dict[int, str] = {v: k for k, v in ARXIV_TO_PAPER_ID.items()}
 
 def fetch_papers(api_url: str, limit: int = 100) -> list[dict]:
     url = f"{api_url}/papers?{urlencode({'limit': limit, 'sort': 'score'})}"
-    return json.loads(urlopen(url, timeout=15).read())["papers"]
+    try:
+        return json.loads(urlopen(url, timeout=15).read())["papers"]
+    except (URLError, HTTPError) as exc:
+        print(f"[ERROR] Failed to fetch papers: {exc}", file=sys.stderr)
+        sys.exit(1)
 
 
 def _sanitize_query(query: str) -> str:
@@ -48,7 +53,11 @@ def _sanitize_query(query: str) -> str:
 def fetch_chunks_for_paper(api_url: str, paper_id: int, query: str, limit: int = 20) -> list[dict]:
     safe_query = _sanitize_query(query)
     url = f"{api_url}/search?{urlencode({'q': safe_query, 'mode': 'hybrid', 'paper_id': paper_id, 'limit': limit})}"
-    results = json.loads(urlopen(url, timeout=30).read())["results"]
+    try:
+        results = json.loads(urlopen(url, timeout=30).read())["results"]
+    except (URLError, HTTPError) as exc:
+        print(f"[ERROR] Failed to fetch chunks for paper {paper_id}: {exc}", file=sys.stderr)
+        sys.exit(1)
     arxiv_id = PAPER_ID_TO_ARXIV.get(paper_id)
     chunks = []
     for r in results:
