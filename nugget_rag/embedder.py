@@ -16,6 +16,8 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urljoin
 from urllib.request import Request, urlopen
 
+MAX_BATCH_SIZE = 256
+
 
 class EmbedError(RuntimeError):
     """Raised when the embedding service call fails."""
@@ -34,17 +36,8 @@ class EmbedClient:
         self.collection = collection
         self.timeout = timeout
 
-    def embed(self, texts: list[str]) -> list[list[float]]:
-        """Return embedding vectors for each text.
-
-        Calls POST /embed/batch and extracts the 'vectors' field
-        (the MINIPC embedding-svc response schema).
-
-        Raises:
-            EmbedError: on network failure, HTTP error, or unexpected response format.
-        """
-        if not texts:
-            return []
+    def _call(self, texts: list[str]) -> list[list[float]]:
+        """Send a single batch request (must be <= MAX_BATCH_SIZE)."""
         body = json.dumps({"texts": texts, "collection": self.collection}).encode()
         req = Request(
             urljoin(self.base_url + "/", "embed/batch"),
@@ -58,6 +51,22 @@ class EmbedClient:
             raise EmbedError(f"Embedding service unreachable: {exc}") from exc
         except (json.JSONDecodeError, KeyError) as exc:
             raise EmbedError(f"Unexpected embedding response format: {exc}") from exc
+
+    def embed(self, texts: list[str]) -> list[list[float]]:
+        """Return embedding vectors for each text.
+
+        Automatically splits inputs into batches of MAX_BATCH_SIZE to respect
+        the MINIPC embedding-svc per-request limit.
+
+        Raises:
+            EmbedError: on network failure, HTTP error, or unexpected response format.
+        """
+        if not texts:
+            return []
+        results: list[list[float]] = []
+        for i in range(0, len(texts), MAX_BATCH_SIZE):
+            results.extend(self._call(texts[i : i + MAX_BATCH_SIZE]))
+        return results
 
 
 def cosine_similarity(a: list[float], b: list[float]) -> float:
