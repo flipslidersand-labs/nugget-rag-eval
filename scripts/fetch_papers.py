@@ -16,21 +16,7 @@ from pathlib import Path
 from urllib.parse import urlencode
 from urllib.request import urlopen
 
-# Stable arxiv_id → internal paper_id mapping (paper_id may change on DB rebuild)
-ARXIV_TO_PAPER_ID: dict[str, int] = {
-    "2410.10071": 1,
-    "2508.11836": 2,
-    "2508.11845": 3,
-    "2509.25673": 4,
-    "2511.07482": 5,
-    "2512.06812": 6,
-    "2601.10849": 7,
-    "2602.10161": 8,
-    "2608.06495": 9,
-    "2608.07458": 10,
-}
-# Reverse map for convenience
-PAPER_ID_TO_ARXIV: dict[int, str] = {v: k for k, v in ARXIV_TO_PAPER_ID.items()}
+from nugget_rag.paper_registry import ARXIV_MAP as ARXIV_TO_PAPER_ID, PAPER_ID_TO_ARXIV
 
 
 def fetch_papers(api_url: str, limit: int = 100) -> list[dict]:
