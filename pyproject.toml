@@ -22,7 +22,7 @@ dev = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["nugget_rag"]
+packages = ["nugget_rag", "eval"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
