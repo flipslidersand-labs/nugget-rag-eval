@@ -1,7 +1,7 @@
 """Sentence-level splitter for nugget extraction."""
 import re
 
-_SENT_RE = re.compile(r'(?<=[.!?])\s+')
+_SENT_RE = re.compile(r'(?<=[.!?。！？])\s*')
 
 
 def split_sentences(text: str) -> list[str]:
