@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import math
+import time
 from urllib.error import HTTPError, URLError
 from urllib.parse import urljoin
 from urllib.request import Request, urlopen
@@ -30,33 +31,56 @@ class EmbedClient:
         api_key: str,
         collection: str = "search-engine",
         timeout: int = 60,
+        max_retries: int = 3,
+        retry_backoff: float = 1.0,
     ) -> None:
         self.base_url = base_url.rstrip("/")
         self.api_key = api_key
         self.collection = collection
         self.timeout = timeout
+        self.max_retries = max_retries
+        self.retry_backoff = retry_backoff
 
     def _call(self, texts: list[str]) -> list[list[float]]:
-        """Send a single batch request (must be <= MAX_BATCH_SIZE)."""
+        """Send a single batch request with exponential-backoff retry.
+
+        Retries up to max_retries times on URLError or 5xx HTTPError.
+        4xx errors are raised immediately without retrying.
+
+        Raises:
+            EmbedError: after all retries exhausted, or on non-retryable errors.
+        """
         body = json.dumps({"texts": texts, "collection": self.collection}).encode()
         req = Request(
             urljoin(self.base_url + "/", "embed/batch"),
             data=body,
             headers={"Content-Type": "application/json", "X-API-Key": self.api_key},
         )
-        try:
-            resp = json.loads(urlopen(req, timeout=self.timeout).read())
-            return resp["vectors"]
-        except (URLError, HTTPError) as exc:
-            raise EmbedError(f"Embedding service unreachable: {exc}") from exc
-        except (json.JSONDecodeError, KeyError) as exc:
-            raise EmbedError(f"Unexpected embedding response format: {exc}") from exc
+        last_exc: Exception | None = None
+        for attempt in range(self.max_retries + 1):
+            try:
+                resp = json.loads(urlopen(req, timeout=self.timeout).read())
+                return resp["vectors"]
+            except HTTPError as exc:
+                if exc.code is not None and exc.code < 500:
+                    raise EmbedError(f"Embedding service error {exc.code}: {exc}") from exc
+                last_exc = exc
+            except URLError as exc:
+                last_exc = exc
+            except (json.JSONDecodeError, KeyError) as exc:
+                raise EmbedError(f"Unexpected embedding response format: {exc}") from exc
+            if attempt < self.max_retries:
+                time.sleep(self.retry_backoff * (2**attempt))
+        raise EmbedError(
+            f"Embedding service unreachable after {self.max_retries} retries: {last_exc}"
+        ) from last_exc
 
     def embed(self, texts: list[str]) -> list[list[float]]:
         """Return embedding vectors for each text.
 
         Automatically splits inputs into batches of MAX_BATCH_SIZE to respect
-        the MINIPC embedding-svc per-request limit.
+        the MINIPC embedding-svc per-request limit. Each batch is retried
+        independently via _call().
 
         Raises:
             EmbedError: on network failure, HTTP error, or unexpected response format.

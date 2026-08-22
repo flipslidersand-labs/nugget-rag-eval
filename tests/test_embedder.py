@@ -150,8 +150,6 @@ def test_embed_exact_batch_size_single_call(mock_open):
 @patch("nugget_rag.embedder.urlopen")
 def test_embed_batch_preserves_order(mock_open):
     """複数バッチでもベクトルの順序が保たれる。"""
-    import json as _json
-
     call_idx = [0]
 
     def side_effect(req, timeout):
@@ -168,3 +166,89 @@ def test_embed_batch_preserves_order(mock_open):
     assert len(vecs) == n
     for i, v in enumerate(vecs):
         assert v == [float(i)]
+
+
+# --- リトライテスト (max_retries) ---
+
+
+def _retry_client(max_retries=3, backoff=0.0):
+    return EmbedClient(
+        "http://localhost:9092", api_key="k", max_retries=max_retries, retry_backoff=backoff
+    )
+
+
+def _ok_response(n=1):
+    m = MagicMock()
+    m.read.return_value = _json.dumps({"vectors": [[0.1]] * n}).encode()
+    return m
+
+
+@patch("nugget_rag.embedder.time.sleep")
+@patch("nugget_rag.embedder.urlopen")
+def test_retry_succeeds_on_second_attempt(mock_open, mock_sleep):
+    """1 回目 URLError → 2 回目成功 → ベクトルが返る。"""
+    mock_open.side_effect = [URLError("transient"), _ok_response()]
+    vecs = _retry_client(max_retries=3).embed(["t"])
+    assert vecs == [[0.1]]
+    assert mock_open.call_count == 2
+
+
+@patch("nugget_rag.embedder.time.sleep")
+@patch("nugget_rag.embedder.urlopen")
+def test_retry_exhausted_raises_embed_error(mock_open, mock_sleep):
+    """max_retries 回すべて URLError → EmbedError。"""
+    from nugget_rag.embedder import EmbedError
+
+    mock_open.side_effect = URLError("down")
+    with pytest.raises(EmbedError, match="retries"):
+        _retry_client(max_retries=2, backoff=0.0).embed(["t"])
+    assert mock_open.call_count == 3  # 初回 + 2 回リトライ
+
+
+@patch("nugget_rag.embedder.time.sleep")
+@patch("nugget_rag.embedder.urlopen")
+def test_retry_4xx_does_not_retry(mock_open, mock_sleep):
+    """4xx HTTPError はリトライせず即 EmbedError。"""
+    from nugget_rag.embedder import EmbedError
+
+    exc = HTTPError(url=None, code=401, msg="Unauthorized", hdrs=None, fp=None)  # type: ignore[arg-type]
+    mock_open.side_effect = exc
+    with pytest.raises(EmbedError, match="401"):
+        _retry_client(max_retries=3).embed(["t"])
+    assert mock_open.call_count == 1
+
+
+@patch("nugget_rag.embedder.time.sleep")
+@patch("nugget_rag.embedder.urlopen")
+def test_retry_5xx_retries(mock_open, mock_sleep):
+    """5xx HTTPError はリトライする。"""
+    from nugget_rag.embedder import EmbedError
+
+    exc = HTTPError(url=None, code=503, msg="Service Unavailable", hdrs=None, fp=None)  # type: ignore[arg-type]
+    mock_open.side_effect = [exc, exc, exc]
+    with pytest.raises(EmbedError):
+        _retry_client(max_retries=2, backoff=0.0).embed(["t"])
+    assert mock_open.call_count == 3
+
+
+@patch("nugget_rag.embedder.time.sleep")
+@patch("nugget_rag.embedder.urlopen")
+def test_retry_max_retries_zero_no_retry(mock_open, mock_sleep):
+    """max_retries=0 → リトライなし、1 回のみ試行。"""
+    from nugget_rag.embedder import EmbedError
+
+    mock_open.side_effect = URLError("down")
+    with pytest.raises(EmbedError):
+        _retry_client(max_retries=0).embed(["t"])
+    assert mock_open.call_count == 1
+
+
+@patch("nugget_rag.embedder.time.sleep")
+@patch("nugget_rag.embedder.urlopen")
+def test_retry_backoff_called(mock_open, mock_sleep):
+    """リトライ間に time.sleep が backoff * 2^attempt で呼ばれる。"""
+    mock_open.side_effect = [URLError("err"), URLError("err"), _ok_response()]
+    _retry_client(max_retries=3, backoff=1.0).embed(["t"])
+    assert mock_sleep.call_count == 2
+    mock_sleep.assert_any_call(1.0)  # attempt 0: 1.0 * 2^0
+    mock_sleep.assert_any_call(2.0)  # attempt 1: 1.0 * 2^1
