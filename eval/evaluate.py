@@ -96,6 +96,8 @@ def main():
                         help="X-API-Key for the embedding service")
     parser.add_argument("--embed-weight", type=float, default=0.5,
                         help="Embedding weight in hybrid score: 0=BM25-only, 1=embed-only (default: 0.5)")
+    parser.add_argument("--embedding-collection", default="search-engine",
+                        help="Embedding collection name (default: search-engine)")
     args = parser.parse_args()
 
     embed_fn = None
@@ -104,7 +106,7 @@ def main():
         client = EmbedClient(
             args.embedding_url,
             api_key=args.embedding_api_key or "",
-            collection="search-engine",
+            collection=args.embedding_collection,
         )
         embed_fn = client.embed
         print(f"Embedding: {args.embedding_url}  weight={args.embed_weight}", file=sys.stderr)
