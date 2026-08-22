@@ -15,9 +15,7 @@ import json
 import sys
 from pathlib import Path
 
-# Ensure eval/ is importable when run as a script
-sys.path.insert(0, str(Path(__file__).parent))
-from evaluate import evaluate  # noqa: E402
+from eval.evaluate import evaluate
 
 
 def main() -> None:
