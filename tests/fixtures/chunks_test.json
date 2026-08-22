@@ -1,0 +1,20 @@
+[
+  {
+    "paper_id": 1,
+    "chunk_index": 0,
+    "text": "KV cache reuse reduces inference cost by storing key-value pairs across requests.",
+    "score": 0.9
+  },
+  {
+    "paper_id": 1,
+    "chunk_index": 1,
+    "text": "Attention mechanisms compute scaled dot-product similarity between query and key vectors.",
+    "score": 0.8
+  },
+  {
+    "paper_id": 2,
+    "chunk_index": 0,
+    "text": "RAG combines retrieval with language model generation to improve factual accuracy.",
+    "score": 0.85
+  }
+]
