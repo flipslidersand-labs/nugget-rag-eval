@@ -118,6 +118,7 @@ def test_top_nuggets_embed_fn_none_unchanged():
 # --- バッチ分割テスト (MAX_BATCH_SIZE) ---
 
 
+
 @patch("nugget_rag.embedder.urlopen")
 def test_embed_splits_large_batch(mock_open):
     """texts > MAX_BATCH_SIZE のとき urlopen が複数回呼ばれる。"""
