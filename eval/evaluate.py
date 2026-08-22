@@ -21,21 +21,8 @@ import sys
 from collections.abc import Callable
 from pathlib import Path
 
+from nugget_rag.paper_registry import ARXIV_MAP
 from nugget_rag.retriever import retrieve_full_chunk, retrieve_nuggets
-
-# Stable mapping: arxiv_id → paper_id (academic-paper-system internal DB)
-ARXIV_MAP: dict[str, int] = {
-    "2410.10071": 1,
-    "2508.11836": 2,
-    "2508.11845": 3,
-    "2509.25673": 4,
-    "2511.07482": 5,
-    "2512.06812": 6,
-    "2601.10849": 7,
-    "2602.10161": 8,
-    "2608.06495": 9,
-    "2608.07458": 10,
-}
 
 
 def recall_at_k(results: list[dict], answer_spans: list[str], field: str = "text") -> bool:
