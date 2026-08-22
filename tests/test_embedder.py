@@ -1,5 +1,57 @@
-from nugget_rag.embedder import cosine_similarity, embed_scores
+import pytest
+from unittest.mock import MagicMock, patch
+from urllib.error import HTTPError, URLError
+
+from nugget_rag.embedder import EmbedClient, cosine_similarity, embed_scores
 from nugget_rag.scorer import top_nuggets
+
+
+# --- EmbedClient.embed() エラーパス ---
+
+
+def _client():
+    return EmbedClient("http://localhost:9092", api_key="test-key")
+
+
+def test_embed_empty_texts_returns_empty():
+    assert _client().embed([]) == []
+
+
+def test_embed_url_error_raises():
+    with patch("nugget_rag.embedder.urlopen", side_effect=URLError("refused")):
+        with pytest.raises((URLError, Exception)):
+            _client().embed(["hello"])
+
+
+def test_embed_http_error_raises():
+    err = HTTPError("http://x", 500, "Server Error", {}, None)
+    with patch("nugget_rag.embedder.urlopen", side_effect=err):
+        with pytest.raises(Exception):
+            _client().embed(["hello"])
+
+
+def test_embed_malformed_response_missing_vectors_key_raises():
+    mock_resp = MagicMock()
+    mock_resp.read.return_value = b'{"embeddings": [[1.0, 2.0]]}'
+    with patch("nugget_rag.embedder.urlopen", return_value=mock_resp):
+        with pytest.raises((KeyError, Exception)):
+            _client().embed(["hello"])
+
+
+def test_embed_invalid_json_raises():
+    mock_resp = MagicMock()
+    mock_resp.read.return_value = b"not json"
+    with patch("nugget_rag.embedder.urlopen", return_value=mock_resp):
+        with pytest.raises(Exception):
+            _client().embed(["hello"])
+
+
+def test_embed_success_returns_vectors():
+    mock_resp = MagicMock()
+    mock_resp.read.return_value = b'{"vectors": [[0.1, 0.2], [0.3, 0.4]]}'
+    with patch("nugget_rag.embedder.urlopen", return_value=mock_resp):
+        result = _client().embed(["text1", "text2"])
+    assert result == [[0.1, 0.2], [0.3, 0.4]]
 
 
 def test_cosine_identical():
