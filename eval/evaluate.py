@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from collections.abc import Callable
 from pathlib import Path
@@ -142,7 +143,9 @@ def main():
         "When set, nugget scoring uses BM25 + embedding hybrid.",
     )
     parser.add_argument(
-        "--embedding-api-key", default=None, help="X-API-Key for the embedding service"
+        "--embedding-api-key",
+        default=None,
+        help="X-API-Key for the embedding service (deprecated: use EMBEDDING_API_KEY env var)",
     )
     parser.add_argument(
         "--embed-weight",
@@ -167,9 +170,12 @@ def main():
     if args.embedding_url:
         from nugget_rag.embedder import EmbedClient
 
+        api_key = args.embedding_api_key or os.environ.get("EMBEDDING_API_KEY", "")
+        if not api_key:
+            print("[WARN] EMBEDDING_API_KEY not set", file=sys.stderr)
         client = EmbedClient(
             args.embedding_url,
-            api_key=args.embedding_api_key or "",
+            api_key=api_key,
             collection=args.embedding_collection,
         )
         embed_fn = client.embed
