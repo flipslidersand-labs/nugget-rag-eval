@@ -21,6 +21,20 @@ from pathlib import Path
 
 from nugget_rag.retriever import retrieve_full_chunk, retrieve_nuggets
 
+# Stable mapping: arxiv_id → paper_id (matches academic-paper-system DB order)
+_ARXIV_TO_PAPER_ID: dict[str, int] = {
+    "2410.10071": 1,
+    "2508.11836": 2,
+    "2508.11845": 3,
+    "2509.25673": 4,
+    "2511.07482": 5,
+    "2512.06812": 6,
+    "2601.10849": 7,
+    "2602.10161": 8,
+    "2608.06495": 9,
+    "2608.07458": 10,
+}
+
 
 def recall_at_k(results: list[dict], answer_spans: list[str], field: str = "text") -> bool:
     haystack = " ".join(r.get(field, "") for r in results).lower()
@@ -45,7 +59,8 @@ def evaluate(
     nugget_misses = []
 
     for i, item in enumerate(gold):
-        paper_id = item["paper_id"]
+        arxiv_id = item.get("arxiv_id")
+        paper_id = _ARXIV_TO_PAPER_ID.get(arxiv_id) if arxiv_id else item.get("paper_id")
         query = item["query"]
         spans = item["answer_spans"]
         chunks = chunks_by_paper.get(paper_id, [])
