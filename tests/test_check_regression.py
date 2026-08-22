@@ -148,3 +148,38 @@ def test_arxiv_id_only_chunks_do_not_raise_key_error(tmp_path, monkeypatch):
         _run_main(monkeypatch, ["--chunks", str(c_path), "--gold", str(g_path), "--threshold", "0.0"])
     except SystemExit as e:
         assert e.code != "KeyError", "KeyError が発生した"
+
+
+# ── --verbose flag ────────────────────────────────────────────────────────────
+
+def test_verbose_on_fail_prints_nugget_miss_to_stderr(tmp_path, monkeypatch, capsys):
+    """--verbose + FAIL: 失敗クエリの情報が stderr に出力される。"""
+    paper_id = ARXIV_MAP["2410.10071"]
+    chunks = [{"paper_id": paper_id, "text": "unrelated content here", "nugget": "unrelated"}]
+    gold = [{"arxiv_id": "2410.10071", "query": "KV cache", "answer_spans": ["KV cache"]}]
+    c_path, g_path = tmp_path / "c.json", tmp_path / "g.json"
+    _write_json(c_path, chunks)
+    _write_json(g_path, gold)
+    with pytest.raises(SystemExit):
+        _run_main(monkeypatch, [
+            "--chunks", str(c_path), "--gold", str(g_path),
+            "--threshold", "0.95", "--verbose",
+        ])
+    err = capsys.readouterr().err
+    assert "Nugget Recall Misses" in err
+
+
+def test_verbose_not_set_no_miss_output(tmp_path, monkeypatch, capsys):
+    """--verbose なし: stderr に Nugget Recall Misses が出ない。"""
+    paper_id = ARXIV_MAP["2410.10071"]
+    chunks = [{"paper_id": paper_id, "text": "unrelated", "nugget": "unrelated"}]
+    gold = [{"arxiv_id": "2410.10071", "query": "KV cache", "answer_spans": ["KV cache"]}]
+    c_path, g_path = tmp_path / "c.json", tmp_path / "g.json"
+    _write_json(c_path, chunks)
+    _write_json(g_path, gold)
+    with pytest.raises(SystemExit):
+        _run_main(monkeypatch, [
+            "--chunks", str(c_path), "--gold", str(g_path), "--threshold", "0.95",
+        ])
+    err = capsys.readouterr().err
+    assert "Nugget Recall Misses" not in err

@@ -7,6 +7,9 @@ Usage:
         --chunks data/chunks_large.json \
         --gold eval/gold_set.json \
         --threshold 0.95
+
+    # Show which queries caused regression:
+    python eval/check_regression.py ... --verbose
 """
 from __future__ import annotations
 
@@ -31,6 +34,11 @@ def main() -> None:
         help="Minimum acceptable Recall@5 (default: 0.95)",
     )
     parser.add_argument("--top-k", type=int, default=5, help="Top-k for retrieval (default: 5)")
+    parser.add_argument(
+        "--verbose", "-v",
+        action="store_true",
+        help="Print failing query details to stderr when recall drops below threshold",
+    )
     args = parser.parse_args()
 
     chunks_data: list[dict] = json.loads(Path(args.chunks).read_text())
@@ -41,7 +49,7 @@ def main() -> None:
         key = c.get("arxiv_id") or c["paper_id"]
         chunks_by_paper.setdefault(key, []).append(c)
 
-    result = evaluate(chunks_by_paper, gold, top_k=args.top_k)
+    result = evaluate(chunks_by_paper, gold, top_k=args.top_k, verbose=args.verbose)
 
     full_recall = result["full_chunk"]["recall"]
     nugget_recall = result["nugget"]["recall"]
