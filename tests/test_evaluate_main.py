@@ -6,8 +6,7 @@ import sys
 
 import pytest
 
-from eval.evaluate import ARXIV_MAP, avg_tokens, evaluate, recall_at_k
-
+from eval.evaluate import ARXIV_MAP, avg_tokens, evaluate
 
 # ── verbose output path ──────────────────────────────────────────────────────
 
@@ -51,7 +50,7 @@ def test_evaluate_verbose_caps_at_5_misses(capsys):
     ]
     evaluate(chunks_by_paper, gold, top_k=5, verbose=True)
     captured = capsys.readouterr()
-    lines = [l for l in captured.err.splitlines() if l.startswith("  [")]
+    lines = [line for line in captured.err.splitlines() if line.startswith("  [")]
     assert len(lines) <= 5
 
 

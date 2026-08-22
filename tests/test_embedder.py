@@ -1,10 +1,10 @@
-import pytest
 from unittest.mock import MagicMock, patch
 from urllib.error import HTTPError, URLError
 
+import pytest
+
 from nugget_rag.embedder import EmbedClient, cosine_similarity, embed_scores
 from nugget_rag.scorer import top_nuggets
-
 
 # --- EmbedClient.embed() エラーパス ---
 
