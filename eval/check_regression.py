@@ -36,9 +36,10 @@ def main() -> None:
     chunks_data: list[dict] = json.loads(Path(args.chunks).read_text())
     gold: list[dict] = json.loads(Path(args.gold).read_text())
 
-    chunks_by_paper: dict[int, list[dict]] = {}
+    chunks_by_paper: dict[str | int, list[dict]] = {}
     for c in chunks_data:
-        chunks_by_paper.setdefault(c["paper_id"], []).append(c)
+        key = c.get("arxiv_id") or c["paper_id"]
+        chunks_by_paper.setdefault(key, []).append(c)
 
     result = evaluate(chunks_by_paper, gold, top_k=args.top_k)
 
