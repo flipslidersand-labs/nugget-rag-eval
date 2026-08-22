@@ -8,8 +8,6 @@ from __future__ import annotations
 import json
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from scripts.fetch_papers import (
     ARXIV_TO_PAPER_ID,
     PAPER_ID_TO_ARXIV,
@@ -18,7 +16,6 @@ from scripts.fetch_papers import (
     fetch_chunks_for_paper,
     fetch_per_query,
 )
-
 
 # ── _sanitize_query ──────────────────────────────────────────────────────────
 

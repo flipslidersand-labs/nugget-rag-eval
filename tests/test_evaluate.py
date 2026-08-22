@@ -1,6 +1,5 @@
 """Tests for evaluate.py — mrr_at_k, evaluate() arxiv_id resolution."""
 from eval.evaluate import ARXIV_MAP, evaluate, mrr_at_k
-
 from tests.conftest import make_results
 
 _make_results = make_results  # backward-compat alias for existing tests

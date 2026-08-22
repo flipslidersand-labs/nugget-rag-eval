@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 from eval.evaluate import avg_tokens
-
 from tests.conftest import make_results
 
 
