@@ -1,9 +1,10 @@
+import json as _json
 from unittest.mock import MagicMock, patch
 from urllib.error import HTTPError, URLError
 
 import pytest
 
-from nugget_rag.embedder import EmbedClient, cosine_similarity, embed_scores
+from nugget_rag.embedder import MAX_BATCH_SIZE, EmbedClient, cosine_similarity, embed_scores
 from nugget_rag.scorer import top_nuggets
 
 # --- EmbedClient.embed() エラーパス ---
@@ -116,15 +117,10 @@ def test_top_nuggets_embed_fn_none_unchanged():
 
 # --- バッチ分割テスト (MAX_BATCH_SIZE) ---
 
-from nugget_rag.embedder import MAX_BATCH_SIZE
-
 
 @patch("nugget_rag.embedder.urlopen")
 def test_embed_splits_large_batch(mock_open):
     """texts > MAX_BATCH_SIZE のとき urlopen が複数回呼ばれる。"""
-    single_vec = [[0.1, 0.2]]
-
-    import json as _json
 
     def side_effect(req, timeout):
         batch_size = len(_json.loads(req.data)["texts"])
