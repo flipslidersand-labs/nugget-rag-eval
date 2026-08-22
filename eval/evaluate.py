@@ -27,8 +27,10 @@ def recall_at_k(results: list[dict], answer_spans: list[str], field: str = "text
     return any(span.lower() in haystack for span in answer_spans)
 
 
-def avg_tokens(results: list[dict], field: str = "text") -> float:
+def avg_tokens(results: list[dict], field: str = "text", estimator: str = "words") -> float:
     texts = [r.get(field, "") for r in results]
+    if estimator == "chars":
+        return sum(len(t) / 4 for t in texts) / max(len(texts), 1)
     return sum(len(t.split()) for t in texts) / max(len(texts), 1)
 
 
@@ -39,6 +41,7 @@ def evaluate(
     verbose: bool = False,
     embed_fn: Callable[[list[str]], list[list[float]]] | None = None,
     embed_weight: float = 0.5,
+    estimator: str = "words",
 ) -> dict:
     full_hits = nugget_hits = 0
     full_tokens = nugget_tokens = 0.0
@@ -67,8 +70,8 @@ def evaluate(
         else:
             nugget_misses.append((i, query[:40], spans[0][:50]))
 
-        full_tokens += avg_tokens(full, "text")
-        nugget_tokens += avg_tokens(nugget, "nugget")
+        full_tokens += avg_tokens(full, "text", estimator)
+        nugget_tokens += avg_tokens(nugget, "nugget", estimator)
 
     n = len(gold)
     if verbose and nugget_misses:
@@ -96,6 +99,8 @@ def main():
                         help="X-API-Key for the embedding service")
     parser.add_argument("--embed-weight", type=float, default=0.5,
                         help="Embedding weight in hybrid score: 0=BM25-only, 1=embed-only (default: 0.5)")
+    parser.add_argument("--token-estimator", choices=["words", "chars"], default="words",
+                        help="Token count estimator: words=split() (default), chars=len/4")
     args = parser.parse_args()
 
     embed_fn = None
@@ -122,6 +127,7 @@ def main():
         verbose=args.verbose,
         embed_fn=embed_fn,
         embed_weight=args.embed_weight,
+        estimator=args.token_estimator,
     )
 
     mode_label = f"nugget(e{args.embed_weight:.1f})" if embed_fn else "nugget"
