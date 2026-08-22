@@ -12,8 +12,13 @@ from __future__ import annotations
 
 import json
 import math
+from urllib.error import HTTPError, URLError
 from urllib.parse import urljoin
 from urllib.request import Request, urlopen
+
+
+class EmbedError(RuntimeError):
+    """Raised when the embedding service call fails."""
 
 
 class EmbedClient:
@@ -34,6 +39,9 @@ class EmbedClient:
 
         Calls POST /embed/batch and extracts the 'vectors' field
         (the MINIPC embedding-svc response schema).
+
+        Raises:
+            EmbedError: on network failure, HTTP error, or unexpected response format.
         """
         if not texts:
             return []
@@ -43,8 +51,13 @@ class EmbedClient:
             data=body,
             headers={"Content-Type": "application/json", "X-API-Key": self.api_key},
         )
-        resp = json.loads(urlopen(req, timeout=self.timeout).read())
-        return resp["vectors"]
+        try:
+            resp = json.loads(urlopen(req, timeout=self.timeout).read())
+            return resp["vectors"]
+        except (URLError, HTTPError) as exc:
+            raise EmbedError(f"Embedding service unreachable: {exc}") from exc
+        except (json.JSONDecodeError, KeyError) as exc:
+            raise EmbedError(f"Unexpected embedding response format: {exc}") from exc
 
 
 def cosine_similarity(a: list[float], b: list[float]) -> float:
