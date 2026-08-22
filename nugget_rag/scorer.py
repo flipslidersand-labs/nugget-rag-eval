@@ -75,5 +75,8 @@ def top_nuggets(
     else:
         combined = bm25
 
-    ranked = sorted(zip(combined, sentences), reverse=True)
-    return [s for _, s in ranked[:top_k]]
+    # Select top-k indices by score
+    top_indices = sorted(range(len(combined)), key=lambda i: combined[i], reverse=True)[:top_k]
+    # Sort indices back to original order to preserve context flow
+    top_indices_sorted = sorted(top_indices)
+    return [sentences[i] for i in top_indices_sorted]
