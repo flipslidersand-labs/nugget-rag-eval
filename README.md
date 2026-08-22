@@ -21,17 +21,21 @@ academic-paper-system に導入する前に定量評価するためのリポジ�
 
 ```
 nugget_rag/
-  chunker.py     # 文単位分割
+  chunker.py     # 文単位分割（CJK 対応）
   scorer.py      # BM25 + 埋め込み類似度でナゲットスコアリング
   retriever.py   # full-chunk / nugget 両モードのリトリーバー
+  embedder.py    # 外部 embedding サービスクライアント
 eval/
   gold_set.json  # クエリ + 正解スパン（手作りゴールドセット）
-  evaluate.py    # Recall@k / MRR 計算
+  evaluate.py    # Recall@k / MRR@k 計算
+  check_regression.py  # CI 回帰チェック（Recall 閾値監視）
 scripts/
   fetch_papers.py  # academic-paper-system API から論文チャンクを取得
 tests/
   test_chunker.py
   test_scorer.py
+  test_evaluate.py
+  test_check_regression.py
 ```
 
 ## セットアップ
@@ -53,9 +57,47 @@ python scripts/fetch_papers.py \
 # または generic query で一括取得（小チャンク）
 python scripts/fetch_papers.py --api-url http://localhost:8020 --out data/chunks.json
 
-# 2. 評価実行
-python eval/evaluate.py --chunks data/chunks_large_perquery.json --gold eval/gold_set.json
+# 2. 評価実行（BM25 のみ）
+python eval/evaluate.py \
+  --chunks data/chunks_large_perquery.json \
+  --gold eval/gold_set.json \
+  --token-estimator words
+
+# 3. BM25 + embedding ハイブリッド
+python eval/evaluate.py \
+  --chunks data/chunks_large_perquery.json \
+  --gold eval/gold_set.json \
+  --embedding-url http://<internal-host>:9092 \
+  --embedding-api-key <key> \
+  --embed-weight 0.5 \
+  --token-estimator words
 ```
+
+## 出力フォーマット
+
+```
+Mode               Recall@5     MRR@5        Avg tokens(words)
+------------------------------------------------------------
+full-chunk         1.0          0.823        300.1
+nugget             1.0          0.791        100.5
+
+{
+  "n_queries": 19,
+  "full_chunk": {"recall": 1.0, "mrr": 0.823, "avg_tokens": 300.1},
+  "nugget":     {"recall": 1.0, "mrr": 0.791, "avg_tokens": 100.5}
+}
+```
+
+## CI 回帰チェック
+
+```bash
+python eval/check_regression.py \
+  --chunks data/chunks_large.json \
+  --gold eval/gold_set.json \
+  --threshold 0.95
+```
+
+Recall@5 がいずれかのモードで閾値を下回ると exit 1 で CI を落とす。
 
 ## 評価指標
 
@@ -63,7 +105,7 @@ python eval/evaluate.py --chunks data/chunks_large_perquery.json --gold eval/gol
 | ------ | ------ |
 | **Recall@k** | 上位 k 件の中に正解スパンが含まれるかどうかの割合（ヒット/ミスの2値）。順位は考慮しない。 |
 | **MRR@k** | Mean Reciprocal Rank。クエリごとに最初にヒットした順位の逆数（1/rank）を平均したもの。1位でヒット→1.0、2位→0.5、3位→0.333…。Recall@k が同じでも、より上位でヒットするほど MRR は高くなる。 |
-| **Avg tokens** | 取得結果の平均トークン数（単語数）。コンテキスト長の代理指標。 |
+| **Avg tokens** | 取得結果の平均トークン数。`words`（split）または `chars`（len/4）で推定可能。 |
 
 ## 評価結果（実測値）
 
@@ -71,11 +113,11 @@ python eval/evaluate.py --chunks data/chunks_large_perquery.json --gold eval/gol
 
 19クエリ・10論文（arxiv）・gold set 実チャンクテキスト検証済み。
 
-```text
-Mode           Recall@5   MRR@5    Avg tokens    削減率
-------------------------------------------------------
-full-chunk     1.000      0.823    300.1        -
-nugget         1.000      0.791    100.5        66.5% ✅
+```
+Mode               Recall@5     MRR@5        Avg tokens(words)
+------------------------------------------------------------
+full-chunk         1.000        0.823        300.1
+nugget             1.000        0.791        100.5        (削減率 66.5% ✅)
 ```
 
 embedding モデル: intfloat/multilingual-e5-base（MINIPC embedding-svc :9092）
@@ -86,11 +128,11 @@ academic-paper-system への nugget 導入を推奨。
 
 ### 小チャンク（参考・旧方式）
 
-```text
-Mode           Recall@5   MRR@5    Avg tokens    削減率
-------------------------------------------------------
-full-chunk     0.211      -        24.1         -
-nugget         0.211      -        23.2         3.7%
+```
+Mode               Recall@5     MRR@5        Avg tokens(words)
+------------------------------------------------------------
+full-chunk         0.211        -            24.1
+nugget             0.211        -            23.2         (削減率 3.7%)
 ```
 
 チャンク自体が小さい（~24 tokens）ため nugget 削減効果が軽微。大チャンクモード推奨。
