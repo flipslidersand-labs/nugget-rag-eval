@@ -27,6 +27,15 @@ def recall_at_k(results: list[dict], answer_spans: list[str], field: str = "text
     return any(span.lower() in haystack for span in answer_spans)
 
 
+def mrr_at_k(results: list[dict], answer_spans: list[str], field: str = "text") -> float:
+    """Return reciprocal rank of the first hit (1-indexed), 0 if no hit."""
+    for rank, result in enumerate(results, start=1):
+        text = result.get(field, "").lower()
+        if any(span.lower() in text for span in answer_spans):
+            return 1.0 / rank
+    return 0.0
+
+
 def avg_tokens(results: list[dict], field: str = "text") -> float:
     texts = [r.get(field, "") for r in results]
     return sum(len(t.split()) for t in texts) / max(len(texts), 1)
@@ -42,6 +51,7 @@ def evaluate(
 ) -> dict:
     full_hits = nugget_hits = 0
     full_tokens = nugget_tokens = 0.0
+    full_mrr_sum = nugget_mrr_sum = 0.0
     nugget_misses = []
 
     for i, item in enumerate(gold):
@@ -67,6 +77,8 @@ def evaluate(
         else:
             nugget_misses.append((i, query[:40], spans[0][:50]))
 
+        full_mrr_sum += mrr_at_k(full, spans, "text")
+        nugget_mrr_sum += mrr_at_k(nugget, spans, "nugget")
         full_tokens += avg_tokens(full, "text")
         nugget_tokens += avg_tokens(nugget, "nugget")
 
@@ -78,8 +90,16 @@ def evaluate(
 
     return {
         "n_queries": n,
-        "full_chunk": {"recall": round(full_hits / n, 3) if n else 0, "avg_tokens": round(full_tokens / n, 1) if n else 0},
-        "nugget": {"recall": round(nugget_hits / n, 3) if n else 0, "avg_tokens": round(nugget_tokens / n, 1) if n else 0},
+        "full_chunk": {
+            "recall": round(full_hits / n, 3) if n else 0,
+            "mrr": round(full_mrr_sum / n, 3) if n else 0,
+            "avg_tokens": round(full_tokens / n, 1) if n else 0,
+        },
+        "nugget": {
+            "recall": round(nugget_hits / n, 3) if n else 0,
+            "mrr": round(nugget_mrr_sum / n, 3) if n else 0,
+            "avg_tokens": round(nugget_tokens / n, 1) if n else 0,
+        },
     }
 
 
