@@ -8,6 +8,7 @@ Usage:
         --gold eval/gold_set.json \
         --threshold 0.95
 """
+
 from __future__ import annotations
 
 import argparse
