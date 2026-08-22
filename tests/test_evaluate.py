@@ -1,9 +1,9 @@
 """Tests for evaluate.py — mrr_at_k, evaluate() arxiv_id resolution."""
 from eval.evaluate import ARXIV_MAP, evaluate, mrr_at_k
 
+from tests.conftest import make_results
 
-def _make_results(texts: list[str], field: str = "text") -> list[dict]:
-    return [{field: t} for t in texts]
+_make_results = make_results  # backward-compat alias for existing tests
 
 
 # ---- mrr_at_k basic cases ----
