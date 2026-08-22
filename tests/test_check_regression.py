@@ -50,6 +50,7 @@ def _ensure_eval_on_path(monkeypatch):
 def _run_main(monkeypatch, args: list[str]):
     """Import and call check_regression.main() with given CLI args."""
     import importlib
+
     import eval.check_regression as cr_module
 
     importlib.reload(cr_module)
