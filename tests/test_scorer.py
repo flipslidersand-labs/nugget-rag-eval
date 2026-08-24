@@ -77,6 +77,14 @@ def test_bm25_english_unchanged():
     assert scores[0] > scores[1]
 
 
+# ── _normalize 空リスト (#101) ───────────────────────────────────────────
+
+
+def test_normalize_empty_returns_empty():
+    """_normalize([]) は ValueError を投げず [] を返す。"""
+    assert _normalize([]) == []
+
+
 # ── _normalize 均一スコア (#48) ────────────────────────────────────────────
 
 
