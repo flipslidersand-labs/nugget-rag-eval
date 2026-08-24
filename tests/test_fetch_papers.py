@@ -166,18 +166,38 @@ def test_combine_preserves_paper_id():
 # ── fetch_chunks_for_paper (mocked) ─────────────────────────────────────────
 
 
+def _mock_urlopen(results: list[dict]):
+    """Return a mock urlopen that yields {"results": results}."""
+    resp = MagicMock()
+    resp.read.return_value = json.dumps({"results": results}).encode()
+    ctx = MagicMock()
+    ctx.__enter__ = MagicMock(return_value=resp)
+    ctx.__exit__ = MagicMock(return_value=False)
+    return MagicMock(return_value=ctx)
+
+
+def _make_fetch_cm(data: bytes) -> MagicMock:
+    """Return a urlopen mock acting as context manager, yielding a resp with .read()."""
+    resp = MagicMock()
+    resp.read.return_value = data
+    cm = MagicMock()
+    cm.__enter__ = MagicMock(return_value=resp)
+    cm.__exit__ = MagicMock(return_value=False)
+    return MagicMock(return_value=cm)
+
+
+
 @patch("scripts.fetch_papers.urlopen")
 def test_fetch_chunks_returns_chunks(mock_open):
-    mock_open.return_value = MagicMock(
-        read=lambda: json.dumps(
-            {
-                "results": [
-                    {"chunk_index": 0, "snippet": "text A", "score": 0.8},
-                    {"chunk_index": 1, "snippet": "text B", "score": 0.7},
-                ]
-            }
-        ).encode()
-    )
+    data = json.dumps(
+        {
+            "results": [
+                {"chunk_index": 0, "snippet": "text A", "score": 0.8},
+                {"chunk_index": 1, "snippet": "text B", "score": 0.7},
+            ]
+        }
+    ).encode()
+    mock_open.return_value = _make_fetch_cm(data).return_value
     chunks = fetch_chunks_for_paper("http://api", paper_id=1, query="test")
     assert len(chunks) == 2
     assert chunks[0]["text"] == "text A"
@@ -188,15 +208,9 @@ def test_fetch_chunks_returns_chunks(mock_open):
 
 @patch("scripts.fetch_papers.urlopen")
 def test_fetch_chunks_adds_arxiv_id_for_known_paper(mock_open):
-    mock_open.return_value = MagicMock(
-        read=lambda: json.dumps(
-            {
-                "results": [
-                    {"chunk_index": 0, "snippet": "x", "score": 0.5},
-                ]
-            }
-        ).encode()
-    )
+    mock_open.return_value = _make_fetch_cm(
+        json.dumps({"results": [{"chunk_index": 0, "snippet": "x", "score": 0.5}]}).encode()
+    ).return_value
     pid = 1
     chunks = fetch_chunks_for_paper("http://api", paper_id=pid, query="q")
     assert chunks[0]["arxiv_id"] == PAPER_ID_TO_ARXIV[pid]
@@ -204,15 +218,9 @@ def test_fetch_chunks_adds_arxiv_id_for_known_paper(mock_open):
 
 @patch("scripts.fetch_papers.urlopen")
 def test_fetch_chunks_no_arxiv_id_for_unknown_paper(mock_open):
-    mock_open.return_value = MagicMock(
-        read=lambda: json.dumps(
-            {
-                "results": [
-                    {"chunk_index": 0, "snippet": "x", "score": 0.5},
-                ]
-            }
-        ).encode()
-    )
+    mock_open.return_value = _make_fetch_cm(
+        json.dumps({"results": [{"chunk_index": 0, "snippet": "x", "score": 0.5}]}).encode()
+    ).return_value
     chunks = fetch_chunks_for_paper("http://api", paper_id=9999, query="q")
     assert "arxiv_id" not in chunks[0]
 
@@ -220,7 +228,7 @@ def test_fetch_chunks_no_arxiv_id_for_unknown_paper(mock_open):
 @patch("scripts.fetch_papers.urlopen")
 def test_fetch_chunks_sanitizes_query(mock_open):
     """特殊文字を含むクエリが URL に渡る前にサニタイズされることを確認。"""
-    mock_open.return_value = MagicMock(read=lambda: json.dumps({"results": []}).encode())
+    mock_open.return_value = _make_fetch_cm(json.dumps({"results": []}).encode()).return_value
     fetch_chunks_for_paper("http://api", paper_id=1, query="key-value: 'test'")
     call_url = mock_open.call_args[0][0]
     assert "-" not in call_url
