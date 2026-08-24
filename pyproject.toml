@@ -27,6 +27,13 @@ packages = ["nugget_rag", "eval"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 
+[tool.coverage.run]
+source = ["nugget_rag", "eval"]
+omit = ["scripts/*"]
+
+[tool.coverage.report]
+fail_under = 90
+
 [tool.ruff]
 line-length = 100
 target-version = "py312"
