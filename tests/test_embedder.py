@@ -66,7 +66,7 @@ def test_embed_client_accepts_https_base_url():
 
 
 def _client():
-    return EmbedClient("http://localhost:9092", api_key="test-key")
+    return EmbedClient("http://localhost:9092")
 
 
 def test_embed_empty_texts_returns_empty():

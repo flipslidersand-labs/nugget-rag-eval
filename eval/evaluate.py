@@ -5,10 +5,11 @@ Usage:
     python eval/evaluate.py --chunks data/chunks.json --gold eval/gold_set.json
 
     # BM25 + embedding hybrid nugget scoring
-    python eval/evaluate.py --chunks data/chunks_large_perquery.json \
+    # Set EMBEDDING_API_KEY env var (do NOT pass via CLI — it would appear in ps/logs)
+    EMBEDDING_API_KEY=<key> python eval/evaluate.py \
+        --chunks data/chunks_large_perquery.json \
         --gold eval/gold_set.json \
         --embedding-url http://<internal-host>:9092 \
-        --embedding-api-key <key> \
         --embed-weight 0.5
 """
 
@@ -187,11 +188,6 @@ def main():
         "When set, nugget scoring uses BM25 + embedding hybrid.",
     )
     parser.add_argument(
-        "--embedding-api-key",
-        default=None,
-        help="X-API-Key for the embedding service (deprecated: use EMBEDDING_API_KEY env var)",
-    )
-    parser.add_argument(
         "--embed-weight",
         type=_float_between_0_1,
         default=0.5,
@@ -214,12 +210,10 @@ def main():
     if args.embedding_url:
         from nugget_rag.embedder import EmbedClient
 
-        api_key = args.embedding_api_key or os.environ.get("EMBEDDING_API_KEY", "")
-        if not api_key:
+        if not os.environ.get("EMBEDDING_API_KEY"):
             print("[WARN] EMBEDDING_API_KEY not set", file=sys.stderr)
         client = EmbedClient(
             args.embedding_url,
-            api_key=api_key,
             collection=args.embedding_collection,
         )
         embed_fn = client.embed

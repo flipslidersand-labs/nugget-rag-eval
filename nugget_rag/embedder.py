@@ -4,7 +4,8 @@ The service accepts POST /embed/batch with {"texts": [...]} and returns
 {"embeddings": [[float, ...], ...]}.
 
 Usage:
-    client = EmbedClient("http://<internal-host>:9092", api_key="...")
+    # Set EMBEDDING_API_KEY env var before calling
+    client = EmbedClient("http://<internal-host>:9092")
     vecs = client.embed(["query text", "sentence one", "sentence two"])
 """
 
@@ -12,7 +13,9 @@ from __future__ import annotations
 
 import json
 import math
+import os
 import time
+import warnings
 from urllib.error import HTTPError, URLError
 from urllib.parse import urljoin, urlparse
 from urllib.request import Request, urlopen
@@ -39,7 +42,7 @@ class EmbedClient:
     def __init__(
         self,
         base_url: str,
-        api_key: str,
+        api_key: str | None = None,
         collection: str = "search-engine",
         timeout: int = 60,
         max_retries: int = 3,
@@ -47,7 +50,13 @@ class EmbedClient:
     ) -> None:
         _validate_url(base_url)
         self.base_url = base_url.rstrip("/")
-        self.api_key = api_key
+        if api_key is not None:
+            warnings.warn(
+                "Passing api_key to EmbedClient is deprecated and has no effect. "
+                "Set the EMBEDDING_API_KEY environment variable instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
         self.collection = collection
         self.timeout = timeout
         self.max_retries = max_retries
@@ -62,11 +71,12 @@ class EmbedClient:
         Raises:
             EmbedError: after all retries exhausted, or on non-retryable errors.
         """
+        api_key = os.environ.get("EMBEDDING_API_KEY", "")
         body = json.dumps({"texts": texts, "collection": self.collection}).encode()
         req = Request(
             urljoin(self.base_url + "/", "embed/batch"),
             data=body,
-            headers={"Content-Type": "application/json", "X-API-Key": self.api_key},
+            headers={"Content-Type": "application/json", "X-API-Key": api_key},
         )
         last_exc: Exception | None = None
         for attempt in range(self.max_retries + 1):
