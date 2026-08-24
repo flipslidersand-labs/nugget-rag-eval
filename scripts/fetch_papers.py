@@ -14,14 +14,26 @@ import json
 import sys
 from pathlib import Path
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlparse
 from urllib.request import urlopen
 
 from nugget_rag.paper_registry import ARXIV_MAP as ARXIV_TO_PAPER_ID
 from nugget_rag.paper_registry import PAPER_ID_TO_ARXIV
 
+_ALLOWED_SCHEMES = frozenset({"http", "https"})
+
+
+def _validate_url(url: str) -> None:
+    """Reject non-HTTP(S) schemes to prevent SSRF via file://, ftp://, etc."""
+    parsed = urlparse(url)
+    if parsed.scheme not in _ALLOWED_SCHEMES:
+        raise ValueError(
+            f"Unsupported URL scheme: {parsed.scheme!r}. Only 'http' and 'https' are allowed."
+        )
+
 
 def fetch_papers(api_url: str, limit: int = 100) -> list[dict]:
+    _validate_url(api_url)
     url = f"{api_url}/papers?{urlencode({'limit': limit, 'sort': 'score'})}"
     try:
         return json.loads(urlopen(url, timeout=15).read())["papers"]
@@ -38,6 +50,7 @@ def _sanitize_query(query: str) -> str:
 
 
 def fetch_chunks_for_paper(api_url: str, paper_id: int, query: str, limit: int = 20) -> list[dict]:
+    _validate_url(api_url)
     safe_query = _sanitize_query(query)
     url = f"{api_url}/search?{urlencode({'q': safe_query, 'mode': 'hybrid', 'paper_id': paper_id, 'limit': limit})}"
     try:
@@ -179,6 +192,7 @@ def main():
     args = parser.parse_args()
 
     api = args.api_url.rstrip("/")
+    _validate_url(api)
 
     if args.gold_set:
         gold = json.loads(Path(args.gold_set).read_text())
