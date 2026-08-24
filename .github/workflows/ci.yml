@@ -21,4 +21,4 @@ jobs:
           python-version: "3.12"
       - run: pip install -e ".[dev]"
       - name: Eval regression check (BM25-only, fixture data)
-        run: python eval/check_regression.py --chunks tests/fixtures/chunks_test.json --gold tests/fixtures/gold_test.json --threshold 0.5
+        run: python eval/check_regression.py --chunks tests/fixtures/chunks_test.json --gold tests/fixtures/gold_test.json --threshold 0.95
