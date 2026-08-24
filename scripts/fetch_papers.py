@@ -149,6 +149,14 @@ def fetch_per_query(
     return list(seen.values())
 
 
+def _positive_int(v: str) -> int:
+    """Argparse type for integer arguments that must be >= 1."""
+    n = int(v)
+    if n < 1:
+        raise argparse.ArgumentTypeError(f"must be >= 1, got {n}")
+    return n
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--api-url", default="http://localhost:8020")
@@ -172,9 +180,9 @@ def main():
     )
     parser.add_argument(
         "--large-chunk-target",
-        type=int,
+        type=_positive_int,
         default=512,
-        help="Target token count for large chunk mode",
+        help="Target token count for large chunk mode (must be >= 1)",
     )
     args = parser.parse_args()
 
