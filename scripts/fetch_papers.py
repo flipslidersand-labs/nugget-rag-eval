@@ -110,6 +110,16 @@ def fetch_per_query(
 
     Gold items may use ``arxiv_id`` (preferred) or ``paper_id`` (legacy).
     """
+    if chunk_mode == "large":
+
+        def key_field(c: dict) -> tuple:
+            return (c["paper_id"], tuple(c["chunk_indices"]))
+
+    else:
+
+        def key_field(c: dict) -> tuple:
+            return (c["paper_id"], c["chunk_index"])
+
     seen: dict[tuple, dict] = {}
     for item in gold:
         # Resolve paper_id: prefer arxiv_id field, fall back to paper_id int
@@ -127,14 +137,8 @@ def fetch_per_query(
 
         if chunk_mode == "large":
             chunks = combine_large_chunks(raw, pid, target_tokens)
-
-            def key_field(c):
-                return (c["paper_id"], tuple(c["chunk_indices"]))
         else:
             chunks = raw
-
-            def key_field(c):
-                return (c["paper_id"], c["chunk_index"])
 
         for c in chunks:
             k = key_field(c)
