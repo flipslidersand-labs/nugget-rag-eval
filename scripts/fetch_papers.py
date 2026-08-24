@@ -201,7 +201,9 @@ def main():
 
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(json.dumps(all_chunks, ensure_ascii=False, indent=2))
+    tmp = out.with_suffix(".tmp")
+    tmp.write_text(json.dumps(all_chunks, ensure_ascii=False, indent=2))
+    tmp.replace(out)
     print(f"Wrote {len(all_chunks)} chunks to {out}", file=sys.stderr)
 
 
