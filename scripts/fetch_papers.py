@@ -32,14 +32,22 @@ def _validate_url(url: str) -> None:
         )
 
 
+# Unified timeout constants
+_TIMEOUT_PAPERS = 15
+_TIMEOUT_CHUNKS = 30
+
+
+class FetchError(Exception):
+    """Raised when an HTTP/network fetch fails."""
+
+
 def fetch_papers(api_url: str, limit: int = 100) -> list[dict]:
     _validate_url(api_url)
     url = f"{api_url}/papers?{urlencode({'limit': limit, 'sort': 'score'})}"
     try:
-        return json.loads(urlopen(url, timeout=15).read())["papers"]
+        return json.loads(urlopen(url, timeout=_TIMEOUT_PAPERS).read())["papers"]
     except (URLError, HTTPError) as exc:
-        print(f"[ERROR] Failed to fetch papers: {exc}", file=sys.stderr)
-        sys.exit(1)
+        raise FetchError(f"Failed to fetch papers: {exc}") from exc
 
 
 def _sanitize_query(query: str) -> str:
@@ -54,10 +62,9 @@ def fetch_chunks_for_paper(api_url: str, paper_id: int, query: str, limit: int =
     safe_query = _sanitize_query(query)
     url = f"{api_url}/search?{urlencode({'q': safe_query, 'mode': 'hybrid', 'paper_id': paper_id, 'limit': limit})}"
     try:
-        results = json.loads(urlopen(url, timeout=30).read())["results"]
+        results = json.loads(urlopen(url, timeout=_TIMEOUT_CHUNKS).read())["results"]
     except (URLError, HTTPError) as exc:
-        print(f"[ERROR] Failed to fetch chunks for paper {paper_id}: {exc}", file=sys.stderr)
-        sys.exit(1)
+        raise FetchError(f"Failed to fetch chunks for paper {paper_id}: {exc}") from exc
     arxiv_id = PAPER_ID_TO_ARXIV.get(paper_id)
     chunks = []
     for r in results:
@@ -113,15 +120,23 @@ def combine_large_chunks(chunks: list[dict], paper_id: int, target_tokens: int) 
 
 
 def fetch_per_query(
-    api_url: str, gold: list[dict], chunk_mode: str, target_tokens: int
-) -> list[dict]:
+    api_url: str,
+    gold: list[dict],
+    chunk_mode: str,
+    target_tokens: int,
+    fail_fast: bool = False,
+) -> tuple[list[dict], int]:
     """Fetch chunks using each gold set query for its target paper.
 
-    Returns deduplicated chunks. A chunk is keyed by (paper_id, chunk_index) so
-    the same physical chunk fetched by multiple queries is stored only once —
-    the highest-scoring copy wins.
+    Returns a tuple of (deduplicated chunks, failure_count). A chunk is keyed
+    by (paper_id, chunk_index) so the same physical chunk fetched by multiple
+    queries is stored only once — the highest-scoring copy wins.
 
     Gold items may use ``arxiv_id`` (preferred) or ``paper_id`` (legacy).
+
+    When *fail_fast* is ``False`` (default), individual fetch failures are
+    logged as warnings and skipped so partial results are preserved.  When
+    *fail_fast* is ``True``, the first ``FetchError`` is re-raised immediately.
     """
     if chunk_mode == "large":
 
@@ -134,6 +149,7 @@ def fetch_per_query(
             return (c["paper_id"], c["chunk_index"])
 
     seen: dict[tuple, dict] = {}
+    failure_count = 0
     for item in gold:
         # Resolve paper_id: prefer arxiv_id field, fall back to paper_id int
         if "arxiv_id" in item:
@@ -146,7 +162,14 @@ def fetch_per_query(
         else:
             pid = item["paper_id"]
         query = item["query"]
-        raw = fetch_chunks_for_paper(api_url, pid, query, limit=30)
+        try:
+            raw = fetch_chunks_for_paper(api_url, pid, query, limit=30)
+        except FetchError as exc:
+            if fail_fast:
+                raise
+            print(f"  WARNING: {exc}, skipping paper {pid}", file=sys.stderr)
+            failure_count += 1
+            continue
 
         if chunk_mode == "large":
             chunks = combine_large_chunks(raw, pid, target_tokens)
@@ -163,7 +186,7 @@ def fetch_per_query(
             file=sys.stderr,
         )
 
-    return list(seen.values())
+    return list(seen.values()), failure_count
 
 
 def _positive_int(v: str) -> int:
@@ -201,22 +224,49 @@ def main():
         default=512,
         help="Target token count for large chunk mode (must be >= 1)",
     )
+    parser.add_argument(
+        "--fail-fast",
+        action="store_true",
+        default=False,
+        help="Abort on first fetch error instead of skipping and continuing",
+    )
+    parser.add_argument(
+        "--max-failures",
+        type=int,
+        default=None,
+        help="Exit with code 1 when failure count exceeds this threshold (default: any failure exits 1)",
+    )
     args = parser.parse_args()
 
     api = args.api_url.rstrip("/")
     _validate_url(api)
+    failure_count = 0
 
     if args.gold_set:
         gold = json.loads(Path(args.gold_set).read_text())
         print(f"Per-query fetch for {len(gold)} gold items", file=sys.stderr)
-        all_chunks = fetch_per_query(api, gold, args.chunk_mode, args.large_chunk_target)
+        all_chunks, failure_count = fetch_per_query(
+            api, gold, args.chunk_mode, args.large_chunk_target, fail_fast=args.fail_fast
+        )
     else:
-        papers = fetch_papers(api)
+        try:
+            papers = fetch_papers(api)
+        except FetchError as exc:
+            print(f"[ERROR] {exc}", file=sys.stderr)
+            sys.exit(1)
         print(f"Found {len(papers)} papers", file=sys.stderr)
         all_chunks = []
         for p in papers:
             pid = p["id"]
-            raw = fetch_chunks_for_paper(api, pid, args.query)
+            try:
+                raw = fetch_chunks_for_paper(api, pid, args.query)
+            except FetchError as exc:
+                if args.fail_fast:
+                    print(f"[ERROR] {exc}", file=sys.stderr)
+                    sys.exit(1)
+                print(f"  WARNING: {exc}, skipping paper {pid}", file=sys.stderr)
+                failure_count += 1
+                continue
             if args.chunk_mode == "large":
                 chunks = combine_large_chunks(raw, pid, args.large_chunk_target)
                 print(f"  paper {pid}: {len(raw)} → {len(chunks)} large chunks", file=sys.stderr)
@@ -231,6 +281,15 @@ def main():
     tmp.write_text(json.dumps(all_chunks, ensure_ascii=False, indent=2))
     tmp.replace(out)
     print(f"Wrote {len(all_chunks)} chunks to {out}", file=sys.stderr)
+
+    if failure_count > 0:
+        threshold = args.max_failures if args.max_failures is not None else 0
+        if failure_count > threshold:
+            print(
+                f"[ERROR] {failure_count} fetch failure(s) exceeded threshold ({threshold})",
+                file=sys.stderr,
+            )
+            sys.exit(1)
 
 
 if __name__ == "__main__":
