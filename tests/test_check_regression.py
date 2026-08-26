@@ -187,3 +187,35 @@ def test_verbose_not_set_no_miss_output(tmp_path):
     )
     assert result.returncode == 1
     assert "Nugget Recall Misses" not in result.stderr
+
+
+# ── error handling: missing / invalid files (#103) ────────────────────────────
+
+
+def test_missing_chunks_file_exits_with_message(tmp_path):
+    """--chunks に存在しないファイルを渡すと argparse 段階でエラーメッセージが出る。"""
+    g_path = tmp_path / "gold.json"
+    _write_json(g_path, [])
+    result = _run_main(["--chunks", str(tmp_path / "no_such.json"), "--gold", str(g_path)])
+    assert result.returncode != 0
+    assert "file not found" in result.stderr
+
+
+def test_missing_gold_file_exits_with_message(tmp_path):
+    """--gold に存在しないファイルを渡すと argparse 段階でエラーメッセージが出る。"""
+    c_path = tmp_path / "chunks.json"
+    _write_json(c_path, [])
+    result = _run_main(["--chunks", str(c_path), "--gold", str(tmp_path / "no_such.json")])
+    assert result.returncode != 0
+    assert "file not found" in result.stderr
+
+
+def test_invalid_json_chunks_exits_with_error_message(tmp_path):
+    """不正 JSON の --chunks は [ERROR] メッセージを出して終了する。"""
+    c_path = tmp_path / "chunks.json"
+    c_path.write_text("{{not json")
+    g_path = tmp_path / "gold.json"
+    _write_json(g_path, [])
+    result = _run_main(["--chunks", str(c_path), "--gold", str(g_path)])
+    assert result.returncode != 0
+    assert "ERROR" in result.stderr

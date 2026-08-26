@@ -174,10 +174,29 @@ def _positive_int(v: str) -> int:
     return n
 
 
+def _existing_file(value: str) -> str:
+    """argparse type= helper: abort early if the path does not point to a file."""
+    if not Path(value).is_file():
+        raise argparse.ArgumentTypeError(f"file not found: {value}")
+    return value
+
+
+def _load_json(path: str, label: str) -> list[dict]:
+    """Read *path* and parse JSON, exiting with a friendly message on failure."""
+    try:
+        return json.loads(Path(path).read_text())
+    except FileNotFoundError:
+        sys.exit(f"[ERROR] {label} file not found: {path}")
+    except PermissionError:
+        sys.exit(f"[ERROR] permission denied reading {label} file: {path}")
+    except json.JSONDecodeError as exc:
+        sys.exit(f"[ERROR] {label} file is not valid JSON ({path}): {exc}")
+
+
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--chunks", required=True)
-    parser.add_argument("--gold", required=True)
+    parser.add_argument("--chunks", required=True, type=_existing_file)
+    parser.add_argument("--gold", required=True, type=_existing_file)
     parser.add_argument("--top-k", type=_positive_int, default=5)
     parser.add_argument("--verbose", action="store_true")
     parser.add_argument(
@@ -225,8 +244,8 @@ def main():
         embed_fn = client.embed
         print(f"Embedding: {args.embedding_url}  weight={args.embed_weight}", file=sys.stderr)
 
-    chunks_data: list[dict] = json.loads(Path(args.chunks).read_text())
-    gold: list[dict] = json.loads(Path(args.gold).read_text())
+    chunks_data: list[dict] = _load_json(args.chunks, "--chunks")
+    gold: list[dict] = _load_json(args.gold, "--gold")
 
     try:
         validate_gold(gold)
