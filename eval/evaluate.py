@@ -24,6 +24,45 @@ from pathlib import Path
 from nugget_rag.paper_registry import ARXIV_MAP
 from nugget_rag.retriever import retrieve_full_chunk, retrieve_nuggets
 
+_REQUIRED_FIELDS = frozenset({"query", "answer_spans"})
+
+
+def validate_gold(gold: list[dict]) -> None:
+    """Validate gold set items, raising ValueError on schema violations.
+
+    Checks:
+    - Each item has at least one of ``arxiv_id`` or ``paper_id``.
+    - Each item has ``query`` and ``answer_spans``.
+    - ``answer_spans`` is a non-empty list of strings.
+
+    Raises:
+        ValueError: On the first item that fails validation, with a descriptive
+            message listing the index and the specific problem.
+    """
+    for i, item in enumerate(gold):
+        missing = _REQUIRED_FIELDS - item.keys()
+        if missing:
+            raise ValueError(f"gold[{i}] missing required fields: {sorted(missing)}")
+
+        has_id = item.get("arxiv_id") or ("paper_id" in item)
+        if not has_id:
+            raise ValueError(f"gold[{i}] must have 'arxiv_id' or 'paper_id' (both absent or falsy)")
+
+        spans = item["answer_spans"]
+        if not isinstance(spans, list):
+            raise ValueError(
+                f"gold[{i}] 'answer_spans' must be a list, got {type(spans).__name__!r}"
+            )
+        if len(spans) == 0:
+            raise ValueError(
+                f"gold[{i}] 'answer_spans' is empty — recall would always be 0 (silent error)"
+            )
+        non_str = [s for s in spans if not isinstance(s, str)]
+        if non_str:
+            raise ValueError(
+                f"gold[{i}] 'answer_spans' contains non-string elements: {non_str[:3]}"
+            )
+
 
 def recall_at_k(results: list[dict], answer_spans: list[str], field: str = "text") -> bool:
     haystack = " ".join(r.get(field, "") for r in results).lower()
@@ -55,6 +94,8 @@ def evaluate(
     embed_weight: float = 0.5,
     estimator: str = "words",
 ) -> dict:
+    validate_gold(gold)
+
     full_hits = nugget_hits = 0
     full_tokens = nugget_tokens = 0.0
     full_mrr_sum = nugget_mrr_sum = 0.0
@@ -186,6 +227,11 @@ def main():
 
     chunks_data: list[dict] = json.loads(Path(args.chunks).read_text())
     gold: list[dict] = json.loads(Path(args.gold).read_text())
+
+    try:
+        validate_gold(gold)
+    except ValueError as exc:
+        sys.exit(f"[ERROR] {exc}")
 
     chunks_by_paper: dict[str | int, list[dict]] = {}
     for c in chunks_data:
