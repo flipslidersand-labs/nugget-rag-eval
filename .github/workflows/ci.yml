@@ -8,7 +8,7 @@ on:
 
 jobs:
   test:
-    uses: flipslidersand-labs/qa-workflows/.github/workflows/python-test.yml@main
+    uses: flipslidersand-labs/qa-workflows/.github/workflows/python-test.yml@fcccf3f5895340faa5c6ef2469068b7b32a6c60e  # main
     with:
       coverage-threshold: 90
 
