@@ -2,6 +2,31 @@ import json as _json
 from unittest.mock import MagicMock, patch
 from urllib.error import HTTPError, URLError
 
+
+def _make_cm_mock(data: bytes) -> MagicMock:
+    """Return a urlopen callable mock that acts as a context manager yielding a resp with .read()."""
+    resp = MagicMock()
+    resp.read.return_value = data
+    cm = MagicMock()
+    cm.__enter__ = MagicMock(return_value=resp)
+    cm.__exit__ = MagicMock(return_value=False)
+    return MagicMock(return_value=cm)
+
+
+def _cm_side_effect(fn):
+    """Wrap a side_effect fn(req, timeout)->bytes so urlopen acts as context manager."""
+
+    def wrapper(req, timeout):
+        data = fn(req, timeout)
+        resp = MagicMock()
+        resp.read.return_value = data
+        cm = MagicMock()
+        cm.__enter__ = MagicMock(return_value=resp)
+        cm.__exit__ = MagicMock(return_value=False)
+        return cm
+
+    return wrapper
+
 import pytest
 
 from nugget_rag.embedder import (
@@ -90,18 +115,14 @@ def test_embed_unknown_key_raises_embed_error_with_detail():
     """Response with neither 'vectors' nor 'embeddings' raises EmbedError with key list."""
     from nugget_rag.embedder import EmbedError
 
-    mock_resp = MagicMock()
-    mock_resp.read.return_value = b'{"data": [[1.0, 2.0]]}'
-    with patch("nugget_rag.embedder.urlopen", return_value=mock_resp):
+    with patch("nugget_rag.embedder.urlopen", _make_cm_mock(b'{"data": [[1.0, 2.0]]}')):
         with pytest.raises(EmbedError, match="'vectors' or 'embeddings'"):
             _client().embed(["hello"])
 
 
 def test_embed_embeddings_key_fallback_succeeds():
     """Response with 'embeddings' key (legacy schema) is accepted transparently."""
-    mock_resp = MagicMock()
-    mock_resp.read.return_value = b'{"embeddings": [[0.1, 0.2]]}'
-    with patch("nugget_rag.embedder.urlopen", return_value=mock_resp):
+    with patch("nugget_rag.embedder.urlopen", _make_cm_mock(b'{"embeddings": [[0.1, 0.2]]}')):
         result = _client().embed(["hello"])
     assert result == [[0.1, 0.2]]
 
@@ -110,26 +131,20 @@ def test_embed_count_mismatch_raises_embed_error():
     """Mismatched vector count raises EmbedError with a descriptive message."""
     from nugget_rag.embedder import EmbedError
 
-    mock_resp = MagicMock()
-    mock_resp.read.return_value = b'{"vectors": [[0.1, 0.2], [0.3, 0.4]]}'
-    with patch("nugget_rag.embedder.urlopen", return_value=mock_resp):
+    with patch("nugget_rag.embedder.urlopen", _make_cm_mock(b'{"vectors": [[0.1, 0.2], [0.3, 0.4]]}')):
         # Sending 1 text but receiving 2 vectors should raise
         with pytest.raises(EmbedError, match="mismatch"):
             _client().embed(["only one text"])
 
 
 def test_embed_invalid_json_raises():
-    mock_resp = MagicMock()
-    mock_resp.read.return_value = b"not json"
-    with patch("nugget_rag.embedder.urlopen", return_value=mock_resp):
+    with patch("nugget_rag.embedder.urlopen", _make_cm_mock(b"not json")):
         with pytest.raises(Exception):
             _client().embed(["hello"])
 
 
 def test_embed_success_returns_vectors():
-    mock_resp = MagicMock()
-    mock_resp.read.return_value = b'{"vectors": [[0.1, 0.2], [0.3, 0.4]]}'
-    with patch("nugget_rag.embedder.urlopen", return_value=mock_resp):
+    with patch("nugget_rag.embedder.urlopen", _make_cm_mock(b'{"vectors": [[0.1, 0.2], [0.3, 0.4]]}')):
         result = _client().embed(["text1", "text2"])
     assert result == [[0.1, 0.2], [0.3, 0.4]]
 
@@ -201,13 +216,11 @@ def test_top_nuggets_embed_fn_none_unchanged():
 def test_embed_splits_large_batch(mock_open):
     """texts > MAX_BATCH_SIZE のとき urlopen が複数回呼ばれる。"""
 
-    def side_effect(req, timeout):
+    def raw_side_effect(req, timeout):
         batch_size = len(_json.loads(req.data)["texts"])
-        resp = MagicMock()
-        resp.read.return_value = _json.dumps({"vectors": [[0.1, 0.2]] * batch_size}).encode()
-        return resp
+        return _json.dumps({"vectors": [[0.1, 0.2]] * batch_size}).encode()
 
-    mock_open.side_effect = side_effect
+    mock_open.side_effect = _cm_side_effect(raw_side_effect)
 
     n = MAX_BATCH_SIZE + 10
     vecs = _client().embed(["text"] * n)
@@ -218,9 +231,8 @@ def test_embed_splits_large_batch(mock_open):
 @patch("nugget_rag.embedder.urlopen")
 def test_embed_exact_batch_size_single_call(mock_open):
     """texts == MAX_BATCH_SIZE のとき urlopen は 1 回だけ。"""
-    mock_open.return_value = MagicMock(
-        read=lambda: __import__("json").dumps({"vectors": [[0.0]] * MAX_BATCH_SIZE}).encode()
-    )
+    data = _json.dumps({"vectors": [[0.0]] * MAX_BATCH_SIZE}).encode()
+    mock_open.side_effect = _cm_side_effect(lambda req, timeout: data)
     vecs = _client().embed(["t"] * MAX_BATCH_SIZE)
     assert len(vecs) == MAX_BATCH_SIZE
     assert mock_open.call_count == 1
@@ -231,15 +243,13 @@ def test_embed_batch_preserves_order(mock_open):
     """複数バッチでもベクトルの順序が保たれる。"""
     call_idx = [0]
 
-    def side_effect(req, timeout):
+    def raw_side_effect(req, timeout):
         batch = _json.loads(req.data)["texts"]
         vecs = [[float(i + call_idx[0] * MAX_BATCH_SIZE)] for i in range(len(batch))]
         call_idx[0] += 1
-        resp = MagicMock()
-        resp.read.return_value = _json.dumps({"vectors": vecs}).encode()
-        return resp
+        return _json.dumps({"vectors": vecs}).encode()
 
-    mock_open.side_effect = side_effect
+    mock_open.side_effect = _cm_side_effect(raw_side_effect)
     n = MAX_BATCH_SIZE + 5
     vecs = _client().embed(["t"] * n)
     assert len(vecs) == n
@@ -257,9 +267,13 @@ def _retry_client(max_retries=3, backoff=0.0):
 
 
 def _ok_response(n=1):
-    m = MagicMock()
-    m.read.return_value = _json.dumps({"vectors": [[0.1]] * n}).encode()
-    return m
+    data = _json.dumps({"vectors": [[0.1]] * n}).encode()
+    resp = MagicMock()
+    resp.read.return_value = data
+    cm = MagicMock()
+    cm.__enter__ = MagicMock(return_value=resp)
+    cm.__exit__ = MagicMock(return_value=False)
+    return cm
 
 
 @patch("nugget_rag.embedder.time.sleep")

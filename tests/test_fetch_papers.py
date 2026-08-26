@@ -11,6 +11,16 @@ import json
 from unittest.mock import MagicMock, patch
 from urllib.error import URLError
 
+
+def _cm(data: bytes) -> MagicMock:
+    """Return a urlopen callable mock acting as context manager with .read() -> data."""
+    resp = MagicMock()
+    resp.read.return_value = data
+    cm = MagicMock()
+    cm.__enter__ = MagicMock(return_value=resp)
+    cm.__exit__ = MagicMock(return_value=False)
+    return MagicMock(return_value=cm)
+
 import pytest
 
 from scripts.fetch_papers import (
@@ -171,8 +181,8 @@ def test_combine_preserves_paper_id():
 
 @patch("scripts.fetch_papers.urlopen")
 def test_fetch_chunks_returns_chunks(mock_open):
-    mock_open.return_value = MagicMock(
-        read=lambda: json.dumps(
+    mock_open.return_value = _cm(
+        json.dumps(
             {
                 "results": [
                     {"chunk_index": 0, "snippet": "text A", "score": 0.8},
@@ -180,7 +190,7 @@ def test_fetch_chunks_returns_chunks(mock_open):
                 ]
             }
         ).encode()
-    )
+    ).return_value
     chunks = fetch_chunks_for_paper("http://api", paper_id=1, query="test")
     assert len(chunks) == 2
     assert chunks[0]["text"] == "text A"
@@ -191,15 +201,9 @@ def test_fetch_chunks_returns_chunks(mock_open):
 
 @patch("scripts.fetch_papers.urlopen")
 def test_fetch_chunks_adds_arxiv_id_for_known_paper(mock_open):
-    mock_open.return_value = MagicMock(
-        read=lambda: json.dumps(
-            {
-                "results": [
-                    {"chunk_index": 0, "snippet": "x", "score": 0.5},
-                ]
-            }
-        ).encode()
-    )
+    mock_open.return_value = _cm(
+        json.dumps({"results": [{"chunk_index": 0, "snippet": "x", "score": 0.5}]}).encode()
+    ).return_value
     pid = 1
     chunks = fetch_chunks_for_paper("http://api", paper_id=pid, query="q")
     assert chunks[0]["arxiv_id"] == PAPER_ID_TO_ARXIV[pid]
@@ -207,15 +211,9 @@ def test_fetch_chunks_adds_arxiv_id_for_known_paper(mock_open):
 
 @patch("scripts.fetch_papers.urlopen")
 def test_fetch_chunks_no_arxiv_id_for_unknown_paper(mock_open):
-    mock_open.return_value = MagicMock(
-        read=lambda: json.dumps(
-            {
-                "results": [
-                    {"chunk_index": 0, "snippet": "x", "score": 0.5},
-                ]
-            }
-        ).encode()
-    )
+    mock_open.return_value = _cm(
+        json.dumps({"results": [{"chunk_index": 0, "snippet": "x", "score": 0.5}]}).encode()
+    ).return_value
     chunks = fetch_chunks_for_paper("http://api", paper_id=9999, query="q")
     assert "arxiv_id" not in chunks[0]
 
@@ -223,7 +221,7 @@ def test_fetch_chunks_no_arxiv_id_for_unknown_paper(mock_open):
 @patch("scripts.fetch_papers.urlopen")
 def test_fetch_chunks_sanitizes_query(mock_open):
     """特殊文字を含むクエリが URL に渡る前にサニタイズされることを確認。"""
-    mock_open.return_value = MagicMock(read=lambda: json.dumps({"results": []}).encode())
+    mock_open.return_value = _cm(json.dumps({"results": []}).encode()).return_value
     fetch_chunks_for_paper("http://api", paper_id=1, query="key-value: 'test'")
     call_url = mock_open.call_args[0][0]
     assert "-" not in call_url
