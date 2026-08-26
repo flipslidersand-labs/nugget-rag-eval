@@ -54,6 +54,8 @@ def bm25_scores(
 
 def _normalize(scores: list[float]) -> list[float]:
     """Min-max normalize to [0, 1]. Returns zeros if all scores equal."""
+    if not scores:
+        return []
     lo, hi = min(scores), max(scores)
     if hi == lo:
         return [0.0] * len(scores)
