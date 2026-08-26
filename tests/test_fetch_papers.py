@@ -186,7 +186,6 @@ def _make_fetch_cm(data: bytes) -> MagicMock:
     return MagicMock(return_value=cm)
 
 
-
 @patch("scripts.fetch_papers.urlopen")
 def test_fetch_chunks_returns_chunks(mock_open):
     data = json.dumps(
