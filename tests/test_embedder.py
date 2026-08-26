@@ -249,9 +249,13 @@ def _retry_client(max_retries=3, backoff=0.0):
 
 
 def _ok_response(n=1):
-    m = MagicMock()
-    m.read.return_value = _json.dumps({"vectors": [[0.1]] * n}).encode()
-    return m
+    data = _json.dumps({"vectors": [[0.1]] * n}).encode()
+    resp = MagicMock()
+    resp.read.return_value = data
+    cm = MagicMock()
+    cm.__enter__ = MagicMock(return_value=resp)
+    cm.__exit__ = MagicMock(return_value=False)
+    return cm
 
 
 @patch("nugget_rag.embedder.time.sleep")
