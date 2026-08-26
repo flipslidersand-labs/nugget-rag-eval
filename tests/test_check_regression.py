@@ -3,9 +3,8 @@
 from __future__ import annotations
 
 import json
+import subprocess
 import sys
-
-import pytest
 
 from eval.evaluate import ARXIV_MAP
 
@@ -37,141 +36,115 @@ def _failing_data(tmp_path):
     return c_path, g_path
 
 
-# ── import check_regression.main ─────────────────────────────────────────────
+# ── subprocess runner ─────────────────────────────────────────────────────────
 
 
-@pytest.fixture(autouse=True)
-def _ensure_eval_on_path(monkeypatch):
-    """Make sure eval/ dir is importable for check_regression's relative import."""
+def _run_main(args: list[str]) -> subprocess.CompletedProcess:
+    """Run check_regression.py as a subprocess.
+
+    Returns a CompletedProcess with .stdout, .stderr, and .returncode.
+    Uses a fresh interpreter each call — zero shared module state.
+    """
     import pathlib
 
-    eval_dir = str(pathlib.Path(__file__).parent.parent / "eval")
-    if eval_dir not in sys.path:
-        monkeypatch.syspath_prepend(eval_dir)
-    yield
-
-
-def _run_main(monkeypatch, args: list[str]):
-    """Import and call check_regression.main() with given CLI args."""
-    import importlib
-
-    import eval.check_regression as cr_module
-
-    importlib.reload(cr_module)
-    monkeypatch.setattr(sys, "argv", ["check_regression.py", *args])
-    cr_module.main()
+    repo_root = str(pathlib.Path(__file__).parent.parent)
+    return subprocess.run(
+        [sys.executable, "-m", "eval.check_regression", *args],
+        capture_output=True,
+        text=True,
+        cwd=repo_root,
+    )
 
 
 # ── PASS tests ────────────────────────────────────────────────────────────────
 
 
-def test_main_pass_exits_zero(tmp_path, monkeypatch, capsys):
+def test_main_pass_exits_zero(tmp_path):
     c_path, g_path = _passing_data(tmp_path)
-    _run_main(monkeypatch, ["--chunks", str(c_path), "--gold", str(g_path), "--threshold", "0.5"])
-    out = capsys.readouterr().out
-    assert "[PASS]" in out
+    result = _run_main(["--chunks", str(c_path), "--gold", str(g_path), "--threshold", "0.5"])
+    assert result.returncode == 0
+    assert "[PASS]" in result.stdout
 
 
-def test_main_pass_prints_recall_values(tmp_path, monkeypatch, capsys):
+def test_main_pass_prints_recall_values(tmp_path):
     c_path, g_path = _passing_data(tmp_path)
-    _run_main(monkeypatch, ["--chunks", str(c_path), "--gold", str(g_path), "--threshold", "0.5"])
-    out = capsys.readouterr().out
-    assert "full-chunk" in out
-    assert "nugget" in out
-    assert "threshold" in out
+    result = _run_main(["--chunks", str(c_path), "--gold", str(g_path), "--threshold", "0.5"])
+    assert "full-chunk" in result.stdout
+    assert "nugget" in result.stdout
+    assert "threshold" in result.stdout
 
 
-def test_main_pass_custom_threshold(tmp_path, monkeypatch, capsys):
+def test_main_pass_custom_threshold(tmp_path):
     c_path, g_path = _passing_data(tmp_path)
-    _run_main(monkeypatch, ["--chunks", str(c_path), "--gold", str(g_path), "--threshold", "0.1"])
-    out = capsys.readouterr().out
-    assert "[PASS]" in out
-    assert "0.1" in out
+    result = _run_main(["--chunks", str(c_path), "--gold", str(g_path), "--threshold", "0.1"])
+    assert "[PASS]" in result.stdout
+    assert "0.1" in result.stdout
 
 
-def test_main_pass_custom_top_k(tmp_path, monkeypatch, capsys):
+def test_main_pass_custom_top_k(tmp_path):
     c_path, g_path = _passing_data(tmp_path)
-    _run_main(
-        monkeypatch,
-        ["--chunks", str(c_path), "--gold", str(g_path), "--threshold", "0.5", "--top-k", "3"],
+    result = _run_main(
+        ["--chunks", str(c_path), "--gold", str(g_path), "--threshold", "0.5", "--top-k", "3"]
     )
-    out = capsys.readouterr().out
-    assert "[PASS]" in out
-    assert "Recall@3" in out
+    assert "[PASS]" in result.stdout
+    assert "Recall@3" in result.stdout
 
 
 # ── FAIL tests ────────────────────────────────────────────────────────────────
 
 
-def test_main_fail_exits_one_on_low_recall(tmp_path, monkeypatch):
+def test_main_fail_exits_one_on_low_recall(tmp_path):
     c_path, g_path = _failing_data(tmp_path)
-    with pytest.raises(SystemExit) as exc_info:
-        _run_main(
-            monkeypatch, ["--chunks", str(c_path), "--gold", str(g_path), "--threshold", "0.95"]
-        )
-    assert exc_info.value.code == 1
+    result = _run_main(["--chunks", str(c_path), "--gold", str(g_path), "--threshold", "0.95"])
+    assert result.returncode == 1
 
 
-def test_main_fail_prints_fail_message(tmp_path, monkeypatch, capsys):
+def test_main_fail_prints_fail_message(tmp_path):
     c_path, g_path = _failing_data(tmp_path)
-    with pytest.raises(SystemExit):
-        _run_main(
-            monkeypatch, ["--chunks", str(c_path), "--gold", str(g_path), "--threshold", "0.95"]
-        )
-    out = capsys.readouterr().out
-    assert "[FAIL]" in out
-    assert "Recall regression" in out
+    result = _run_main(["--chunks", str(c_path), "--gold", str(g_path), "--threshold", "0.95"])
+    assert "[FAIL]" in result.stdout
+    assert "Recall regression" in result.stdout
 
 
-def test_main_fail_mentions_both_failing_modes(tmp_path, monkeypatch, capsys):
+def test_main_fail_mentions_both_failing_modes(tmp_path):
     c_path, g_path = _failing_data(tmp_path)
-    with pytest.raises(SystemExit):
-        _run_main(
-            monkeypatch, ["--chunks", str(c_path), "--gold", str(g_path), "--threshold", "0.95"]
-        )
-    out = capsys.readouterr().out
-    assert "full-chunk" in out
-    assert "nugget" in out
+    result = _run_main(["--chunks", str(c_path), "--gold", str(g_path), "--threshold", "0.95"])
+    assert "full-chunk" in result.stdout
+    assert "nugget" in result.stdout
 
 
-def test_main_fail_threshold_zero_still_passes(tmp_path, monkeypatch, capsys):
+def test_main_fail_threshold_zero_still_passes(tmp_path):
     """threshold=0.0 means any recall (even 0.0) passes."""
     c_path, g_path = _failing_data(tmp_path)
-    _run_main(monkeypatch, ["--chunks", str(c_path), "--gold", str(g_path), "--threshold", "0.0"])
-    out = capsys.readouterr().out
-    assert "[PASS]" in out
+    result = _run_main(["--chunks", str(c_path), "--gold", str(g_path), "--threshold", "0.0"])
+    assert "[PASS]" in result.stdout
 
 
-def test_main_default_threshold_is_0_95(tmp_path, monkeypatch, capsys):
+def test_main_default_threshold_is_0_95(tmp_path):
     """Running without --threshold uses 0.95 default and prints it."""
     c_path, g_path = _passing_data(tmp_path)
-    _run_main(monkeypatch, ["--chunks", str(c_path), "--gold", str(g_path)])
-    out = capsys.readouterr().out
-    assert "0.95" in out
+    result = _run_main(["--chunks", str(c_path), "--gold", str(g_path)])
+    assert "0.95" in result.stdout
 
 
 # ── arxiv_id-keyed chunks (PR #78 追加テスト) ────────────────────────────────
 
 
-def test_arxiv_id_only_chunks_do_not_raise_key_error(tmp_path, monkeypatch):
+def test_arxiv_id_only_chunks_do_not_raise_key_error(tmp_path):
     """arxiv_id のみを持つチャンク（paper_id なし）でも KeyError が出ない。"""
     chunks = [{"arxiv_id": "2410.10071", "text": "answer text", "nugget": "answer text"}]
     gold = [{"arxiv_id": "2410.10071", "query": "q", "answer_spans": ["answer"]}]
     c_path, g_path = tmp_path / "c.json", tmp_path / "g.json"
     _write_json(c_path, chunks)
     _write_json(g_path, gold)
-    try:
-        _run_main(
-            monkeypatch, ["--chunks", str(c_path), "--gold", str(g_path), "--threshold", "0.0"]
-        )
-    except SystemExit as e:
-        assert e.code != "KeyError", "KeyError が発生した"
+    result = _run_main(["--chunks", str(c_path), "--gold", str(g_path), "--threshold", "0.0"])
+    assert "KeyError" not in result.stderr, "KeyError が発生した"
 
 
 # ── --verbose flag ────────────────────────────────────────────────────────────
 
 
-def test_verbose_on_fail_prints_nugget_miss_to_stderr(tmp_path, monkeypatch, capsys):
+def test_verbose_on_fail_prints_nugget_miss_to_stderr(tmp_path):
     """--verbose + FAIL: 失敗クエリの情報が stderr に出力される。"""
     paper_id = ARXIV_MAP["2410.10071"]
     chunks = [{"paper_id": paper_id, "text": "unrelated content here", "nugget": "unrelated"}]
@@ -179,24 +152,22 @@ def test_verbose_on_fail_prints_nugget_miss_to_stderr(tmp_path, monkeypatch, cap
     c_path, g_path = tmp_path / "c.json", tmp_path / "g.json"
     _write_json(c_path, chunks)
     _write_json(g_path, gold)
-    with pytest.raises(SystemExit):
-        _run_main(
-            monkeypatch,
-            [
-                "--chunks",
-                str(c_path),
-                "--gold",
-                str(g_path),
-                "--threshold",
-                "0.95",
-                "--verbose",
-            ],
-        )
-    err = capsys.readouterr().err
-    assert "Nugget Recall Misses" in err
+    result = _run_main(
+        [
+            "--chunks",
+            str(c_path),
+            "--gold",
+            str(g_path),
+            "--threshold",
+            "0.95",
+            "--verbose",
+        ]
+    )
+    assert result.returncode == 1
+    assert "Nugget Recall Misses" in result.stderr
 
 
-def test_verbose_not_set_no_miss_output(tmp_path, monkeypatch, capsys):
+def test_verbose_not_set_no_miss_output(tmp_path):
     """--verbose なし: stderr に Nugget Recall Misses が出ない。"""
     paper_id = ARXIV_MAP["2410.10071"]
     chunks = [{"paper_id": paper_id, "text": "unrelated", "nugget": "unrelated"}]
@@ -204,17 +175,15 @@ def test_verbose_not_set_no_miss_output(tmp_path, monkeypatch, capsys):
     c_path, g_path = tmp_path / "c.json", tmp_path / "g.json"
     _write_json(c_path, chunks)
     _write_json(g_path, gold)
-    with pytest.raises(SystemExit):
-        _run_main(
-            monkeypatch,
-            [
-                "--chunks",
-                str(c_path),
-                "--gold",
-                str(g_path),
-                "--threshold",
-                "0.95",
-            ],
-        )
-    err = capsys.readouterr().err
-    assert "Nugget Recall Misses" not in err
+    result = _run_main(
+        [
+            "--chunks",
+            str(c_path),
+            "--gold",
+            str(g_path),
+            "--threshold",
+            "0.95",
+        ]
+    )
+    assert result.returncode == 1
+    assert "Nugget Recall Misses" not in result.stderr
