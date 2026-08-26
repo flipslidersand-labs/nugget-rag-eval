@@ -86,12 +86,36 @@ def test_embed_http_error_raises():
             _client().embed(["hello"])
 
 
-def test_embed_malformed_response_missing_vectors_key_raises():
+def test_embed_unknown_key_raises_embed_error_with_detail():
+    """Response with neither 'vectors' nor 'embeddings' raises EmbedError with key list."""
+    from nugget_rag.embedder import EmbedError
+
     mock_resp = MagicMock()
-    mock_resp.read.return_value = b'{"embeddings": [[1.0, 2.0]]}'
+    mock_resp.read.return_value = b'{"data": [[1.0, 2.0]]}'
     with patch("nugget_rag.embedder.urlopen", return_value=mock_resp):
-        with pytest.raises((KeyError, Exception)):
+        with pytest.raises(EmbedError, match="'vectors' or 'embeddings'"):
             _client().embed(["hello"])
+
+
+def test_embed_embeddings_key_fallback_succeeds():
+    """Response with 'embeddings' key (legacy schema) is accepted transparently."""
+    mock_resp = MagicMock()
+    mock_resp.read.return_value = b'{"embeddings": [[0.1, 0.2]]}'
+    with patch("nugget_rag.embedder.urlopen", return_value=mock_resp):
+        result = _client().embed(["hello"])
+    assert result == [[0.1, 0.2]]
+
+
+def test_embed_count_mismatch_raises_embed_error():
+    """Mismatched vector count raises EmbedError with a descriptive message."""
+    from nugget_rag.embedder import EmbedError
+
+    mock_resp = MagicMock()
+    mock_resp.read.return_value = b'{"vectors": [[0.1, 0.2], [0.3, 0.4]]}'
+    with patch("nugget_rag.embedder.urlopen", return_value=mock_resp):
+        # Sending 1 text but receiving 2 vectors should raise
+        with pytest.raises(EmbedError, match="mismatch"):
+            _client().embed(["only one text"])
 
 
 def test_embed_invalid_json_raises():
