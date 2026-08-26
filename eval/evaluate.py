@@ -117,11 +117,27 @@ def evaluate(
     }
 
 
+def _float_between_0_1(v: str) -> float:
+    """Argparse type for --embed-weight: must be in [0.0, 1.0]."""
+    f = float(v)
+    if not (0.0 <= f <= 1.0):
+        raise argparse.ArgumentTypeError(f"must be in [0, 1], got {f}")
+    return f
+
+
+def _positive_int(v: str) -> int:
+    """Argparse type for --top-k: must be >= 1."""
+    n = int(v)
+    if n < 1:
+        raise argparse.ArgumentTypeError(f"must be >= 1, got {n}")
+    return n
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--chunks", required=True)
     parser.add_argument("--gold", required=True)
-    parser.add_argument("--top-k", type=int, default=5)
+    parser.add_argument("--top-k", type=_positive_int, default=5)
     parser.add_argument("--verbose", action="store_true")
     parser.add_argument(
         "--embedding-url",
@@ -136,7 +152,7 @@ def main():
     )
     parser.add_argument(
         "--embed-weight",
-        type=float,
+        type=_float_between_0_1,
         default=0.5,
         help="Embedding weight in hybrid score: 0=BM25-only, 1=embed-only (default: 0.5)",
     )
