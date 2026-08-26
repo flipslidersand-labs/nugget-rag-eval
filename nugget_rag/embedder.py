@@ -14,10 +14,21 @@ import json
 import math
 import time
 from urllib.error import HTTPError, URLError
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
 from urllib.request import Request, urlopen
 
 MAX_BATCH_SIZE = 256
+
+_ALLOWED_SCHEMES = frozenset({"http", "https"})
+
+
+def _validate_url(url: str) -> None:
+    """Reject non-HTTP(S) schemes to prevent SSRF via file://, ftp://, etc."""
+    parsed = urlparse(url)
+    if parsed.scheme not in _ALLOWED_SCHEMES:
+        raise ValueError(
+            f"Unsupported URL scheme: {parsed.scheme!r}. Only 'http' and 'https' are allowed."
+        )
 
 
 class EmbedError(RuntimeError):
@@ -34,6 +45,7 @@ class EmbedClient:
         max_retries: int = 3,
         retry_backoff: float = 1.0,
     ) -> None:
+        _validate_url(base_url)
         self.base_url = base_url.rstrip("/")
         self.api_key = api_key
         self.collection = collection

@@ -4,8 +4,63 @@ from urllib.error import HTTPError, URLError
 
 import pytest
 
-from nugget_rag.embedder import MAX_BATCH_SIZE, EmbedClient, cosine_similarity, embed_scores
+from nugget_rag.embedder import (
+    MAX_BATCH_SIZE,
+    EmbedClient,
+    _validate_url,
+    cosine_similarity,
+    embed_scores,
+)
 from nugget_rag.scorer import top_nuggets
+
+# --- URL スキーム検証 (SSRF 対策) ---
+
+
+def test_validate_url_allows_http():
+    _validate_url("http://localhost:9092")  # should not raise
+
+
+def test_validate_url_allows_https():
+    _validate_url("https://example.com/embed")  # should not raise
+
+
+def test_validate_url_rejects_file_scheme():
+    with pytest.raises(ValueError, match="file"):
+        _validate_url("file:///etc/passwd")
+
+
+def test_validate_url_rejects_ftp_scheme():
+    with pytest.raises(ValueError, match="ftp"):
+        _validate_url("ftp://internal-host/resource")
+
+
+def test_validate_url_rejects_imds_url():
+    """AWS IMDSv1 経由の SSRF を防ぐ。スキームが http でも検証済みなら通過するが、
+    ここではカスタムスキーム的な悪用パターンを確認する。"""
+    # file:// / ftp:// は拒否される
+    with pytest.raises(ValueError):
+        _validate_url("file://169.254.169.254/latest/meta-data/")
+
+
+def test_embed_client_rejects_file_scheme_base_url():
+    with pytest.raises(ValueError, match="file"):
+        EmbedClient("file:///etc/passwd", api_key="k")
+
+
+def test_embed_client_rejects_ftp_scheme_base_url():
+    with pytest.raises(ValueError, match="ftp"):
+        EmbedClient("ftp://internal/resource", api_key="k")
+
+
+def test_embed_client_accepts_http_base_url():
+    client = EmbedClient("http://localhost:9092", api_key="k")
+    assert client.base_url == "http://localhost:9092"
+
+
+def test_embed_client_accepts_https_base_url():
+    client = EmbedClient("https://embed.example.com", api_key="k")
+    assert client.base_url == "https://embed.example.com"
+
 
 # --- EmbedClient.embed() エラーパス ---
 

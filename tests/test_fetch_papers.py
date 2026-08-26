@@ -9,14 +9,60 @@ from __future__ import annotations
 import json
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from scripts.fetch_papers import (
     ARXIV_TO_PAPER_ID,
     PAPER_ID_TO_ARXIV,
     _sanitize_query,
+    _validate_url,
     combine_large_chunks,
     fetch_chunks_for_paper,
+    fetch_papers,
     fetch_per_query,
 )
+
+# ── _validate_url (SSRF 対策) ────────────────────────────────────────────────
+
+
+def test_fetch_validate_url_allows_http():
+    _validate_url("http://localhost:8020")  # should not raise
+
+
+def test_fetch_validate_url_allows_https():
+    _validate_url("https://api.example.com")  # should not raise
+
+
+def test_fetch_validate_url_rejects_file_scheme():
+    with pytest.raises(ValueError, match="file"):
+        _validate_url("file:///etc/passwd")
+
+
+def test_fetch_validate_url_rejects_ftp_scheme():
+    with pytest.raises(ValueError, match="ftp"):
+        _validate_url("ftp://internal/resource")
+
+
+@patch("scripts.fetch_papers.urlopen")
+def test_fetch_papers_rejects_file_scheme(mock_open):
+    with pytest.raises(ValueError, match="file"):
+        fetch_papers("file:///etc/passwd")
+    mock_open.assert_not_called()
+
+
+@patch("scripts.fetch_papers.urlopen")
+def test_fetch_chunks_rejects_file_scheme(mock_open):
+    with pytest.raises(ValueError, match="file"):
+        fetch_chunks_for_paper("file:///etc/passwd", paper_id=1, query="q")
+    mock_open.assert_not_called()
+
+
+@patch("scripts.fetch_papers.urlopen")
+def test_fetch_chunks_rejects_ftp_scheme(mock_open):
+    with pytest.raises(ValueError, match="ftp"):
+        fetch_chunks_for_paper("ftp://internal/api", paper_id=1, query="q")
+    mock_open.assert_not_called()
+
 
 # ── _sanitize_query ──────────────────────────────────────────────────────────
 
