@@ -1,19 +1,22 @@
 """Tests for scripts/fetch_papers.py.
 
 Covers: _sanitize_query, combine_large_chunks,
-        fetch_chunks_for_paper (mocked), fetch_per_query (mocked).
+        fetch_chunks_for_paper (mocked), fetch_per_query (mocked),
+        FetchError partial-failure behaviour.
 """
 
 from __future__ import annotations
 
 import json
 from unittest.mock import MagicMock, patch
+from urllib.error import URLError
 
 import pytest
 
 from scripts.fetch_papers import (
     ARXIV_TO_PAPER_ID,
     PAPER_ID_TO_ARXIV,
+    FetchError,
     _sanitize_query,
     _validate_url,
     combine_large_chunks,
@@ -241,9 +244,10 @@ def test_fetch_per_query_deduplicates(mock_fetch):
         {"paper_id": 1, "query": "q1", "answer_spans": ["t"]},
         {"paper_id": 1, "query": "q2", "answer_spans": ["t"]},
     ]
-    result = fetch_per_query("http://api", gold, chunk_mode="small", target_tokens=512)
+    result, failures = fetch_per_query("http://api", gold, chunk_mode="small", target_tokens=512)
     assert len(result) == 1
     assert result[0]["score"] == 0.9
+    assert failures == 0
 
 
 @patch("scripts.fetch_papers.fetch_chunks_for_paper")
@@ -261,8 +265,9 @@ def test_fetch_per_query_resolves_arxiv_id(mock_fetch):
 def test_fetch_per_query_skips_unknown_arxiv_id(mock_fetch, capsys):
     """知らない arxiv_id の gold アイテムはスキップされ警告を出す。"""
     gold = [{"arxiv_id": "9999.99999", "query": "q", "answer_spans": ["t"]}]
-    result = fetch_per_query("http://api", gold, chunk_mode="small", target_tokens=512)
+    result, failures = fetch_per_query("http://api", gold, chunk_mode="small", target_tokens=512)
     assert result == []
+    assert failures == 0
     mock_fetch.assert_not_called()
     assert "WARNING" in capsys.readouterr().err
 
@@ -278,5 +283,45 @@ def test_fetch_per_query_returns_all_unique_chunks(mock_fetch):
         {"paper_id": 1, "query": "q1", "answer_spans": ["paper 1"]},
         {"paper_id": 2, "query": "q2", "answer_spans": ["paper 2"]},
     ]
-    result = fetch_per_query("http://api", gold, chunk_mode="small", target_tokens=512)
+    result, failures = fetch_per_query("http://api", gold, chunk_mode="small", target_tokens=512)
     assert len(result) == 2
+    assert failures == 0
+
+
+# ── FetchError / partial-failure behaviour ───────────────────────────────────
+
+
+@patch("scripts.fetch_papers.urlopen")
+def test_fetch_chunks_raises_fetch_error_on_network_failure(mock_open):
+    """URLError が FetchError に変換されて raise される（sys.exit しない）。"""
+    mock_open.side_effect = URLError("connection refused")
+    with pytest.raises(FetchError, match="Failed to fetch chunks for paper"):
+        fetch_chunks_for_paper("http://api", paper_id=1, query="test")
+
+
+@patch("scripts.fetch_papers.fetch_chunks_for_paper")
+def test_fetch_per_query_skips_failed_item_by_default(mock_fetch, capsys):
+    """fetch_chunks_for_paper が FetchError を上げても、fail_fast=False ならスキップして続行。"""
+    mock_fetch.side_effect = [
+        FetchError("network error"),
+        [{"paper_id": 2, "chunk_index": 0, "text": "ok", "score": 0.7}],
+    ]
+    gold = [
+        {"paper_id": 1, "query": "q1", "answer_spans": ["x"]},
+        {"paper_id": 2, "query": "q2", "answer_spans": ["ok"]},
+    ]
+    result, failures = fetch_per_query("http://api", gold, chunk_mode="small", target_tokens=512)
+    # second item must be preserved despite first failure
+    assert len(result) == 1
+    assert result[0]["paper_id"] == 2
+    assert failures == 1
+    assert "WARNING" in capsys.readouterr().err
+
+
+@patch("scripts.fetch_papers.fetch_chunks_for_paper")
+def test_fetch_per_query_fail_fast_raises(mock_fetch):
+    """fail_fast=True のとき FetchError が即座に伝播する。"""
+    mock_fetch.side_effect = FetchError("boom")
+    gold = [{"paper_id": 1, "query": "q", "answer_spans": ["x"]}]
+    with pytest.raises(FetchError, match="boom"):
+        fetch_per_query("http://api", gold, chunk_mode="small", target_tokens=512, fail_fast=True)
