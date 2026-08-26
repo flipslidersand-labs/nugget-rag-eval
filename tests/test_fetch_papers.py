@@ -13,8 +13,6 @@ from urllib.error import URLError
 
 import pytest
 
-import pytest
-
 from scripts.fetch_papers import (
     ARXIV_TO_PAPER_ID,
     PAPER_ID_TO_ARXIV,
