@@ -209,3 +209,129 @@ def test_main_paper_id_chunk_key(tmp_path, monkeypatch, capsys):
     json_part = out[out.find("{") :]
     parsed = json.loads(json_part)
     assert parsed["full_chunk"]["recall"] == 1.0
+
+
+# ── CLI validation: --embed-weight / --top-k / --large-chunk-target ──────────
+
+
+def test_main_invalid_embed_weight_above_1(minimal_data, monkeypatch):
+    """--embed-weight > 1.0 must cause SystemExit (argparse error)."""
+    from eval.evaluate import main
+
+    c_path, g_path = minimal_data
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["evaluate.py", "--chunks", str(c_path), "--gold", str(g_path), "--embed-weight", "2.5"],
+    )
+    with pytest.raises(SystemExit) as exc_info:
+        main()
+    assert exc_info.value.code != 0
+
+
+def test_main_invalid_embed_weight_negative(minimal_data, monkeypatch):
+    """--embed-weight < 0.0 must cause SystemExit (argparse error)."""
+    from eval.evaluate import main
+
+    c_path, g_path = minimal_data
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["evaluate.py", "--chunks", str(c_path), "--gold", str(g_path), "--embed-weight", "-1.0"],
+    )
+    with pytest.raises(SystemExit) as exc_info:
+        main()
+    assert exc_info.value.code != 0
+
+
+def test_main_embed_weight_boundary_values_accepted(minimal_data, monkeypatch, capsys):
+    """--embed-weight 0.0 and 1.0 are valid boundary values."""
+    from eval.evaluate import main
+
+    c_path, g_path = minimal_data
+    for weight in ("0.0", "1.0"):
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            [
+                "evaluate.py",
+                "--chunks",
+                str(c_path),
+                "--gold",
+                str(g_path),
+                "--embed-weight",
+                weight,
+            ],
+        )
+        main()  # must not raise
+
+
+def test_main_invalid_top_k_zero(minimal_data, monkeypatch):
+    """--top-k 0 must cause SystemExit (argparse error)."""
+    from eval.evaluate import main
+
+    c_path, g_path = minimal_data
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["evaluate.py", "--chunks", str(c_path), "--gold", str(g_path), "--top-k", "0"],
+    )
+    with pytest.raises(SystemExit) as exc_info:
+        main()
+    assert exc_info.value.code != 0
+
+
+def test_main_invalid_top_k_negative(minimal_data, monkeypatch):
+    """--top-k -1 must cause SystemExit (argparse error)."""
+    from eval.evaluate import main
+
+    c_path, g_path = minimal_data
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["evaluate.py", "--chunks", str(c_path), "--gold", str(g_path), "--top-k", "-1"],
+    )
+    with pytest.raises(SystemExit) as exc_info:
+        main()
+    assert exc_info.value.code != 0
+
+
+def test_float_between_0_1_valid():
+    """_float_between_0_1 accepts values in [0, 1]."""
+    from eval.evaluate import _float_between_0_1
+
+    assert _float_between_0_1("0.0") == 0.0
+    assert _float_between_0_1("0.5") == 0.5
+    assert _float_between_0_1("1.0") == 1.0
+
+
+def test_float_between_0_1_invalid():
+    """_float_between_0_1 raises ArgumentTypeError for out-of-range values."""
+    import argparse
+
+    from eval.evaluate import _float_between_0_1
+
+    with pytest.raises(argparse.ArgumentTypeError):
+        _float_between_0_1("-0.1")
+    with pytest.raises(argparse.ArgumentTypeError):
+        _float_between_0_1("1.1")
+
+
+def test_positive_int_valid():
+    """_positive_int accepts values >= 1."""
+    from eval.evaluate import _positive_int
+
+    assert _positive_int("1") == 1
+    assert _positive_int("10") == 10
+
+
+def test_positive_int_invalid():
+    """_positive_int raises ArgumentTypeError for zero or negative values."""
+    import argparse
+
+    from eval.evaluate import _positive_int
+
+    with pytest.raises(argparse.ArgumentTypeError):
+        _positive_int("0")
+    with pytest.raises(argparse.ArgumentTypeError):
+        _positive_int("-5")
