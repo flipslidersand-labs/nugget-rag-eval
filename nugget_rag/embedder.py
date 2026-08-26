@@ -1,7 +1,7 @@
 """Thin HTTP client for the MINIPC embedding service (multilingual-e5-base).
 
 The service accepts POST /embed/batch with {"texts": [...]} and returns
-{"embeddings": [[float, ...], ...]}.
+{"vectors": [[float, ...], ...]} (preferred) or {"embeddings": [[float, ...], ...]}.
 
 Usage:
     client = EmbedClient("http://<internal-host>:9092", api_key="...")
@@ -56,6 +56,8 @@ class EmbedClient:
     def _call(self, texts: list[str]) -> list[list[float]]:
         """Send a single batch request with exponential-backoff retry.
 
+        Accepts responses with either a ``"vectors"`` or ``"embeddings"`` key so
+        that the client tolerates both the current and legacy service schema.
         Retries up to max_retries times on URLError or 5xx HTTPError.
         4xx errors are raised immediately without retrying.
 
@@ -72,7 +74,16 @@ class EmbedClient:
         for attempt in range(self.max_retries + 1):
             try:
                 resp = json.loads(urlopen(req, timeout=self.timeout).read())
-                return resp["vectors"]
+                vecs = resp.get("vectors") or resp.get("embeddings")
+                if vecs is None:
+                    raise EmbedError(
+                        f"Expected 'vectors' or 'embeddings' key in response, got: {list(resp)}"
+                    )
+                if len(vecs) != len(texts):
+                    raise EmbedError(
+                        f"Embedding count mismatch: sent {len(texts)} texts, got {len(vecs)} vectors"
+                    )
+                return vecs
             except HTTPError as exc:
                 if exc.code is not None and exc.code < 500:
                     raise EmbedError(f"Embedding service error {exc.code}: {exc}") from exc
