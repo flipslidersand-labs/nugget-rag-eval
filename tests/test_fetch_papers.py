@@ -120,16 +120,6 @@ def test_combine_preserves_paper_id():
 # ── fetch_chunks_for_paper (mocked) ─────────────────────────────────────────
 
 
-def _mock_urlopen(results: list[dict]):
-    """Return a mock urlopen that yields {"results": results}."""
-    resp = MagicMock()
-    resp.read.return_value = json.dumps({"results": results}).encode()
-    ctx = MagicMock()
-    ctx.__enter__ = MagicMock(return_value=resp)
-    ctx.__exit__ = MagicMock(return_value=False)
-    return MagicMock(return_value=ctx)
-
-
 @patch("scripts.fetch_papers.urlopen")
 def test_fetch_chunks_returns_chunks(mock_open):
     mock_open.return_value = MagicMock(
