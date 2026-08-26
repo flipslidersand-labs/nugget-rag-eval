@@ -1,6 +1,8 @@
-"""Tests for evaluate.py — mrr_at_k, evaluate() arxiv_id resolution."""
+"""Tests for evaluate.py — mrr_at_k, evaluate() arxiv_id resolution, validate_gold."""
 
-from eval.evaluate import ARXIV_MAP, evaluate, mrr_at_k
+import pytest
+
+from eval.evaluate import ARXIV_MAP, evaluate, mrr_at_k, validate_gold
 from tests.conftest import make_results
 
 _make_results = make_results  # backward-compat alias for existing tests
@@ -150,3 +152,89 @@ def test_evaluate_unknown_arxiv_id_returns_zero_recall():
     result = evaluate(chunks_by_paper, gold, top_k=5)
     # 9999.99999 は ARXIV_MAP にないので str キーで探し、chunks は int キー → miss
     assert result["full_chunk"]["recall"] == 0.0
+
+
+# ── validate_gold (#108) ──────────────────────────────────────────────────────
+
+
+def _valid_item(**overrides) -> dict:
+    base = {"paper_id": 1, "query": "q", "answer_spans": ["span"]}
+    base.update(overrides)
+    return base
+
+
+def test_validate_gold_passes_on_valid_items():
+    gold = [_valid_item(), _valid_item(paper_id=2, answer_spans=["a", "b"])]
+    validate_gold(gold)  # must not raise
+
+
+def test_validate_gold_passes_on_empty_list():
+    validate_gold([])  # empty gold is valid (evaluate() returns zeros)
+
+
+def test_validate_gold_missing_query_raises():
+    item = {"paper_id": 1, "answer_spans": ["span"]}
+    with pytest.raises(ValueError, match="missing required fields"):
+        validate_gold([item])
+
+
+def test_validate_gold_missing_answer_spans_raises():
+    item = {"paper_id": 1, "query": "q"}
+    with pytest.raises(ValueError, match="missing required fields"):
+        validate_gold([item])
+
+
+def test_validate_gold_missing_both_id_fields_raises():
+    item = {"query": "q", "answer_spans": ["span"]}
+    with pytest.raises(ValueError, match="'arxiv_id' or 'paper_id'"):
+        validate_gold([item])
+
+
+def test_validate_gold_empty_answer_spans_raises():
+    item = _valid_item(answer_spans=[])
+    with pytest.raises(ValueError, match="'answer_spans' is empty"):
+        validate_gold([item])
+
+
+def test_validate_gold_answer_spans_not_list_raises():
+    item = _valid_item(answer_spans="span")
+    with pytest.raises(ValueError, match="must be a list"):
+        validate_gold([item])
+
+
+def test_validate_gold_answer_spans_non_string_element_raises():
+    item = _valid_item(answer_spans=[42, "ok"])
+    with pytest.raises(ValueError, match="non-string elements"):
+        validate_gold([item])
+
+
+def test_validate_gold_reports_correct_index():
+    gold = [_valid_item(), _valid_item(answer_spans=[])]
+    with pytest.raises(ValueError, match=r"gold\[1\]"):
+        validate_gold(gold)
+
+
+def test_validate_gold_arxiv_id_only_is_valid():
+    item = {"arxiv_id": "2410.10071", "query": "q", "answer_spans": ["span"]}
+    validate_gold([item])  # must not raise
+
+
+def test_validate_gold_both_ids_present_is_valid():
+    item = {"arxiv_id": "2410.10071", "paper_id": 1, "query": "q", "answer_spans": ["span"]}
+    validate_gold([item])  # must not raise
+
+
+def test_evaluate_raises_on_empty_answer_spans():
+    """evaluate() must propagate validate_gold's ValueError on empty answer_spans."""
+    chunks_by_paper = {1: [{"text": "x", "nugget": "x"}]}
+    gold = [{"paper_id": 1, "query": "q", "answer_spans": []}]
+    with pytest.raises(ValueError, match="'answer_spans' is empty"):
+        evaluate(chunks_by_paper, gold)
+
+
+def test_evaluate_raises_on_missing_query():
+    """evaluate() must propagate validate_gold's ValueError on missing query."""
+    chunks_by_paper = {1: [{"text": "x", "nugget": "x"}]}
+    gold = [{"paper_id": 1, "answer_spans": ["span"]}]
+    with pytest.raises(ValueError, match="missing required fields"):
+        evaluate(chunks_by_paper, gold)
