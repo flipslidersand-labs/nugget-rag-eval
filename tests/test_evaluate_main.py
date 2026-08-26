@@ -335,3 +335,76 @@ def test_positive_int_invalid():
         _positive_int("0")
     with pytest.raises(argparse.ArgumentTypeError):
         _positive_int("-5")
+
+
+# ── error handling: missing / invalid files (#103) ───────────────────────────
+
+
+def test_main_missing_chunks_file_exits_with_message(tmp_path, monkeypatch, capsys):
+    """--chunks pointing to a nonexistent file should exit via argparse, not a raw traceback."""
+    from eval.evaluate import main
+
+    g_path = tmp_path / "gold.json"
+    _write_json(g_path, [])
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["evaluate.py", "--chunks", str(tmp_path / "no_such.json"), "--gold", str(g_path)],
+    )
+    with pytest.raises(SystemExit) as exc_info:
+        main()
+    assert exc_info.value.code != 0
+    err = capsys.readouterr().err
+    assert "file not found" in err
+
+
+def test_main_missing_gold_file_exits_with_message(tmp_path, monkeypatch, capsys):
+    """--gold pointing to a nonexistent file should exit via argparse, not a raw traceback."""
+    from eval.evaluate import main
+
+    c_path = tmp_path / "chunks.json"
+    _write_json(c_path, [])
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["evaluate.py", "--chunks", str(c_path), "--gold", str(tmp_path / "no_such.json")],
+    )
+    with pytest.raises(SystemExit) as exc_info:
+        main()
+    assert exc_info.value.code != 0
+    err = capsys.readouterr().err
+    assert "file not found" in err
+
+
+def test_main_invalid_json_chunks_exits_with_message(tmp_path, monkeypatch):
+    """Malformed JSON in --chunks should produce a friendly [ERROR] message, not a traceback."""
+    from eval.evaluate import main
+
+    c_path = tmp_path / "chunks.json"
+    c_path.write_text("not valid json{{{")
+    g_path = tmp_path / "gold.json"
+    _write_json(g_path, [])
+    monkeypatch.setattr(
+        sys, "argv", ["evaluate.py", "--chunks", str(c_path), "--gold", str(g_path)]
+    )
+    with pytest.raises(SystemExit) as exc_info:
+        main()
+    assert exc_info.value.code != 0
+    assert "ERROR" in str(exc_info.value.code)
+
+
+def test_main_invalid_json_gold_exits_with_message(tmp_path, monkeypatch):
+    """Malformed JSON in --gold should produce a friendly [ERROR] message, not a traceback."""
+    from eval.evaluate import main
+
+    c_path = tmp_path / "chunks.json"
+    _write_json(c_path, [])
+    g_path = tmp_path / "gold.json"
+    g_path.write_text("{{invalid")
+    monkeypatch.setattr(
+        sys, "argv", ["evaluate.py", "--chunks", str(c_path), "--gold", str(g_path)]
+    )
+    with pytest.raises(SystemExit) as exc_info:
+        main()
+    assert exc_info.value.code != 0
+    assert "ERROR" in str(exc_info.value.code)

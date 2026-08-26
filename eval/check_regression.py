@@ -15,17 +15,19 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import json
 import sys
-from pathlib import Path
 
-from eval.evaluate import evaluate
+from eval.evaluate import _existing_file, _load_json, evaluate
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Recall@5 regression check")
-    parser.add_argument("--chunks", required=True, help="Path to chunks JSON file")
-    parser.add_argument("--gold", required=True, help="Path to gold set JSON file")
+    parser.add_argument(
+        "--chunks", required=True, type=_existing_file, help="Path to chunks JSON file"
+    )
+    parser.add_argument(
+        "--gold", required=True, type=_existing_file, help="Path to gold set JSON file"
+    )
     parser.add_argument(
         "--threshold",
         type=float,
@@ -41,8 +43,8 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    chunks_data: list[dict] = json.loads(Path(args.chunks).read_text())
-    gold: list[dict] = json.loads(Path(args.gold).read_text())
+    chunks_data: list[dict] = _load_json(args.chunks, "--chunks")
+    gold: list[dict] = _load_json(args.gold, "--gold")
 
     chunks_by_paper: dict[str | int, list[dict]] = {}
     for c in chunks_data:
