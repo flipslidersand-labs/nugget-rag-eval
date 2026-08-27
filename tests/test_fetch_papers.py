@@ -11,16 +11,6 @@ import json
 from unittest.mock import MagicMock, patch
 from urllib.error import URLError
 
-
-def _cm(data: bytes) -> MagicMock:
-    """Return a urlopen callable mock acting as context manager with .read() -> data."""
-    resp = MagicMock()
-    resp.read.return_value = data
-    cm = MagicMock()
-    cm.__enter__ = MagicMock(return_value=resp)
-    cm.__exit__ = MagicMock(return_value=False)
-    return MagicMock(return_value=cm)
-
 import pytest
 
 from scripts.fetch_papers import (
@@ -34,6 +24,17 @@ from scripts.fetch_papers import (
     fetch_papers,
     fetch_per_query,
 )
+
+
+def _cm(data: bytes) -> MagicMock:
+    """Return a urlopen callable mock acting as context manager with .read() -> data."""
+    resp = MagicMock()
+    resp.read.return_value = data
+    cm = MagicMock()
+    cm.__enter__ = MagicMock(return_value=resp)
+    cm.__exit__ = MagicMock(return_value=False)
+    return MagicMock(return_value=cm)
+
 
 # ── _validate_url (SSRF 対策) ────────────────────────────────────────────────
 

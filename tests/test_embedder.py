@@ -2,6 +2,17 @@ import json as _json
 from unittest.mock import MagicMock, patch
 from urllib.error import HTTPError, URLError
 
+import pytest
+
+from nugget_rag.embedder import (
+    MAX_BATCH_SIZE,
+    EmbedClient,
+    _validate_url,
+    cosine_similarity,
+    embed_scores,
+)
+from nugget_rag.scorer import top_nuggets
+
 
 def _make_cm_mock(data: bytes) -> MagicMock:
     """Return a urlopen callable mock that acts as a context manager yielding a resp with .read()."""
@@ -27,16 +38,6 @@ def _cm_side_effect(fn):
 
     return wrapper
 
-import pytest
-
-from nugget_rag.embedder import (
-    MAX_BATCH_SIZE,
-    EmbedClient,
-    _validate_url,
-    cosine_similarity,
-    embed_scores,
-)
-from nugget_rag.scorer import top_nuggets
 
 # --- URL スキーム検証 (SSRF 対策) ---
 
@@ -131,7 +132,9 @@ def test_embed_count_mismatch_raises_embed_error():
     """Mismatched vector count raises EmbedError with a descriptive message."""
     from nugget_rag.embedder import EmbedError
 
-    with patch("nugget_rag.embedder.urlopen", _make_cm_mock(b'{"vectors": [[0.1, 0.2], [0.3, 0.4]]}')):
+    with patch(
+        "nugget_rag.embedder.urlopen", _make_cm_mock(b'{"vectors": [[0.1, 0.2], [0.3, 0.4]]}')
+    ):
         # Sending 1 text but receiving 2 vectors should raise
         with pytest.raises(EmbedError, match="mismatch"):
             _client().embed(["only one text"])
@@ -144,7 +147,9 @@ def test_embed_invalid_json_raises():
 
 
 def test_embed_success_returns_vectors():
-    with patch("nugget_rag.embedder.urlopen", _make_cm_mock(b'{"vectors": [[0.1, 0.2], [0.3, 0.4]]}')):
+    with patch(
+        "nugget_rag.embedder.urlopen", _make_cm_mock(b'{"vectors": [[0.1, 0.2], [0.3, 0.4]]}')
+    ):
         result = _client().embed(["text1", "text2"])
     assert result == [[0.1, 0.2], [0.3, 0.4]]
 
