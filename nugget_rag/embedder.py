@@ -83,7 +83,8 @@ class EmbedClient:
         last_exc: Exception | None = None
         for attempt in range(self.max_retries + 1):
             try:
-                resp = json.loads(urlopen(req, timeout=self.timeout).read())
+                with urlopen(req, timeout=self.timeout) as http_resp:
+                    resp = json.loads(http_resp.read())
                 vecs = resp.get("vectors") or resp.get("embeddings")
                 if vecs is None:
                     raise EmbedError(

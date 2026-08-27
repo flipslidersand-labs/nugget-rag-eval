@@ -45,7 +45,8 @@ def fetch_papers(api_url: str, limit: int = 100) -> list[dict]:
     _validate_url(api_url)
     url = f"{api_url}/papers?{urlencode({'limit': limit, 'sort': 'score'})}"
     try:
-        return json.loads(urlopen(url, timeout=_TIMEOUT_PAPERS).read())["papers"]
+        with urlopen(url, timeout=_TIMEOUT_PAPERS) as http_resp:
+            return json.loads(http_resp.read())["papers"]
     except (URLError, HTTPError) as exc:
         raise FetchError(f"Failed to fetch papers: {exc}") from exc
 
@@ -62,7 +63,8 @@ def fetch_chunks_for_paper(api_url: str, paper_id: int, query: str, limit: int =
     safe_query = _sanitize_query(query)
     url = f"{api_url}/search?{urlencode({'q': safe_query, 'mode': 'hybrid', 'paper_id': paper_id, 'limit': limit})}"
     try:
-        results = json.loads(urlopen(url, timeout=_TIMEOUT_CHUNKS).read())["results"]
+        with urlopen(url, timeout=_TIMEOUT_CHUNKS) as http_resp:
+            results = json.loads(http_resp.read())["results"]
     except (URLError, HTTPError) as exc:
         raise FetchError(f"Failed to fetch chunks for paper {paper_id}: {exc}") from exc
     arxiv_id = PAPER_ID_TO_ARXIV.get(paper_id)
