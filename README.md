@@ -126,6 +126,8 @@ embedding モデル: intfloat/multilingual-e5-base（MINIPC embedding-svc :9092�
 context length を **66.5%** 削減しながら Recall を完全維持。
 academic-paper-system への nugget 導入を推奨。
 
+**embed-weight について:** 現在の `--embed-weight 0.5` は仮置き値。Recall@5=1.0 が出ている段階でチューニングを止め、次フェーズで MRR と latency のトレードオフを見ながら最適化する想定。0.3〜0.7 の範囲で比較予定（Issue #11）。
+
 ### 小チャンク（参考・旧方式）
 
 ```
