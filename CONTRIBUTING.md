@@ -15,7 +15,7 @@
 
 ## Project layout
 
-```
+```text
 nugget_rag/          # core library — chunker, scorer, retriever, embedder, paper_registry
 eval/                # evaluation scripts — evaluate.py, check_regression.py
 scripts/             # data fetch utilities — fetch_papers.py
@@ -38,7 +38,7 @@ Both must pass before a PR can merge.
 
 ## Commit style
 
-```
+```text
 <type>(<scope>): <summary>
 
 Closes #<issue>
