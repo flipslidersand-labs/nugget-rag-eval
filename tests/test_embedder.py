@@ -99,16 +99,22 @@ def test_embed_empty_texts_returns_empty():
     assert _client().embed([]) == []
 
 
-def test_embed_url_error_raises():
+@patch("nugget_rag.embedder.time.sleep")
+def test_embed_url_error_raises(mock_sleep):
+    from nugget_rag.embedder import EmbedError
+
     with patch("nugget_rag.embedder.urlopen", side_effect=URLError("refused")):
-        with pytest.raises((URLError, Exception)):
+        with pytest.raises(EmbedError, match="unreachable"):
             _client().embed(["hello"])
 
 
-def test_embed_http_error_raises():
+@patch("nugget_rag.embedder.time.sleep")
+def test_embed_http_error_raises(mock_sleep):
+    from nugget_rag.embedder import EmbedError
+
     err = HTTPError("http://x", 500, "Server Error", {}, None)
     with patch("nugget_rag.embedder.urlopen", side_effect=err):
-        with pytest.raises(Exception):
+        with pytest.raises(EmbedError, match="500"):
             _client().embed(["hello"])
 
 
@@ -141,8 +147,10 @@ def test_embed_count_mismatch_raises_embed_error():
 
 
 def test_embed_invalid_json_raises():
+    from nugget_rag.embedder import EmbedError
+
     with patch("nugget_rag.embedder.urlopen", _make_cm_mock(b"not json")):
-        with pytest.raises(Exception):
+        with pytest.raises(EmbedError, match="response format"):
             _client().embed(["hello"])
 
 
