@@ -18,7 +18,7 @@ import time
 import warnings
 from urllib.error import HTTPError, URLError
 from urllib.parse import urljoin, urlparse
-from urllib.request import Request, urlopen
+from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 MAX_BATCH_SIZE = 256
 
@@ -26,12 +26,45 @@ _ALLOWED_SCHEMES = frozenset({"http", "https"})
 
 
 def _validate_url(url: str) -> None:
-    """Reject non-HTTP(S) schemes to prevent SSRF via file://, ftp://, etc."""
+    """Reject non-HTTP(S) schemes and URLs without a host.
+
+    This only pins the scheme (blocks file://, ftp://, etc.) and requires a
+    non-empty netloc. It does NOT restrict target hosts: the client is meant
+    for LAN-internal services, so internal IPs are intentionally allowed.
+    Redirect following is separately disabled (see _NoRedirectHandler) so
+    request headers can never be forwarded beyond the validated initial URL.
+    """
     parsed = urlparse(url)
     if parsed.scheme not in _ALLOWED_SCHEMES:
         raise ValueError(
             f"Unsupported URL scheme: {parsed.scheme!r}. Only 'http' and 'https' are allowed."
         )
+    if not parsed.netloc:
+        raise ValueError(f"URL has no host: {url!r}")
+
+
+class _NoRedirectHandler(HTTPRedirectHandler):
+    """Refuse HTTP redirects.
+
+    The default opener re-sends all request headers (including X-API-Key) to
+    the redirect target, which may be a different host, a plaintext downgrade,
+    or an attacker-controlled URL. Raising here turns any 3xx response into an
+    HTTPError that callers surface as EmbedError/FetchError.
+    """
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        raise HTTPError(
+            req.full_url,
+            code,
+            f"Redirect to {newurl!r} refused: redirects are disabled to avoid "
+            "forwarding credentials to unverified hosts",
+            headers,
+            fp,
+        )
+
+
+# Drop-in replacement for urllib.request.urlopen that never follows redirects.
+urlopen = build_opener(_NoRedirectHandler).open
 
 
 class EmbedError(RuntimeError):

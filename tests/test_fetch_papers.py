@@ -57,6 +57,21 @@ def test_fetch_validate_url_rejects_ftp_scheme():
         _validate_url("ftp://internal/resource")
 
 
+def test_fetch_validate_url_rejects_empty_netloc():
+    with pytest.raises(ValueError, match="no host"):
+        _validate_url("http:///path")
+
+
+def test_fetch_papers_302_redirect_raises_fetch_error():
+    """302 応答は追従せず FetchError（#147: ヘッダ転送防止）。"""
+    from tests.conftest import redirect_server
+
+    with redirect_server() as (base_url, hits):
+        with pytest.raises(FetchError, match="302"):
+            fetch_papers(base_url)
+    assert len(hits) == 1
+
+
 @patch("scripts.fetch_papers.urlopen")
 def test_fetch_papers_rejects_file_scheme(mock_open):
     with pytest.raises(ValueError, match="file"):
