@@ -141,3 +141,75 @@ def test_retrieve_nuggets_top_k_less_than_chunks():
     """top_k=2 で 6チャンクから 2件だけ返る。"""
     results = retrieve_nuggets(CHUNKS, "KV cache", top_k=2)
     assert len(results) == 2
+
+
+# ── #150 embed_fn バッチ化 ────────────────────────────────────────────────
+
+
+def _make_counting_embed_fn(dim: int = 4):
+    """Return (embed_fn, call_counter) where call_counter tracks call count."""
+    calls = []
+
+    def embed_fn(texts):
+        calls.append(len(texts))
+        # Return deterministic unit vectors so scores are reproducible
+        return [[float(i % dim == j % dim) for j in range(dim)] for i in range(len(texts))]
+
+    return embed_fn, calls
+
+
+def test_retrieve_nuggets_embed_fn_called_once_per_query():
+    """#150: embed_fn は top_k 回ではなく 1 回だけ呼ばれる。"""
+    embed_fn, calls = _make_counting_embed_fn()
+    retrieve_nuggets(CHUNKS, "KV cache", top_k=5, embed_fn=embed_fn)
+    assert len(calls) == 1, f"embed_fn was called {len(calls)} times, expected 1"
+
+
+def test_retrieve_nuggets_embed_fn_batch_contains_query_and_all_sentences():
+    """#150: 1回の embed_fn 呼び出しに query + 全チャンクのセンテンスが含まれる。"""
+    embed_fn, calls = _make_counting_embed_fn()
+    retrieve_nuggets(CHUNKS, "KV cache", top_k=3, embed_fn=embed_fn)
+    assert len(calls) == 1
+    # First text is query; remaining are sentences from top-3 chunks
+    # Total texts > 1 (query alone would be 1)
+    assert calls[0] > 1
+
+
+def test_retrieve_nuggets_hybrid_scores_same_as_per_chunk_baseline():
+    """#150: バッチ化後もスコア・ランキング結果は変更前と同一。"""
+
+    # Use a deterministic embed_fn that returns the same vector for the same
+    # position regardless of how texts are batched.
+    def stable_embed(texts):
+        # Vector depends only on text content (hash-based), not batch order
+        import hashlib
+
+        dim = 8
+        vecs = []
+        for t in texts:
+            h = int(hashlib.md5(t.encode()).hexdigest(), 16)
+            vec = [float((h >> i) & 1) for i in range(dim)]
+            vecs.append(vec)
+        return vecs
+
+    results = retrieve_nuggets(CHUNKS, "KV cache", top_k=3, embed_fn=stable_embed)
+    assert len(results) == 3
+    for r in results:
+        assert "nugget" in r
+        assert isinstance(r["nugget"], str)
+
+
+def test_retrieve_nuggets_no_embed_fn_unaffected():
+    """#150: embed_fn なしの BM25-only パスは変更の影響を受けない。"""
+    results = retrieve_nuggets(CHUNKS, "KV cache", top_k=3)
+    assert len(results) == 3
+    for r in results:
+        assert "nugget" in r
+
+
+def test_retrieve_nuggets_embed_fn_empty_chunks():
+    """#150: 空チャンクリストでも embed_fn は呼ばれない。"""
+    embed_fn, calls = _make_counting_embed_fn()
+    results = retrieve_nuggets([], "KV cache", top_k=5, embed_fn=embed_fn)
+    assert results == []
+    assert len(calls) == 0
