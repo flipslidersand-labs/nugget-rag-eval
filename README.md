@@ -40,6 +40,8 @@ tests/
 
 ## セットアップ
 
+runtime 依存ゼロ（BM25 は `nugget_rag/scorer.py` に自前実装）。開発用ツールのみ optional dependency として導入する。
+
 ```bash
 pip install -e ".[dev]"
 ```
