@@ -17,7 +17,13 @@ from __future__ import annotations
 import argparse
 import sys
 
-from eval.evaluate import _existing_file, _load_json, evaluate
+from eval.evaluate import (
+    _existing_file,
+    _float_between_0_1,
+    _load_json,
+    _positive_int,
+    evaluate,
+)
 
 
 def main() -> None:
@@ -30,11 +36,13 @@ def main() -> None:
     )
     parser.add_argument(
         "--threshold",
-        type=float,
+        type=_float_between_0_1,
         default=0.95,
-        help="Minimum acceptable Recall@5 (default: 0.95)",
+        help="Minimum acceptable Recall@5, in [0, 1] (default: 0.95)",
     )
-    parser.add_argument("--top-k", type=int, default=5, help="Top-k for retrieval (default: 5)")
+    parser.add_argument(
+        "--top-k", type=_positive_int, default=5, help="Top-k for retrieval (default: 5)"
+    )
     parser.add_argument(
         "--verbose",
         "-v",
@@ -51,7 +59,10 @@ def main() -> None:
         key = c.get("arxiv_id") or c["paper_id"]
         chunks_by_paper.setdefault(key, []).append(c)
 
-    result = evaluate(chunks_by_paper, gold, top_k=args.top_k, verbose=args.verbose)
+    try:
+        result = evaluate(chunks_by_paper, gold, top_k=args.top_k, verbose=args.verbose)
+    except ValueError as exc:
+        sys.exit(f"[ERROR] {exc}")
 
     full_recall = result["full_chunk"]["recall"]
     nugget_recall = result["nugget"]["recall"]

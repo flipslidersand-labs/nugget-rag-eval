@@ -210,6 +210,41 @@ def test_missing_gold_file_exits_with_message(tmp_path):
     assert "file not found" in result.stderr
 
 
+def test_negative_threshold_rejected_at_argparse(tmp_path):
+    """負の --threshold は argparse エラー (exit 2)。CI 常時 PASS を防ぐ。"""
+    c_path, g_path = _passing_data(tmp_path)
+    result = _run_main(["--chunks", str(c_path), "--gold", str(g_path), "--threshold", "-0.1"])
+    assert result.returncode == 2
+    assert "must be in [0, 1]" in result.stderr
+
+
+def test_threshold_above_one_rejected_at_argparse(tmp_path):
+    """1 超の --threshold は argparse エラー (exit 2)。常時 FAIL を防ぐ。"""
+    c_path, g_path = _passing_data(tmp_path)
+    result = _run_main(["--chunks", str(c_path), "--gold", str(g_path), "--threshold", "1.1"])
+    assert result.returncode == 2
+    assert "must be in [0, 1]" in result.stderr
+
+
+def test_top_k_zero_rejected_at_argparse(tmp_path):
+    """--top-k 0 は argparse エラー (exit 2)。空 retrieval による偽 FAIL を防ぐ。"""
+    c_path, g_path = _passing_data(tmp_path)
+    result = _run_main(["--chunks", str(c_path), "--gold", str(g_path), "--top-k", "0"])
+    assert result.returncode == 2
+    assert "must be >= 1" in result.stderr
+
+
+def test_invalid_gold_schema_prints_error_not_traceback(tmp_path):
+    """gold スキーマ不正時は traceback でなく [ERROR] 1 行 + exit 1。"""
+    c_path, _ = _passing_data(tmp_path)
+    g_path = tmp_path / "bad_gold.json"
+    _write_json(g_path, [{"query": "q"}])  # missing required fields
+    result = _run_main(["--chunks", str(c_path), "--gold", str(g_path)])
+    assert result.returncode == 1
+    assert "[ERROR]" in result.stderr
+    assert "Traceback" not in result.stderr
+
+
 def test_invalid_json_chunks_exits_with_error_message(tmp_path):
     """不正 JSON の --chunks は [ERROR] メッセージを出して終了する。"""
     c_path = tmp_path / "chunks.json"
