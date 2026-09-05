@@ -185,11 +185,13 @@ def _existing_file(value: str) -> str:
 def _load_json(path: str, label: str) -> list[dict]:
     """Read *path* and parse JSON, exiting with a friendly message on failure."""
     try:
-        return json.loads(Path(path).read_text())
+        return json.loads(Path(path).read_text(encoding="utf-8"))
     except FileNotFoundError:
         sys.exit(f"[ERROR] {label} file not found: {path}")
     except PermissionError:
         sys.exit(f"[ERROR] permission denied reading {label} file: {path}")
+    except UnicodeDecodeError:
+        sys.exit(f"[ERROR] {label} file is not valid UTF-8: {path}")
     except json.JSONDecodeError as exc:
         sys.exit(f"[ERROR] {label} file is not valid JSON ({path}): {exc}")
 
