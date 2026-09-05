@@ -424,3 +424,81 @@ def test_fetch_per_query_fail_fast_raises(mock_fetch):
     gold = [{"paper_id": 1, "query": "q", "answer_spans": ["x"]}]
     with pytest.raises(FetchError, match="boom"):
         fetch_per_query("http://api", gold, chunk_mode="small", target_tokens=512, fail_fast=True)
+
+
+# ── main() subprocess tests ──────────────────────────────────────────────────
+
+
+import subprocess  # noqa: E402
+import sys as _sys  # noqa: E402
+
+
+def _run_main(*args: str) -> subprocess.CompletedProcess:
+    """Run scripts/fetch_papers.py main() in a subprocess and return the result."""
+    return subprocess.run(
+        [_sys.executable, "-m", "scripts.fetch_papers", *args],
+        capture_output=True,
+        text=True,
+    )
+
+
+def test_main_missing_gold_set_prints_error_and_exits_1(tmp_path):
+    """`--gold-set /nonexistent` → [ERROR] on stderr, exit 1 (no traceback)."""
+    result = _run_main("--gold-set", str(tmp_path / "nonexistent.json"))
+    assert result.returncode == 1
+    assert "[ERROR]" in result.stderr
+    assert "Traceback" not in result.stderr
+
+
+def test_main_invalid_json_gold_set_prints_error_and_exits_1(tmp_path):
+    """壊れた JSON の gold-set → [ERROR] on stderr, exit 1 (no traceback)."""
+    bad = tmp_path / "bad.json"
+    bad.write_text("not json", encoding="utf-8")
+    result = _run_main("--gold-set", str(bad))
+    assert result.returncode == 1
+    assert "[ERROR]" in result.stderr
+    assert "Traceback" not in result.stderr
+
+
+def test_main_invalid_gold_set_schema_prints_error_and_exits_1(tmp_path):
+    """schema 違反の gold-set (query フィールド欠落) → [ERROR] on stderr, exit 1."""
+    bad = tmp_path / "gold.json"
+    bad.write_text(
+        '[{"paper_id": 1, "answer_spans": ["span"]}]',  # missing 'query'
+        encoding="utf-8",
+    )
+    result = _run_main("--gold-set", str(bad))
+    assert result.returncode == 1
+    assert "[ERROR]" in result.stderr
+    assert "Traceback" not in result.stderr
+
+
+def test_main_bare_api_url_prints_error_and_exits_2():
+    """スキーム省略の --api-url (localhost:8020) → argparse error, exit 2."""
+    result = _run_main("--api-url", "localhost:8020", "--gold-set", "/dummy")
+    assert result.returncode == 2
+    assert "did you mean" in result.stderr.lower() or "http://" in result.stderr
+
+
+def test_main_invalid_url_scheme_exits_2():
+    """非 http(s) スキームの --api-url → argparse error, exit 2."""
+    result = _run_main("--api-url", "ftp://localhost:8020", "--gold-set", "/dummy")
+    assert result.returncode == 2
+    assert "Traceback" not in result.stderr
+
+
+def test_main_negative_max_failures_exits_2():
+    """--max-failures に負値 → argparse error, exit 2."""
+    result = _run_main("--max-failures", "-1")
+    assert result.returncode == 2
+    assert "Traceback" not in result.stderr
+
+
+def test_main_max_failures_zero_is_valid(tmp_path):
+    """--max-failures 0 は有効値（境界値）→ argparse エラーにならない。
+    gold-set 欠落の [ERROR] が先に出るので exit 1 になる。"""
+    result = _run_main("--max-failures", "0", "--gold-set", str(tmp_path / "nope.json"))
+    # --max-failures=0 itself is accepted; the gold-set error causes exit 1
+    assert result.returncode == 1
+    assert "[ERROR]" in result.stderr
+    assert "Traceback" not in result.stderr
