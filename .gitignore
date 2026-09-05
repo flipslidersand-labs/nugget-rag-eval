@@ -8,5 +8,6 @@ build/
 .coverage
 htmlcov/
 .pytest_cache/
-data/
+data/*
+!data/chunks_large.json
 !tests/fixtures/
