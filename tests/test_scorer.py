@@ -185,3 +185,47 @@ def test_top_nuggets_embed_weight_one_uses_only_embedding():
 
     result = top_nuggets("query", sentences, top_k=1, embed_fn=mock_embed, embed_weight=1.0)
     assert result == ["diffusion model"]
+
+
+# ── IDF uses document frequency, not TF (#148) ────────────────────────────────
+
+
+def test_bm25_high_tf_doc_ranks_above_unrelated():
+    """頻出一致文（TF=5）は完全無関係文より上位になるべき（IDF がマイナスにならない）。
+
+    旧実装では IDF に TF を使っていたため f > N+0.5 で IDF < 0 になり、
+    クエリ語 5 回の文が無関係文（スコア 0.0）より下位になっていた。
+    """
+    sentences = [
+        "cache cache cache cache cache compression",  # TF=5 for "cache"
+        "unrelated words here entirely",
+        "cache methods",  # TF=1 for "cache"
+    ]
+    scores = bm25_scores("cache", sentences)
+    # High-TF match must beat the unrelated sentence (score must be positive)
+    assert scores[0] > scores[1], (
+        f"High-TF doc ({scores[0]:.3f}) must rank above unrelated doc ({scores[1]:.3f})"
+    )
+    assert scores[0] >= 0.0, f"High-TF score must not be negative, got {scores[0]:.3f}"
+
+
+def test_bm25_ubiquitous_term_has_low_idf_contribution():
+    """全文出現語は DF=N なので IDF≈0 となりスコアへの寄与が最小限になる。
+
+    旧実装では TF を IDF に使っていたため、全文に 1 回ずつ現れる語でも
+    IDF が非ゼロになりストップワードがスコアを歪めていた。
+    """
+    # "the" appears in every sentence — DF == N, so IDF should be ~0
+    sentences = [
+        "the quick brown fox",
+        "the lazy dog sleeps",
+        "the cat sat on the mat",
+    ]
+    scores = bm25_scores("the", sentences)
+    # All scores should be very small (near 0) because IDF ≈ log(1 + 0.5/3.5) ≈ 0.13
+    # and definitely no score should dominate due to "the" alone
+    assert all(s >= 0.0 for s in scores), "Scores for ubiquitous term must not be negative"
+    # The spread should be small — no sentence should have score > 0.5
+    assert max(scores) < 0.5, (
+        f"Ubiquitous term should have low IDF contribution, max score={max(scores):.3f}"
+    )
