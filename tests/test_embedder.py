@@ -68,6 +68,31 @@ def test_validate_url_rejects_imds_url():
         _validate_url("file://169.254.169.254/latest/meta-data/")
 
 
+def test_validate_url_rejects_empty_netloc():
+    with pytest.raises(ValueError, match="no host"):
+        _validate_url("http://")
+
+
+def test_validate_url_rejects_empty_netloc_with_path():
+    with pytest.raises(ValueError, match="no host"):
+        _validate_url("http:///path")
+
+
+# --- リダイレクト遮断 (#147: X-API-Key 転送防止) ---
+
+
+def test_embed_302_redirect_raises_embed_error_without_following():
+    """302 応答は追従せず即 EmbedError。リトライもされない（hits == 1）。"""
+    from nugget_rag.embedder import EmbedError
+    from tests.conftest import redirect_server
+
+    with redirect_server() as (base_url, hits):
+        client = EmbedClient(base_url, timeout=5)
+        with pytest.raises(EmbedError, match="302"):
+            client.embed(["hello"])
+    assert hits == ["/embed/batch"]
+
+
 def test_embed_client_rejects_file_scheme_base_url():
     with pytest.raises(ValueError, match="file"):
         EmbedClient("file:///etc/passwd", api_key="k")
