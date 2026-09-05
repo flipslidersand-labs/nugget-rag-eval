@@ -15,23 +15,14 @@ import sys
 import time
 from pathlib import Path
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlencode, urlparse
-from urllib.request import urlopen
+from urllib.parse import urlencode
 
+# Shared with nugget_rag.embedder: scheme/netloc validation and a
+# redirect-refusing urlopen (see #147 — redirects would forward headers
+# to arbitrary hosts).
+from nugget_rag.embedder import _validate_url, urlopen
 from nugget_rag.paper_registry import ARXIV_MAP as ARXIV_TO_PAPER_ID
 from nugget_rag.paper_registry import PAPER_ID_TO_ARXIV
-
-_ALLOWED_SCHEMES = frozenset({"http", "https"})
-
-
-def _validate_url(url: str) -> None:
-    """Reject non-HTTP(S) schemes to prevent SSRF via file://, ftp://, etc."""
-    parsed = urlparse(url)
-    if parsed.scheme not in _ALLOWED_SCHEMES:
-        raise ValueError(
-            f"Unsupported URL scheme: {parsed.scheme!r}. Only 'http' and 'https' are allowed."
-        )
-
 
 # Unified timeout constants
 _TIMEOUT_PAPERS = 15
