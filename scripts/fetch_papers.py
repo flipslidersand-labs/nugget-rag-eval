@@ -227,9 +227,50 @@ def _positive_int(v: str) -> int:
     return n
 
 
+def _non_negative_int(v: str) -> int:
+    """Argparse type for --max-failures: must be >= 0."""
+    n = int(v)
+    if n < 0:
+        raise argparse.ArgumentTypeError(f"must be >= 0, got {n}")
+    return n
+
+
+def _api_url_type(v: str) -> str:
+    """Argparse type for --api-url: validate scheme and host, suggest http:// on bare host.
+
+    urlparse('localhost:8020') treats 'localhost' as the scheme. Detect this
+    pattern (no '://' in the value) and emit a friendly did-you-mean message.
+    """
+    stripped = v.rstrip("/")
+    if "://" not in stripped:
+        raise argparse.ArgumentTypeError(
+            f"Missing URL scheme for {stripped!r}. Did you mean 'http://{stripped}'?"
+        )
+    try:
+        _validate_url(stripped)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(str(exc)) from exc
+    return stripped
+
+
+def _load_gold(path: str) -> list[dict]:
+    """Read and parse a gold-set JSON file, printing [ERROR] and exiting on failure."""
+    try:
+        return json.loads(Path(path).read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        print(f"[ERROR] gold-set file not found: {path}", file=sys.stderr)
+        sys.exit(1)
+    except PermissionError:
+        print(f"[ERROR] permission denied reading gold-set file: {path}", file=sys.stderr)
+        sys.exit(1)
+    except json.JSONDecodeError as exc:
+        print(f"[ERROR] gold-set file is not valid JSON ({path}): {exc}", file=sys.stderr)
+        sys.exit(1)
+
+
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--api-url", default="http://localhost:8020")
+    parser.add_argument("--api-url", default="http://localhost:8020", type=_api_url_type)
     parser.add_argument("--out", default="data/chunks.json")
     parser.add_argument(
         "--query",
@@ -262,22 +303,33 @@ def main():
     )
     parser.add_argument(
         "--max-failures",
-        type=int,
+        type=_non_negative_int,
         default=None,
-        help="Exit with code 1 when failure count exceeds this threshold (default: any failure exits 1)",
+        help="Exit with code 1 when failure count exceeds this threshold (must be >= 0; "
+        "default: any failure exits 1)",
     )
     args = parser.parse_args()
 
-    api = args.api_url.rstrip("/")
-    _validate_url(api)
+    api = args.api_url  # already validated and stripped by _api_url_type
     failure_count = 0
 
     if args.gold_set:
-        gold = json.loads(Path(args.gold_set).read_text(encoding="utf-8"))
+        gold = _load_gold(args.gold_set)
+        try:
+            from eval.evaluate import validate_gold
+
+            validate_gold(gold)
+        except ValueError as exc:
+            print(f"[ERROR] {exc}", file=sys.stderr)
+            sys.exit(1)
         print(f"Per-query fetch for {len(gold)} gold items", file=sys.stderr)
-        all_chunks, failure_count = fetch_per_query(
-            api, gold, args.chunk_mode, args.large_chunk_target, fail_fast=args.fail_fast
-        )
+        try:
+            all_chunks, failure_count = fetch_per_query(
+                api, gold, args.chunk_mode, args.large_chunk_target, fail_fast=args.fail_fast
+            )
+        except FetchError as exc:
+            print(f"[ERROR] {exc}", file=sys.stderr)
+            sys.exit(1)
     else:
         try:
             papers = fetch_papers(api)
