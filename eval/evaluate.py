@@ -66,8 +66,16 @@ def validate_gold(gold: list[dict]) -> None:
 
 
 def recall_at_k(results: list[dict], answer_spans: list[str], field: str = "text") -> bool:
-    haystack = " ".join(r.get(field, "") for r in results).lower()
-    return any(span.lower() in haystack for span in answer_spans)
+    """Return True if any single result contains any answer span.
+
+    Judged per-result (same criterion as :func:`mrr_at_k`) — never on joined
+    text, which would create false positives when a span only matches across
+    the boundary of two concatenated results (#146).
+    """
+    return any(
+        any(span.lower() in text for span in answer_spans)
+        for text in (r.get(field, "").lower() for r in results)
+    )
 
 
 def mrr_at_k(results: list[dict], answer_spans: list[str], field: str = "text") -> float:

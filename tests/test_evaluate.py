@@ -2,7 +2,7 @@
 
 import pytest
 
-from eval.evaluate import ARXIV_MAP, evaluate, mrr_at_k, validate_gold
+from eval.evaluate import ARXIV_MAP, evaluate, mrr_at_k, recall_at_k, validate_gold
 from tests.conftest import make_results
 
 _make_results = make_results  # backward-compat alias for existing tests
@@ -238,3 +238,51 @@ def test_evaluate_raises_on_missing_query():
     gold = [{"paper_id": 1, "answer_spans": ["span"]}]
     with pytest.raises(ValueError, match="missing required fields"):
         evaluate(chunks_by_paper, gold)
+
+
+# ---- recall_at_k per-result judgment (#146) ----
+
+
+def test_recall_hit_within_single_result():
+    results = make_results(["the answer span is here", "other text"])
+    assert recall_at_k(results, ["answer span"]) is True
+
+
+def test_recall_no_hit_returns_false():
+    results = make_results(["nothing relevant", "still nothing"])
+    assert recall_at_k(results, ["answer span"]) is False
+
+
+def test_recall_empty_results():
+    assert recall_at_k([], ["answer span"]) is False
+
+
+def test_recall_case_insensitive():
+    results = make_results(["The ANSWER Span"])
+    assert recall_at_k(results, ["answer span"]) is True
+
+
+def test_recall_nugget_field():
+    results = make_results(["answer span here"], field="nugget")
+    assert recall_at_k(results, ["answer span"], field="nugget") is True
+
+
+def test_recall_no_cross_boundary_false_positive():
+    """Span matching only across the join of two adjacent results must not count (#146)."""
+    results = make_results(["tail of chunk answer", "span head of next chunk"])
+    # "answer span" only appears if results are joined with a space
+    assert "answer span" in " ".join(r["text"] for r in results)
+    assert recall_at_k(results, ["answer span"]) is False
+
+
+def test_recall_matches_mrr_positivity():
+    """Invariant: recall_at_k(...) == (mrr_at_k(...) > 0) on the same inputs."""
+    cases = [
+        make_results(["the answer span is here"]),
+        make_results(["miss", "answer span"]),
+        make_results(["tail of chunk answer", "span head of next chunk"]),
+        make_results(["no hit at all"]),
+        [],
+    ]
+    for results in cases:
+        assert recall_at_k(results, ["answer span"]) == (mrr_at_k(results, ["answer span"]) > 0)
