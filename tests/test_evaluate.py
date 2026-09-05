@@ -90,9 +90,12 @@ def test_evaluate_arxiv_id_resolves_via_arxiv_map():
 
 
 def test_evaluate_arxiv_id_not_in_map_returns_zero():
-    """Unknown arxiv_id falls back to str key — chunks not found → recall 0."""
+    """Unknown arxiv_id falls back to str key — chunks not found → recall 0 for that query."""
     chunks_by_paper = {99: [{"text": "something", "nugget": "something"}]}
-    gold = [{"arxiv_id": "9999.99999", "query": "q", "answer_spans": ["something"]}]
+    gold = [
+        {"arxiv_id": "9999.99999", "query": "q", "answer_spans": ["something"]},
+        {"paper_id": 99, "query": "q2", "answer_spans": ["no match here"]},
+    ]
     result = evaluate(chunks_by_paper, gold, top_k=5)
     assert result["full_chunk"]["recall"] == 0.0
 
@@ -148,10 +151,71 @@ def test_evaluate_none_arxiv_id_falls_back_to_paper_id():
 def test_evaluate_unknown_arxiv_id_returns_zero_recall():
     """ARXIV_MAP にない arxiv_id は str キーとして使われ chunks を見つけられない。"""
     chunks_by_paper = {1: [{"text": "answer", "nugget": "answer"}]}
-    gold = [{"arxiv_id": "9999.99999", "query": "q", "answer_spans": ["answer"]}]
+    gold = [
+        {"arxiv_id": "9999.99999", "query": "q", "answer_spans": ["answer"]},
+        {"paper_id": 1, "query": "q2", "answer_spans": ["zzz no match"]},
+    ]
     result = evaluate(chunks_by_paper, gold, top_k=5)
     # 9999.99999 は ARXIV_MAP にないので str キーで探し、chunks は int キー → miss
     assert result["full_chunk"]["recall"] == 0.0
+
+
+# ── gold key ↔ chunks クロス整合性チェック (#145) ────────────────────────────
+
+
+def test_evaluate_warns_on_partially_missing_keys(capsys):
+    """chunks に無い gold key があれば stderr に [WARN] と件数・例が出る。"""
+    chunks_by_paper = {1: [{"text": "answer here", "nugget": "answer here"}]}
+    gold = [
+        {"paper_id": 1, "query": "q", "answer_spans": ["answer here"]},
+        {"paper_id": 999, "query": "q2", "answer_spans": ["answer here"]},
+    ]
+    result = evaluate(chunks_by_paper, gold, top_k=5)
+    err = capsys.readouterr().err
+    assert "[WARN]" in err
+    assert "1/2" in err
+    assert "999" in err
+    assert result["n_queries_without_chunks"] == 1
+
+
+def test_evaluate_raises_when_all_keys_missing():
+    """gold の全 key が chunks に無ければ ValueError で fail-fast。"""
+    chunks_by_paper = {1: [{"text": "answer", "nugget": "answer"}]}
+    gold = [
+        {"paper_id": 998, "query": "q", "answer_spans": ["answer"]},
+        {"arxiv_id": "9999.99999", "query": "q2", "answer_spans": ["answer"]},
+    ]
+    with pytest.raises(ValueError, match="no gold paper key found in chunks"):
+        evaluate(chunks_by_paper, gold, top_k=5)
+
+
+def test_evaluate_no_warning_when_all_keys_present(capsys):
+    """正常データでは警告なし・n_queries_without_chunks=0。"""
+    chunks_by_paper = {1: [{"text": "answer here", "nugget": "answer here"}]}
+    gold = [{"paper_id": 1, "query": "q", "answer_spans": ["answer here"]}]
+    result = evaluate(chunks_by_paper, gold, top_k=5)
+    assert "[WARN]" not in capsys.readouterr().err
+    assert result["n_queries_without_chunks"] == 0
+
+
+def test_evaluate_empty_gold_no_error():
+    """gold が空でも ValueError にならない（既存挙動維持）。"""
+    result = evaluate({}, [], top_k=5)
+    assert result["n_queries"] == 0
+    assert result["n_queries_without_chunks"] == 0
+
+
+def test_evaluate_warn_examples_capped_at_five(capsys):
+    """未解決 key の例は最大5件まで。"""
+    chunks_by_paper = {1: [{"text": "answer here", "nugget": "answer here"}]}
+    gold = [{"paper_id": 1, "query": "q", "answer_spans": ["answer here"]}] + [
+        {"paper_id": 900 + i, "query": f"q{i}", "answer_spans": ["x"]} for i in range(7)
+    ]
+    result = evaluate(chunks_by_paper, gold, top_k=5)
+    err = capsys.readouterr().err
+    assert "7/8" in err
+    assert err.count("90") <= 5  # 900..906 のうち例示は5件まで
+    assert result["n_queries_without_chunks"] == 7
 
 
 # ── validate_gold (#108) ──────────────────────────────────────────────────────
