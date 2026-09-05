@@ -11,7 +11,7 @@ academic-paper-system に導入する前に定量評価するためのリポジ�
 
 ## 評価設計
 
-```
+```text
 クエリ → hybrid search (full-chunk) → snippets   →  Recall@k 計測
                                                    ↕  比較
 クエリ → hybrid search → nugget抽出 → nuggets     →  Recall@k 計測
@@ -19,7 +19,7 @@ academic-paper-system に導入する前に定量評価するためのリポジ�
 
 ## ディレクトリ構成
 
-```
+```text
 nugget_rag/
   chunker.py     # 文単位分割（CJK 対応）
   scorer.py      # BM25 + 埋め込み類似度でナゲットスコアリング
@@ -77,7 +77,7 @@ python eval/evaluate.py \
 
 ## 出力フォーマット
 
-```
+```text
 Mode               Recall@5     MRR@5        Avg tokens(words)
 ------------------------------------------------------------
 full-chunk         1.0          0.823        300.1
@@ -115,7 +115,7 @@ Recall@5 がいずれかのモードで閾値を下回ると exit 1 で CI を�
 
 19クエリ・10論文（arxiv）・gold set 実チャンクテキスト検証済み。
 
-```
+```text
 Mode               Recall@5     MRR@5        Avg tokens(words)
 ------------------------------------------------------------
 full-chunk         1.000        0.823        300.1
@@ -132,7 +132,7 @@ academic-paper-system への nugget 導入を推奨。
 
 ### 小チャンク（参考・旧方式）
 
-```
+```text
 Mode               Recall@5     MRR@5        Avg tokens(words)
 ------------------------------------------------------------
 full-chunk         0.211        -            24.1

@@ -7,6 +7,12 @@ on:
     branches: [main]
 
 jobs:
+  markdownlint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: npx --yes markdownlint-cli --config .markdownlint.json "**/*.md" --ignore node_modules --ignore .venv
+
   test:
     uses: flipslidersand-labs/qa-workflows/.github/workflows/python-test.yml@fcccf3f5895340faa5c6ef2469068b7b32a6c60e  # main
     with:
