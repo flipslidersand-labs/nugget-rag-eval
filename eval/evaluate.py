@@ -28,6 +28,46 @@ from nugget_rag.retriever import retrieve_full_chunk, retrieve_nuggets
 _REQUIRED_FIELDS = frozenset({"query", "answer_spans"})
 
 
+def validate_chunks(chunks: list[dict]) -> None:
+    """Validate chunks list, raising ValueError on schema violations.
+
+    Checks:
+    - ``chunks`` is a list (not a dict or other type).
+    - Each chunk has at least one of ``arxiv_id`` or ``paper_id``.
+    - Each chunk has a non-empty ``text`` field.
+
+    Raises:
+        ValueError: On the first violation, with a descriptive message listing
+            the index and the specific problem.
+    """
+    if not isinstance(chunks, list):
+        raise ValueError(f"chunks must be a JSON array (list), got {type(chunks).__name__!r}")
+    for i, chunk in enumerate(chunks):
+        has_id = chunk.get("arxiv_id") or chunk.get("paper_id") is not None
+        if not has_id:
+            raise ValueError(
+                f"chunks[{i}] must have 'arxiv_id' or 'paper_id' (both absent or falsy)"
+            )
+        text = chunk.get("text")
+        if not text:
+            raise ValueError(
+                f"chunks[{i}] missing or empty 'text' field — recall would silently drop to 0"
+            )
+
+
+def build_chunks_index(chunks: list[dict]) -> dict[str | int, list[dict]]:
+    """Group a flat chunks list into a dict keyed by paper identifier.
+
+    Uses ``arxiv_id`` when present and truthy, otherwise ``paper_id``.
+    Assumes *chunks* has already been validated by :func:`validate_chunks`.
+    """
+    chunks_by_paper: dict[str | int, list[dict]] = {}
+    for c in chunks:
+        key: str | int = c.get("arxiv_id") or c["paper_id"]
+        chunks_by_paper.setdefault(key, []).append(c)
+    return chunks_by_paper
+
+
 def validate_gold(gold: list[dict]) -> None:
     """Validate gold set items, raising ValueError on schema violations.
 
@@ -285,14 +325,16 @@ def main():
     gold: list[dict] = _load_json(args.gold, "--gold")
 
     try:
+        validate_chunks(chunks_data)
+    except ValueError as exc:
+        sys.exit(f"[ERROR] {exc}")
+
+    try:
         validate_gold(gold)
     except ValueError as exc:
         sys.exit(f"[ERROR] {exc}")
 
-    chunks_by_paper: dict[str | int, list[dict]] = {}
-    for c in chunks_data:
-        key = c.get("arxiv_id") or c["paper_id"]
-        chunks_by_paper.setdefault(key, []).append(c)
+    chunks_by_paper = build_chunks_index(chunks_data)
 
     try:
         result = evaluate(
