@@ -37,14 +37,21 @@ def bm25_scores(
     tokenized = [_tokenize(s) for s in sentences]
     avgdl = sum(len(t) for t in tokenized) / len(tokenized)
     q_terms = _tokenize(query)
+    # Pre-compute document frequency (df) for each query term:
+    # df[term] = number of documents in the corpus that contain term.
+    # This must be computed outside the per-document loop so that IDF
+    # reflects corpus-level rarity, not the current document's TF.
+    N = len(sentences)
+    df: dict[str, int] = {term: sum(1 for doc in tokenized if term in doc) for term in set(q_terms)}
     scores = []
     for doc in tokenized:
         tf = Counter(doc)
         dl = len(doc)
         score = 0.0
         for term in q_terms:
-            f = tf.get(term, 0)
-            idf = math.log(1 + (len(sentences) - f + 0.5) / (f + 0.5))
+            f = tf.get(term, 0)  # within-document term frequency (TF)
+            n = df[term]  # corpus document frequency (DF) used for IDF
+            idf = math.log(1 + (N - n + 0.5) / (n + 0.5))
             numerator = f * (k1 + 1)
             denominator = f + k1 * (1 - b + b * dl / max(avgdl, 1))
             score += idf * (numerator / denominator)
