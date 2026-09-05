@@ -98,6 +98,7 @@ class EmbedClient:
             except HTTPError as exc:
                 if exc.code is not None and exc.code < 500:
                     raise EmbedError(f"Embedding service error {exc.code}: {exc}") from exc
+                exc.close()  # release the response socket before retrying (#141)
                 last_exc = exc
             except URLError as exc:
                 last_exc = exc
