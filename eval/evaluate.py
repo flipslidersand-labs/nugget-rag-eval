@@ -65,6 +65,41 @@ def validate_gold(gold: list[dict]) -> None:
             )
 
 
+def _resolve_key(item: dict) -> str | int:
+    """Resolve a gold item to its chunks_by_paper key (arxiv_id via ARXIV_MAP, else paper_id)."""
+    arxiv_id = item.get("arxiv_id")
+    if arxiv_id:
+        return ARXIV_MAP.get(arxiv_id, arxiv_id)
+    return item["paper_id"]
+
+
+def check_gold_chunk_coverage(chunks_by_paper: dict[str, list[dict]], gold: list[dict]) -> int:
+    """Warn about gold keys missing from chunks_by_paper; return the count of affected queries.
+
+    Prints a ``[WARN]`` line to stderr with the count and up to 5 example keys.
+
+    Raises:
+        ValueError: If *gold* is non-empty and no gold key resolves to any chunks
+            (every query would silently score recall 0).
+    """
+    missing = [key for item in gold if (key := _resolve_key(item)) not in chunks_by_paper]
+    if not missing:
+        return 0
+
+    examples = sorted({str(k) for k in missing})[:5]
+    if len(missing) == len(gold):
+        raise ValueError(
+            f"no gold paper key found in chunks — all {len(gold)} queries would score "
+            f"recall 0 (wrong --chunks file or unregistered arxiv_id?); examples: {examples}"
+        )
+    print(
+        f"[WARN] {len(missing)}/{len(gold)} gold queries have no chunks "
+        f"(keys not in chunks data): {examples}",
+        file=sys.stderr,
+    )
+    return len(missing)
+
+
 def recall_at_k(results: list[dict], answer_spans: list[str], field: str = "text") -> bool:
     """Return True if any single result contains any answer span.
 
@@ -104,6 +139,7 @@ def evaluate(
     estimator: str = "words",
 ) -> dict:
     validate_gold(gold)
+    n_queries_without_chunks = check_gold_chunk_coverage(chunks_by_paper, gold)
 
     full_hits = nugget_hits = 0
     full_tokens = nugget_tokens = 0.0
@@ -112,11 +148,7 @@ def evaluate(
 
     for i, item in enumerate(gold):
         # Support both arxiv_id (new) and paper_id (legacy)
-        arxiv_id = item.get("arxiv_id")
-        if arxiv_id:
-            key: str | int = ARXIV_MAP.get(arxiv_id, arxiv_id)
-        else:
-            key = item["paper_id"]
+        key = _resolve_key(item)
         query = item["query"]
         spans = item["answer_spans"]
         chunks = chunks_by_paper.get(key, [])
@@ -154,6 +186,7 @@ def evaluate(
 
     return {
         "n_queries": n,
+        "n_queries_without_chunks": n_queries_without_chunks,
         "full_chunk": {
             "recall": round(full_hits / n, 3) if n else 0,
             "mrr": round(full_mrr_sum / n, 3) if n else 0,
@@ -259,15 +292,18 @@ def main():
         key = c.get("arxiv_id") or c["paper_id"]
         chunks_by_paper.setdefault(key, []).append(c)
 
-    result = evaluate(
-        chunks_by_paper,
-        gold,
-        top_k=args.top_k,
-        verbose=args.verbose,
-        embed_fn=embed_fn,
-        embed_weight=args.embed_weight,
-        estimator=args.token_estimator,
-    )
+    try:
+        result = evaluate(
+            chunks_by_paper,
+            gold,
+            top_k=args.top_k,
+            verbose=args.verbose,
+            embed_fn=embed_fn,
+            embed_weight=args.embed_weight,
+            estimator=args.token_estimator,
+        )
+    except ValueError as exc:
+        sys.exit(f"[ERROR] {exc}")
 
     tok_label = f"Avg tokens({args.token_estimator})"
     mode_label = f"nugget(e{args.embed_weight:.1f})" if embed_fn else "nugget"

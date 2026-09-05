@@ -29,7 +29,7 @@ def _passing_data(tmp_path):
 def _failing_data(tmp_path):
     """Chunks and gold where recall = 0 (no answer match)."""
     chunks = [{"paper_id": 1, "text": "totally unrelated content", "nugget": "totally unrelated"}]
-    gold = [{"paper_id": 99, "query": "q", "answer_spans": ["missing answer"]}]
+    gold = [{"paper_id": 1, "query": "q", "answer_spans": ["missing answer"]}]
     c_path, g_path = tmp_path / "chunks.json", tmp_path / "gold.json"
     _write_json(c_path, chunks)
     _write_json(g_path, gold)
