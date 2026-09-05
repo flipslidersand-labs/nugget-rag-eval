@@ -12,6 +12,7 @@ Usage:
 import argparse
 import json
 import sys
+import time
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode, urlparse
@@ -36,19 +37,55 @@ def _validate_url(url: str) -> None:
 _TIMEOUT_PAPERS = 15
 _TIMEOUT_CHUNKS = 30
 
+# Retry policy (mirrors nugget_rag.embedder.EmbedClient exponential backoff)
+_MAX_RETRIES = 3
+_RETRY_BACKOFF = 1.0
+
 
 class FetchError(Exception):
     """Raised when an HTTP/network fetch fails."""
+
+
+def _urlopen_with_retry(
+    url: str,
+    timeout: int,
+    max_retries: int = _MAX_RETRIES,
+    retry_backoff: float = _RETRY_BACKOFF,
+) -> bytes:
+    """Fetch *url* with exponential-backoff retry, returning the response body.
+
+    Retries up to *max_retries* times on URLError or 5xx HTTPError so a single
+    transient error does not silently drop a paper. 4xx errors are re-raised
+    immediately without retrying (permanent failures).
+
+    Raises:
+        HTTPError | URLError: on non-retryable errors or after retries exhausted.
+    """
+    last_exc: URLError | None = None
+    for attempt in range(max_retries + 1):
+        try:
+            with urlopen(url, timeout=timeout) as http_resp:
+                return http_resp.read()
+        except HTTPError as exc:
+            if exc.code is not None and exc.code < 500:
+                raise
+            last_exc = exc
+        except URLError as exc:
+            last_exc = exc
+        if attempt < max_retries:
+            time.sleep(retry_backoff * (2**attempt))
+    assert last_exc is not None  # loop always runs at least once
+    raise last_exc
 
 
 def fetch_papers(api_url: str, limit: int = 100) -> list[dict]:
     _validate_url(api_url)
     url = f"{api_url}/papers?{urlencode({'limit': limit, 'sort': 'score'})}"
     try:
-        with urlopen(url, timeout=_TIMEOUT_PAPERS) as http_resp:
-            return json.loads(http_resp.read())["papers"]
+        body = _urlopen_with_retry(url, timeout=_TIMEOUT_PAPERS)
     except (URLError, HTTPError) as exc:
         raise FetchError(f"Failed to fetch papers: {exc}") from exc
+    return json.loads(body)["papers"]
 
 
 def _sanitize_query(query: str) -> str:
@@ -63,10 +100,10 @@ def fetch_chunks_for_paper(api_url: str, paper_id: int, query: str, limit: int =
     safe_query = _sanitize_query(query)
     url = f"{api_url}/search?{urlencode({'q': safe_query, 'mode': 'hybrid', 'paper_id': paper_id, 'limit': limit})}"
     try:
-        with urlopen(url, timeout=_TIMEOUT_CHUNKS) as http_resp:
-            results = json.loads(http_resp.read())["results"]
+        body = _urlopen_with_retry(url, timeout=_TIMEOUT_CHUNKS)
     except (URLError, HTTPError) as exc:
         raise FetchError(f"Failed to fetch chunks for paper {paper_id}: {exc}") from exc
+    results = json.loads(body)["results"]
     arxiv_id = PAPER_ID_TO_ARXIV.get(paper_id)
     chunks = []
     for r in results:

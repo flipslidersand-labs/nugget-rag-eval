@@ -2,14 +2,14 @@
 
 Covers: _sanitize_query, combine_large_chunks,
         fetch_chunks_for_paper (mocked), fetch_per_query (mocked),
-        FetchError partial-failure behaviour.
+        FetchError partial-failure behaviour, retry/backoff behaviour.
 """
 
 from __future__ import annotations
 
 import json
 from unittest.mock import MagicMock, patch
-from urllib.error import URLError
+from urllib.error import HTTPError, URLError
 
 import pytest
 
@@ -18,12 +18,17 @@ from scripts.fetch_papers import (
     PAPER_ID_TO_ARXIV,
     FetchError,
     _sanitize_query,
+    _urlopen_with_retry,
     _validate_url,
     combine_large_chunks,
     fetch_chunks_for_paper,
     fetch_papers,
     fetch_per_query,
 )
+
+
+def _http_error(code: int) -> HTTPError:
+    return HTTPError(url="http://api", code=code, msg="err", hdrs=None, fp=None)
 
 
 def _cm(data: bytes) -> MagicMock:
@@ -287,12 +292,92 @@ def test_fetch_per_query_returns_all_unique_chunks(mock_fetch):
     assert failures == 0
 
 
+# ── _urlopen_with_retry ──────────────────────────────────────────────────────
+
+
+@patch("scripts.fetch_papers.time.sleep")
+@patch("scripts.fetch_papers.urlopen")
+def test_retry_succeeds_after_transient_urlerror(mock_open, mock_sleep):
+    """transient エラー（1〜2 回失敗後成功）でボディが返る＝chunk 欠落なし。"""
+    ok = _cm(b"payload").return_value
+    mock_open.side_effect = [URLError("reset"), URLError("reset"), ok]
+    assert _urlopen_with_retry("http://api", timeout=5) == b"payload"
+    assert mock_open.call_count == 3
+    assert mock_sleep.call_count == 2
+
+
+@patch("scripts.fetch_papers.time.sleep")
+@patch("scripts.fetch_papers.urlopen")
+def test_retry_succeeds_after_transient_5xx(mock_open, mock_sleep):
+    """5xx はリトライ対象。"""
+    ok = _cm(b"payload").return_value
+    mock_open.side_effect = [_http_error(503), ok]
+    assert _urlopen_with_retry("http://api", timeout=5) == b"payload"
+    assert mock_open.call_count == 2
+
+
+@patch("scripts.fetch_papers.time.sleep")
+@patch("scripts.fetch_papers.urlopen")
+def test_retry_4xx_raises_immediately(mock_open, mock_sleep):
+    """4xx は恒久失敗として即 raise（リトライ・sleep なし）。"""
+    mock_open.side_effect = _http_error(404)
+    with pytest.raises(HTTPError):
+        _urlopen_with_retry("http://api", timeout=5)
+    assert mock_open.call_count == 1
+    mock_sleep.assert_not_called()
+
+
+@patch("scripts.fetch_papers.time.sleep")
+@patch("scripts.fetch_papers.urlopen")
+def test_retry_exhaustion_raises_last_error(mock_open, mock_sleep):
+    """リトライ上限まで失敗したら最後のエラーが raise される。"""
+    mock_open.side_effect = URLError("down")
+    with pytest.raises(URLError):
+        _urlopen_with_retry("http://api", timeout=5, max_retries=2)
+    assert mock_open.call_count == 3  # initial + 2 retries
+    assert mock_sleep.call_count == 2
+
+
+@patch("scripts.fetch_papers.time.sleep")
+@patch("scripts.fetch_papers.urlopen")
+def test_retry_backoff_is_exponential(mock_open, mock_sleep):
+    """バックオフは retry_backoff * 2**attempt で伸びる。"""
+    mock_open.side_effect = URLError("down")
+    with pytest.raises(URLError):
+        _urlopen_with_retry("http://api", timeout=5, max_retries=2, retry_backoff=1.0)
+    assert [c.args[0] for c in mock_sleep.call_args_list] == [1.0, 2.0]
+
+
+@patch("scripts.fetch_papers.time.sleep")
+@patch("scripts.fetch_papers.urlopen")
+def test_fetch_chunks_recovers_from_transient_error(mock_open, mock_sleep):
+    """fetch_chunks_for_paper は transient エラー後にリトライで chunks を返す。"""
+    ok = _cm(
+        json.dumps({"results": [{"chunk_index": 0, "snippet": "x", "score": 0.5}]}).encode()
+    ).return_value
+    mock_open.side_effect = [URLError("reset"), ok]
+    chunks = fetch_chunks_for_paper("http://api", paper_id=1, query="q")
+    assert len(chunks) == 1
+
+
+@patch("scripts.fetch_papers.time.sleep")
+@patch("scripts.fetch_papers.urlopen")
+def test_fetch_papers_4xx_raises_fetch_error_without_retry(mock_open, mock_sleep):
+    """fetch_papers は 4xx を即 FetchError に変換する。"""
+    mock_open.side_effect = _http_error(400)
+    with pytest.raises(FetchError, match="Failed to fetch papers"):
+        fetch_papers("http://api")
+    assert mock_open.call_count == 1
+    mock_sleep.assert_not_called()
+
+
 # ── FetchError / partial-failure behaviour ───────────────────────────────────
 
 
+@patch("scripts.fetch_papers.time.sleep")
 @patch("scripts.fetch_papers.urlopen")
-def test_fetch_chunks_raises_fetch_error_on_network_failure(mock_open):
-    """URLError が FetchError に変換されて raise される（sys.exit しない）。"""
+def test_fetch_chunks_raises_fetch_error_on_network_failure(mock_open, mock_sleep):
+    """URLError が（リトライ枯渇後）FetchError に変換されて raise される（sys.exit しない）。"""
     mock_open.side_effect = URLError("connection refused")
     with pytest.raises(FetchError, match="Failed to fetch chunks for paper"):
         fetch_chunks_for_paper("http://api", paper_id=1, query="test")
