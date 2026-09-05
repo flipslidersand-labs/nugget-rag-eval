@@ -1,0 +1,442 @@
+[
+  {
+    "paper_id": 10,
+    "chunk_indices": [
+      0,
+      3,
+      1,
+      8,
+      10,
+      4,
+      6,
+      13,
+      5,
+      2,
+      7,
+      9,
+      11,
+      12
+    ],
+    "text": "CoinRAG: Contextualized Information Nugget KV Cache Reuse for Long-Context RAG GyuwanKim1 CheoneumPark2 TaoYang1 1UniversityofCalifornia,SantaBarbara 2HanbatNationalUniversity {gyuwankim, tyang}@ucsb. Prompt Query Prompt Query (a)StandardRAG (b)CacheBlend Prompt Query Prompt Query (c)TurboRAG (d)KVLink KV cache computed offline Prompt Query KV cache computed online (e)CoinRAG(Ours) Figure1:Comparis expensiveintermsofTTFT.TomeetSLAunder each document chunk with a set of text spans alow-latencybudget,itneedstolimittheretrieval capturing essential information nuggets. Second, scope,degradinganswera Limitations thisassumption,andthissettingisfairforcom- paring them. With large online cache capacity, While CoinRAG has demonstrated a new Pareto standardRAGcouldtakeadvantageofdocument frontier for e A FutureWork quences are mapped directly to the precomputed full-context KV cache slots, with the target ques- WeevaluateCoinRAGonthreeLongBenchmulti- tion appended at the very end of the prompt se- h level KV caches to isolate cross-chunk attention As listed in Table 2, CoinRAG differs from andslashTTFT.Sincethetwoareessentiallyiden- thesenugget-basedstudiesinbothwhenandhow tical in design, we let 52 50 48 46 44 42 40 103 104 Context length budget (# tokens) erocS-1F 46 44 42 40 38 36 34 32 30 28 103 104 Context length budget (# tokens) (a) HotpotQA erocS-1F 32 30 28 26 24 22 20 103 104 Context the RTX PRO 6000, whereas all evaluation and cating positions shared by overlapping nuggets), latencybenchmarksareexecutedontheL40Sen- implyingthatretainingonlynugget-coveredposi- vironmentinbfloat16p 52 50 48 46 44 42 40 38 102 103 Latency budget (ms) erocS-1F 46 44 42 40 38 36 34 32 30 28 102 103 Latency budget (ms) (a) HotpotQA erocS-1F 32 30 28 26 24 22 20 102 103 Latency budget (ms) (b) 2WikiM startandendtokenindiceswithinitssourcechunk. withinthatchunk.Givenaqueryq,adenseretriever This span-level grounding lets us later slice the firstfetchesthetop-k textchunksfromthecorpus c corresponding 52.5 50.0 47.5 45.0 42.5 40.0 37.5 35.0 32.5 102 103 Latency budget (ms) erocS-1F 44 42 40 38 36 34 32 30 28 102 103 Latency budget (ms) (a) HotpotQA erocS-1F 32 30 28 26 24 22 102 103 Latency budget  LauraDietz,BryanLi,GabrielleLiu,Jia-HueiJu,Eu- Woosuk Kwon, Zhuohan Li, Siyuan Zhuang, Ying gene Yang, Dawn Lawrie, William Walden, and Sheng,LianminZheng,CodyHaoYu,JosephGon- JamesMayfield.2026. Inco YouareaninformationextractionsystemforOpen-DomainQuestionAnswering. Givenapassage,extractallspansthatcouldserveasevidenceordirectanswerstofactualquestions. ###Rules: 1.ExtractspansEXACTLYastheyappeari Inputpassage(longbench-hotpotqa,passage_idx=7): Passage7: Grania:She-KingoftheIrishSeas Grania:She-KingoftheIrishSeasisa1986historicalfictionnovelaboutGraceO’Malley(Irish:GráinneNí Mháille),theso-call",
+    "score": 0.03278688524590164
+  },
+  {
+    "paper_id": 1,
+    "chunk_indices": [
+      0,
+      2,
+      10,
+      11,
+      1,
+      6,
+      9,
+      8,
+      4,
+      7,
+      5,
+      3
+    ],
+    "text": "4202 tcO 41 ]AM.sc[ 1v17001.0142:viXra Content Caching-Assisted Vehicular Edge Computing Using Multi-Agent Graph Attention Reinforcement Learning Jinjin Shen, Yan Lin, Member, IEEE, Yijin Zhang, Senio the structural information such as the relationships among nodes [13]. Consequently, it has been used for solving op- timization problems by jointly considering the information of agents close to an a \u0000\u0013\u0000\u0011\u0000\u001b \u0000\u0013\u0000\u0011\u0000\u001a \u0000\u0013\u0000\u0011\u0000\u0019 \u0000\u0013\u0000\u0011\u0000\u0018 \u0000\u0013\u0000\u0011\u0000\u0017 \u0000\u0013\u0000\u0011\u0000\u0016 \u0000\u0014\u0000\u0013 \u0000\u0015\u0000\u0013 \u0000\u0016\u0000\u0013 \u0000\u0017\u0000\u0013 \u0000\u0018\u0000\u0013 \u00001\u0000X\u0000P\u0000E\u0000H\u0000U\u0000\u0003\u0000R\u0000I\u0000\u0003\u00009\u00008\u0000V \u0000R\u0000L\u0000W\u0000D\u00005\u0000\u0003\u0000W\u0000L\u0000+\u0000\u0003\u0000W\u0000Q\u0000H\u0000W\u0000Q\u0000R\u0000&\u0000\u0003\u0000G\u0000H\u0000J\u0000U\u0000H\u0000Y\u0000Q\u0000R\u0000& \u00003\u0000U\u0000R\u0000S\u0000R\u0000V\u0000H\u0000G\u0000\u0003\u0000 \u0000&\u00007\u0000V\u0000 \u0000\u0003\u0000\u0014\u0000\u0013\u0000 \u00003\u0000U\u0000R\u0000S\u0000R\u0000V\u0000H\u0000 better use of densely deployedcache andservice caching in edgecomputing,” inGLOBECOM2022-2022 resources to further reduce the total system latency. IEEEGlobalCommunications Conference, pp.5189–5194, 2 use this material for any other purposes must be obtained fromtheIEEEbysendingarequesttopubs-permissions@ieee.org. framework without cooperative learning. Additionally, X. Ye Thisworkwassupportedinpar Graph Modeling ot Q value . . . . . . ht . . . . . . h't . . . . . . h''t DRL . . . Parameter Updating a (t) ca Latent Feature Generating Adjacency MatrixCt i (cid:167) (cid:168) W Q 1 W K 1 W V 1(cid calculation of attention weights. We assume learnpolicybycontinuouslyinteractingwiththeenvironment. that the constructed graph in TS t consists of |E t | edges and Moreover, the proposed scheme utiliz network, where the training network parameters are updated byoptimizingthelossfunctionofthetargetnetwork.Through extractinggraphicalinformationtofacilitatecooperativelearn- ing, the MGARL method can b assumed to be the same for each TS. Similarly, let P and be expressed by T (t) = (1 − e (t))(Tl (t) + Toff(t)) + n m m m m gdown(t) denote the transmit power of SN n and the channel e (t)Tdown(t). Mat +i according to Ct i to i +i generate h′t by adopting multi-head attention as one-hot representations of At . To be specific, the first row i +i the convolution kernel; of Ct is the one-hot representa if the content of task k is cached on n,k ooo (t)=[x (t),y (t),hca (t),hca (t),··· , SN n in TS t, otherwise hc n a ,k (t) = 0. Note that all SNs m m m m,1 m,2 (4) have limited caching capacity with g oroffloaditforexecution.Inthiscase, performs other baselines in terms of both improving after completing the task, each VU needs to decide whether caching resource utilization and reducing long-term t",
+    "score": 0.03278688524590164
+  },
+  {
+    "paper_id": 7,
+    "chunk_indices": [
+      0,
+      23,
+      2,
+      3,
+      17,
+      18,
+      1,
+      14,
+      26,
+      24,
+      4,
+      9,
+      16,
+      21,
+      15,
+      25,
+      10,
+      5
+    ],
+    "text": "ACCEPTEDTOIEEETRANSACTIONSONWIRELESSCOMMUNICATIONS 1 Cooperative UAVs for Remote Data Collection under Limited Communications: An Asynchronous Multiagent Learning Framework Cuong Le, Symeon Chatzinota C.LEetal.:COOPERATIVEUAVSFORREMOTEDATACOLLECTION:ANASYNCHRONOUSMARLFRAMEWORK 13 122 120 118 116 114 112 10 4 10 3 10 2 10 1 Estimation error )s( emit noitelpmoC opt bandwidth 0.270 equal bandwidth 0.2 2 ACCEPTEDTOIEEETRANSACTIONSONWIRELESSCOMMUNICATIONS data points and the data size are random and unknown UAVtrajectoryplanningandmayjointlyconsidertransmission in advance; and ii) different collectio to maximize the amount of collected data. The problem is provides a brief review of existing studies and their limita- formulatedasaDec-POMDP,andthensolvedbyindependent tions. Section III introduces t hovering time same position, at the center of the bottom-left cell depicted needs to guarantee that all data is collected, i.e., in Fig. 3. The observable region of each UAV is an area of R¯in(t)≥Di/ζ 10 ACCEPTEDTOIEEETRANSACTIONSONWIRELESSCOMMUNICATIONS 400 350 0.8 300 250 0.6 200 0.4 150 100 0.2 50 0 0.0 0 50 100 150 200 250 300 350 400 Data size (Mbits) ininefficientuseofhoveringenergy.Theseresu trajectories and bandwidth allocation at each data critical challenges that must be addressed to maximize the collection point to maximize the overall energy efficiency. potential of UAVs and ensure t 8 ACCEPTEDTOIEEETRANSACTIONSONWIRELESSCOMMUNICATIONS Mixing network ... MLP GRU ... UAV 1 UAV N MLP gnilpmas-nwoD ... Fig. 2: The architecture of the proposed algorithm. The green, blue, and red block [35] A.Al-Hourani,S.Kandeepan,andS.Lardner,“Optimallapaltitudefor no.1,pp.632–647,2022. maximumcoverage,”IEEEWirel.Commun.Lett.,vol.3,no.6,pp.569– [26] J. Hu, H. Zhang, L. Song, R. Schober, and H. V.  device positioning in UAV-assisted IoT,” IEEEInternetThingsJ.,vol.7,no.2,pp.1122–1139,2019. In this work, we have presented a solution to the problem [11] C. You and R. Zhang, “3d trajectory optimizat C.LEetal.:COOPERATIVEUAVSFORREMOTEDATACOLLECTION:ANASYNCHRONOUSMARLFRAMEWORK 3 SN-selection action, the action space grows exponentially in the number of SNs, resulting in poor scalability. Although o m w,b ψ(w,b) s.t. (1),(5),(6),(11),(15) R(s m ,u m )= (cid:90) tˆ m+1 γt−tˆ mR(cid:98)(s m ,u m ,t)dt (17) where Φ(w,b) and ψ(w,b) are given in (14) and (7), re- tˆ m spectively. In the above problem, C.LEetal.:COOPERATIVEUAVSFORREMOTEDATACOLLECTION:ANASYNCHRONOUSMARLFRAMEWORK 9 CSI is infeasible, resulting channel estimation error. Let the algorithms, we use different grid sizes, including 8×8, hi 12 ACCEPTEDTOIEEETRANSACTIONSONWIRELESSCOMMUNICATIONS 1200 1000 800 600 400 200 0 1 2 4 6 Number of UAV(s) )s( emit noitelpmoC 150 AQMIX AIQL QMIX HERT 125 100 75 50 25 0 1 2 4 6 Number of UAV(s) (a)  of UAVs and their completion maps to generate the hidden size N is O(N2+N N ) [37], and the fact that we h x x h mixingparametersbenefitingtheUAVscooperation.However, use the same number of N units fo 14 ACCEPTEDTOIEEETRANSACTIONSONWIRELESSCOMMUNICATIONS 400 400 400 350 350 350 300 300 300 250 250 250 200 200 200 150 150 150 100 100 100 50 50 50 0 0 0 0 50 100 150 200 250 300 350 400 0 50 100 150 2 6 ACCEPTEDTOIEEETRANSACTIONSONWIRELESSCOMMUNICATIONS B. Detailed Components of (P), and 1(s ,u ,t) is an indicator function indicating m m whether taking action u in state s leads to the termination W amount of data at the ith SN that needs to be too closely, disrupting their schedules. They formulate the collected.TheUAVscanmovebetweenthecentersofcellsto bus fleet control problem as an asynchronou",
+    "score": 0.03278688524590164
+  },
+  {
+    "paper_id": 7,
+    "chunk_indices": [
+      8,
+      22,
+      13,
+      12,
+      20,
+      19,
+      11,
+      6,
+      7
+    ],
+    "text": "C.LEetal.:COOPERATIVEUAVSFORREMOTEDATACOLLECTION:ANASYNCHRONOUSMARLFRAMEWORK 5 noise power spectral density. IV. TRAJECTORYOPTIMIZATIONUNDERDEC-POSMDP Consider a particular time t = tn[k] when the n-t from no communi- cationbetweenUAVstofullcommunication,whereUAVscan exchange information any time and from any position. Note draweR 1x1 4x4 2x2 5x5 3x3 Fig.10:LearningcurvesofAQMIXwithdifferentkernels its local observation and history, of the asynchronous algorithm is to learn a joint (centralized) the learned policies can be extracted and executed indepen- action-value function Q (s ,u |u−nˆ) cond C.LEetal.:COOPERATIVEUAVSFORREMOTEDATACOLLECTION:ANASYNCHRONOUSMARLFRAMEWORK 7 thegoodnessoftakingactionun onhistoryHn.Theprincipal we have premise that makes QMIX efficient is the consistent rela- ma C.LEetal.:COOPERATIVEUAVSFORREMOTEDATACOLLECTION:ANASYNCHRONOUSMARLFRAMEWORK 11 80 60 40 20 0 0 10k 20k 30k 40k 50k Training episodes draweR 150 100 50 AQMIX 0 QMIX AIQL 0 10k 20k 30k 40k 50k Training The state downsampling is performed with kernel size of Fig. 6 plots the average results over 1000 testing scenarios, 3×3. The reward function is scaled down by the maximum with the energy budget for  action = (cid:90) tˆ m+1 γt−tˆ m (cid:16)(cid:88) φin(t)+αΓ(π)1(s ,u ,t) (cid:17) dt m m of hovering to collect data, moving forward, to the right, tˆ m i∈I backward, and to the left, respectively. To 4 ACCEPTEDTOIEEETRANSACTIONSONWIRELESSCOMMUNICATIONS We have the first constraints regarding to the departure and B. Data Transmission Model arrival locations of UAVs given by Let hin(t) ∈ CNtx×1 be t v 0 represents the mean rotor-induced speed η ≥ 2 is the pathloss exponent, β is the attenuation due to in hover, P 0 ,P 1 and P 2 are constants depending on the NLoS, f c is the carrier frequency, an",
+    "score": 0.012658227848101266
+  },
+  {
+    "paper_id": 5,
+    "chunk_indices": [
+      0,
+      1,
+      2
+    ],
+    "text": "Alignment-Constrained Dynamic Pruning for LLMs: Identifying and Preserving Alignment-Critical Circuits DevPatel1 GabrielleGervacio1 DiekolaRaimi1 KevinZhu1 RyanLagasse1 GabrielGrand2 AshwineePanda3 Ma 1 1 General 2 3 States 5 2 Im R p e o si r d t u an al c e P S r t o a b t i e n s g ∞ 2 ∞ 1 Hi S s t t a o t r e i s cal 0 ∞ ∞ 0 C (F lo ir s e e s r K i t f o L P H r o G a b r a i m n t f g e u S l Model PruneRatio Method F1(↑) Accuracy(↑) FAR(↓) 0 PP 1.000 1.000 0.000 AAPP 1.000 1.000 0.000 Llama-2-7B-chat 0.15 PP 0.725 0.702 0.290 AAPP 0.834 0.808 0.201 0.3 PP 0.645 0.624 0.313 AAPP 0.760 0.74",
+    "score": 0.01639344262295082
+  },
+  {
+    "paper_id": 8,
+    "chunk_indices": [
+      0,
+      12,
+      2,
+      13,
+      10,
+      14,
+      11,
+      15,
+      16,
+      9,
+      1,
+      3,
+      17,
+      7,
+      8,
+      18,
+      5,
+      6,
+      4
+    ],
+    "text": "Omni-Safety under Cross-Modality Conflict: Vulnerabilities, Dynamics Mechanisms and Efficient Alignment KunWang*1 ZheruiLi*2 ZhenhongZhou1 YitongZhang3 YanMi2 KunYang4 YimingZhang5 JunhaoDong1 Zhongxi Omni-SafetyunderCross-ModalityConflict Pi,R.,Han,T.,Zhang,J.,Xie,Y.,Pan,R.,Lian,Q.,Dong, 48. URL https://aclanthology.org/2022. H., Zhang, J., andZhang, T. MLLM-protector: Ensur- findings-acl.48/. ing Omni-SafetyunderCross-ModalityConflict t-SNE @ Layer 7 t-SNE @ Layer 14 1.0 0.9 0.8 0.7 0.6 0.5 t-SNE @ Layer 21 t-SNE @ Layer 27 0.4 0 5 10 15 20 25 Layer Index Text Image Text+Audio Text+Video Image Omni-SafetyunderCross-ModalityConflict Wang,R.,Ma,X.,Zhou,H.,Ji,C.,Ye,G.,andJiang,Y.-G. Yin, S., Fu, C., Zhao, S., Li, K., Sun, X., Xu, T., and White-box multimodal jailbreaks against large vision- Ch Omni-SafetyunderCross-ModalityConflict onMachineLearning,volume235ofProceedingsofMa- Ji, J., Liu, M., Dai, J., Pan, X., Zhang, C., Bian, C., chineLearningResearch,pp.12606–12633.PMLR,21– Chen,B.,Sun,R Omni-SafetyunderCross-ModalityConflict A.1.2.TRAININGDATASETS InthetrainingprocessoftheOmniSteerinthiswork,weemploythefollowingdatasets: • BeaverTails-train. Werandomlysample1,167instancesfromthe30k-t Omni-SafetyunderCross-ModalityConflict Z.,andChen,W. Baichuan-omnitechnicalreport,2024. Liu,Z.,Nie,Y.,Tan,Y.,Yue,X.,Cui,Q.,Wang,C.,Zhu, URLhttps://arxiv.org/abs/2410.08565. X.,andZheng,B. Safetyalignm Omni-SafetyunderCross-ModalityConflict • Forcross-modalgeneration,weemphasizeoursemanticseparationstrategy. WefirstutilizeAPIcallstotheGPT-5 model to decompose AdvBench text instructions into two comp Omni-SafetyunderCross-ModalityConflict PromptforSemanticSeparation # Role You are an expert data annotator for an AI safety research project focusing on Multimodal Large Language Models (MLLMs). # Tas Omni-SafetyunderCross-ModalityConflict magnitude. Tomitigatethis,weproposedOmniSteer,and all you need?, 2025a. URL https://arxiv.org/ itsuccessfullyrestoressafetyagainstcross-modalattacks abs/2406.025 Omni-SafetyunderCross-ModalityConflict geredpurelybymodalityinteraction,motivatingustodelve Single-Modal Transformation AdvBench-Omni deeperintothemodelgenerationandmultimodalalignment (Direct Renderi Omni-SafetyunderCross-ModalityConflict 100 75 50 25 Text Image Audio Video T+I T+A T+V A+I A+V T+A+IT+A+V )RSR( etaR sseccuS lasufeR Single-modal Dual-modal Tri-modal Single-modal Dual-modal Tri-modal Omni-SafetyunderCross-ModalityConflict PromptforRefusalSuccessRateEvaluation You are an expert AI safety evaluator. Your task is to analyze the provided [Answer] generated by an AI model and determine MiniCPM-o-2.6. The evaluation employs 8 datasets Duringinference,weemploytheforwardhooksmechanism across 6 modality combinations, using RSR and BAR toseamlesslyintegrateadaptersintothemodel’sforward a Omni-SafetyunderCross-ModalityConflict (a) Self-Reminderon Qwen2.5-Omni-7B (b) Self-Reminderon Baichuan-Omni-1d5 (c) Self-Reminderon MiniCPM-o-2.6 (d) OmniSteeron Qwen2.5-Omni-7B (e) OmniSteeron Baich Omni-SafetyunderCross-ModalityConflict PromptforOmniBenchEvaluation You are an expert evaluator for multiple-choice questions. Your task is to determine whether the model’s response is correct based o Omni-SafetyunderCross-ModalityConflict PC1 (80.3%) PC1 (74.4%) )%5.9( 2CP )%3.51( 2CP 20 10 10 5 0 0 -10 -5 Modality-specific biases -20 PC1: Refusal vector intensity -10 (PC2 in (a)) -20 -10 0 10 20  Omni-SafetyunderCross-ModalityConflict Table3.ComparisonofOmniSteerwithbaselinemethodson8datasets. Text Audio Text+Image Text+Video T+I+A T+V+A OmniBench HB BeaverTails HBAudio BeaverTailsAudio-1K MMS Omni-SafetyunderCross-ModalityConflict 1.0 1.0 1.0 0.8 0.8 0.8 0.6 0.6 0.6 0.4 0.4 0.4 0.2 0.2 0.2 0.0 1 4 8 12 16 20 24 27 0.0 1 4 8 12 16 20 24 27 0.0 1 4 8 12 16 20 24 27 1.0 1.0 1.0 0.8 0.8 0.8 0.",
+    "score": 0.01639344262295082
+  },
+  {
+    "paper_id": 4,
+    "chunk_indices": [
+      7,
+      11,
+      0,
+      12,
+      8,
+      6,
+      1,
+      13,
+      10,
+      5,
+      4,
+      9,
+      3,
+      2,
+      15,
+      14
+    ],
+    "text": "onNaturalLanguageProcessing(Volume1: Long ZhitingFan,RuizheChen,TianxiangHu,andZuozhu Papers),pages1941–1955. Liu. Fairmt-bench: Benchmarkingfairnessformulti- turn dialogue in conversational llms. In  abling the large model to detect the presence of AlthoughthetrainingdatausedinourBiasUn- undesirable attributes in its own output. Subse- learn approach exhibits a markedly different dis- quently,byad Mitigating Biases in Language Models via Bias Unlearning DianqingLiu1,2,YiLiu2,*,GuoqingJin2,ZhendongMao1, 1UniversityofScienceandTechnologyofChina 2StateKeyLaboratoryofCommunicationContentCognition,P CEB-Recognition-S CEB-Selection-S Models Gend. Race Reli. Gend. Race Reli. Llama3-8B-Instruction 0.50 0.50 0.50 0.58 0.51 0.57 Llama3-8B-BiasUnlearn 0.51 0.50 0.50 0.56 0.49 0.56 Mistral-7B-Instructio Thibaut Lavril, Thomas Wang, Timothée Lacroix, Conference on Machine Learning, pages 34654– andWilliamElSayed.2023. Mistral7b. Preprint, 34669.PMLR. arXiv:2310.06825. NicholasMeade,ElinorPoole-Dayan,a below 50. This is because for fairness, the ratio Limitations ofstereotypetoanti-stereotypedatainSFTtrain- Existingdatasetsrelatedtosocialbiasfailtocover ing data is 1:1, so the debiasing effect is no producefaireroutputs. Xuetal.(2025b)employed challenges: (1) Significant bias mitigation; (2) model-editingtechnologytodebiasLMs. Preservingmodelcapabilitiespost-debiasing; (3) Avoidingover-debiasing- ternsandrelationshipsitlearnedduringitstrain- advancementsandbestpracticestoensurethatour ing! models are developed with safety, fairness, and Doesthatmakesense? Doyouhaveanyfollow- transparencyinmind gender profession race religion Overall A.2 Setup train 1471 4782 5871 438 12562 The language models we use are from Hugging dev 50 50 50 50 200 Face, including GPT2-medium2, GPT2-large3, test 497 163 Figure2: BiasscoresineachcategoryofBBQ,splitbywhetherthecontextisambiguousordisambiguated. The higherthebiasscore,thestrongerthebias. reasoningconsequentlyincreasesansweraccuracy separateLLMsbasedonat Mistral-7B-Instruction Llama3-8B-Instruction Method StereotypeScore(%)→50 StereotypeScore(%)→50 LMS↑ ICAT↑ LMS↑ ICAT↑ Gend. Prof. Race Reli. Overall Gend. Prof. Race Reli. Overall BaseModel 72.16 63.7 MaribethRauh,JohnMellor,JonathanUesato,Po-Sen YuanshunYao,XiaojunXu,andYangLiu.2024. Large Huang,JohannesWelbl,LauraWeidinger,Sumanth language model unlearning. Advances in Neural Dathathri, Amelia Gl GPT2-Medium GPT2-Large Method StereotypeScore(%)→50 ∆LMS StereotypeScore(%)→50 ∆LMS ICAT↑ ICAT↑ Gend. Prof. Race Reli. Overall →0 Gend. Prof. Race Reli. Overall →0 BaseModel 65.58 63.37 61.44 62.57 62 AdversarialForgetSetSinceforgettinglossaims Once the SS score for a particular bias type falls to forget biases, while retention loss focuses on below 50, we will exchange the two sets of that retaini 2. **Unlabeleddata:**Wealsocollectamassive learnmoregeneralizableandtransferableknowl- amountofunlabeledtextdatafromvarioussources edge. 4. **Iterativerefinement:**Somecompanies like books, articles,  labeleddata,whichcanbebeneficialforbuilding and the fine-tuning process helps it adapt to the morecomprehensivelanguagemodels. newtask. The type of data used for training depends on **Self-supervisedl",
+    "score": 0.01639344262295082
+  },
+  {
+    "paper_id": 1,
+    "chunk_indices": [
+      0,
+      1,
+      8,
+      6,
+      2,
+      5,
+      9,
+      11,
+      4,
+      7,
+      3,
+      10
+    ],
+    "text": "4202 tcO 41 ]AM.sc[ 1v17001.0142:viXra Content Caching-Assisted Vehicular Edge Computing Using Multi-Agent Graph Attention Reinforcement Learning Jinjin Shen, Yan Lin, Member, IEEE, Yijin Zhang, Senio use this material for any other purposes must be obtained fromtheIEEEbysendingarequesttopubs-permissions@ieee.org. framework without cooperative learning. Additionally, X. Ye Thisworkwassupportedinpar network, where the training network parameters are updated byoptimizingthelossfunctionofthetargetnetwork.Through extractinggraphicalinformationtofacilitatecooperativelearn- ing, the MGARL method can b Graph Modeling ot Q value . . . . . . ht . . . . . . h't . . . . . . h''t DRL . . . Parameter Updating a (t) ca Latent Feature Generating Adjacency MatrixCt i (cid:167) (cid:168) W Q 1 W K 1 W V 1(cid the structural information such as the relationships among nodes [13]. Consequently, it has been used for solving op- timization problems by jointly considering the information of agents close to an a if the content of task k is cached on n,k ooo (t)=[x (t),y (t),hca (t),hca (t),··· , SN n in TS t, otherwise hc n a ,k (t) = 0. Note that all SNs m m m m,1 m,2 (4) have limited caching capacity with g calculation of attention weights. We assume learnpolicybycontinuouslyinteractingwiththeenvironment. that the constructed graph in TS t consists of |E t | edges and Moreover, the proposed scheme utiliz better use of densely deployedcache andservice caching in edgecomputing,” inGLOBECOM2022-2022 resources to further reduce the total system latency. IEEEGlobalCommunications Conference, pp.5189–5194, 2 assumed to be the same for each TS. Similarly, let P and be expressed by T (t) = (1 − e (t))(Tl (t) + Toff(t)) + n m m m m gdown(t) denote the transmit power of SN n and the channel e (t)Tdown(t). Mat +i according to Ct i to i +i generate h′t by adopting multi-head attention as one-hot representations of At . To be specific, the first row i +i the convolution kernel; of Ct is the one-hot representa oroffloaditforexecution.Inthiscase, performs other baselines in terms of both improving after completing the task, each VU needs to decide whether caching resource utilization and reducing long-term t \u0000\u0013\u0000\u0011\u0000\u001b \u0000\u0013\u0000\u0011\u0000\u001a \u0000\u0013\u0000\u0011\u0000\u0019 \u0000\u0013\u0000\u0011\u0000\u0018 \u0000\u0013\u0000\u0011\u0000\u0017 \u0000\u0013\u0000\u0011\u0000\u0016 \u0000\u0014\u0000\u0013 \u0000\u0015\u0000\u0013 \u0000\u0016\u0000\u0013 \u0000\u0017\u0000\u0013 \u0000\u0018\u0000\u0013 \u00001\u0000X\u0000P\u0000E\u0000H\u0000U\u0000\u0003\u0000R\u0000I\u0000\u0003\u00009\u00008\u0000V \u0000R\u0000L\u0000W\u0000D\u00005\u0000\u0003\u0000W\u0000L\u0000+\u0000\u0003\u0000W\u0000Q\u0000H\u0000W\u0000Q\u0000R\u0000&\u0000\u0003\u0000G\u0000H\u0000J\u0000U\u0000H\u0000Y\u0000Q\u0000R\u0000& \u00003\u0000U\u0000R\u0000S\u0000R\u0000V\u0000H\u0000G\u0000\u0003\u0000 \u0000&\u00007\u0000V\u0000 \u0000\u0003\u0000\u0014\u0000\u0013\u0000 \u00003\u0000U\u0000R\u0000S\u0000R\u0000V\u0000H\u0000",
+    "score": 0.01639344262295082
+  },
+  {
+    "paper_id": 10,
+    "chunk_indices": [
+      4,
+      1,
+      7,
+      9,
+      11,
+      2,
+      0,
+      3,
+      10,
+      13,
+      5,
+      8,
+      6,
+      12
+    ],
+    "text": "level KV caches to isolate cross-chunk attention As listed in Table 2, CoinRAG differs from andslashTTFT.Sincethetwoareessentiallyiden- thesenugget-basedstudiesinbothwhenandhow tical in design, we let expensiveintermsofTTFT.TomeetSLAunder each document chunk with a set of text spans alow-latencybudget,itneedstolimittheretrieval capturing essential information nuggets. Second, scope,degradinganswera 52.5 50.0 47.5 45.0 42.5 40.0 37.5 35.0 32.5 102 103 Latency budget (ms) erocS-1F 44 42 40 38 36 34 32 30 28 102 103 Latency budget (ms) (a) HotpotQA erocS-1F 32 30 28 26 24 22 102 103 Latency budget  LauraDietz,BryanLi,GabrielleLiu,Jia-HueiJu,Eu- Woosuk Kwon, Zhuohan Li, Siyuan Zhuang, Ying gene Yang, Dawn Lawrie, William Walden, and Sheng,LianminZheng,CodyHaoYu,JosephGon- JamesMayfield.2026. Inco YouareaninformationextractionsystemforOpen-DomainQuestionAnswering. Givenapassage,extractallspansthatcouldserveasevidenceordirectanswerstofactualquestions. ###Rules: 1.ExtractspansEXACTLYastheyappeari startandendtokenindiceswithinitssourcechunk. withinthatchunk.Givenaqueryq,adenseretriever This span-level grounding lets us later slice the firstfetchesthetop-k textchunksfromthecorpus c corresponding CoinRAG: Contextualized Information Nugget KV Cache Reuse for Long-Context RAG GyuwanKim1 CheoneumPark2 TaoYang1 1UniversityofCalifornia,SantaBarbara 2HanbatNationalUniversity {gyuwankim, tyang}@ucsb. Prompt Query Prompt Query (a)StandardRAG (b)CacheBlend Prompt Query Prompt Query (c)TurboRAG (d)KVLink KV cache computed offline Prompt Query KV cache computed online (e)CoinRAG(Ours) Figure1:Comparis A FutureWork quences are mapped directly to the precomputed full-context KV cache slots, with the target ques- WeevaluateCoinRAGonthreeLongBenchmulti- tion appended at the very end of the prompt se- h the RTX PRO 6000, whereas all evaluation and cating positions shared by overlapping nuggets), latencybenchmarksareexecutedontheL40Sen- implyingthatretainingonlynugget-coveredposi- vironmentinbfloat16p 52 50 48 46 44 42 40 38 102 103 Latency budget (ms) erocS-1F 46 44 42 40 38 36 34 32 30 28 102 103 Latency budget (ms) (a) HotpotQA erocS-1F 32 30 28 26 24 22 20 102 103 Latency budget (ms) (b) 2WikiM Limitations thisassumption,andthissettingisfairforcom- paring them. With large online cache capacity, While CoinRAG has demonstrated a new Pareto standardRAGcouldtakeadvantageofdocument frontier for e 52 50 48 46 44 42 40 103 104 Context length budget (# tokens) erocS-1F 46 44 42 40 38 36 34 32 30 28 103 104 Context length budget (# tokens) (a) HotpotQA erocS-1F 32 30 28 26 24 22 20 103 104 Context Inputpassage(longbench-hotpotqa,passage_idx=7): Passage7: Grania:She-KingoftheIrishSeas Grania:She-KingoftheIrishSeasisa1986historicalfictionnovelaboutGraceO’Malley(Irish:GráinneNí Mháille),theso-call",
+    "score": 0.03177805800756621
+  },
+  {
+    "paper_id": 6,
+    "chunk_indices": [
+      20,
+      0,
+      1,
+      2,
+      19,
+      18,
+      14,
+      5,
+      6,
+      13,
+      10,
+      17,
+      7,
+      15,
+      8,
+      11,
+      3,
+      4,
+      21
+    ],
+    "text": "Malgapo,E.,Starup-Hansen,J.,etal.:AutomatedGenerationofHospitalDischargeSummariesUsingClinical Guidelines and Large Language Models. OpenReview (2024) [25] Pal, K.: Summarization and Generation of Dis Large Language Model–Based Generation of Discharge Summaries Tiago Rodrigues1,2* and Carla Teixeira Lopes1,2 1Faculty of Engineering, University of Porto, Porto, Portugal. 2INESC TEC, Porto, Portugal. performance, but the fine-tuned version of Mistral produces competitive results. Still, significant advancements are needed for real-world applicability. We release the source code used to conduct the as repeating words and sentences and generating inconsistencies between the reported information and the true summary [2, 4]. Moreover, the sentences tend to be less coherent, and the abstraction mode Rodriguez, A., Stojnic, R., Edunov, S., Scialom, T.: Llama 2: Open Foundation and Fine-Tuned Chat Models. arXiv (2023). https://doi.org/10.48550/arXiv.2307.09288 [10] Jangra,A.,Mukherjee,S.,Jatowt,A., 6 Conclusions and Future Work This work addressed the challenge of generating discharge summaries from prior clinical notes, aiming to improve the efficiency of patient documentation for clinicians. W 4, the scores don’t vary substantially and are consistent throughout all models. Overall,theresultsindicatethattheopen-sourcemodelstendtobettertranscribeinformationdirectlyfromthe source text into the summary in all tests obtained from a random admission from the training data. To guide the model’s response, we asked it to output it in a structured format. Asastartingpoint,wedevisedthepromptformatf gathered from 2001 to 2012 from critical care units of the Beth Israel Deaconess Medical Center. For our work, the standout feature of this database is the addition of clinical notes taken during a pa challenge, with an improvement of 13.44%. This indicates that Gemini is providing correct output, with a meaning similar to the ground-truth, but will tend to use starkly different wording compared to BLEU), GPT-3 performed better in TTR, BERTScore, BLANC, and SummaC. Gemini’s strong exact- match scores suggest it closely mimics discharge summary language, whereas GPT-3 scores better in vocabulary  MIMIC, and model selection and training were also impacted. Additionally, only MIMIC-III data was used, which may not generalize to other hospitals with different summarization styles. In this topic,  Fig. 2: Histogram with word count per document Looking deeper at the collection of notes, we can see their main constituents in Figure 3a. Nursing, Radiology, and Electrocardiogram (ECG) notes compris Table5:Resultsofthequalitativeevaluationperdocument.Best scores are in bold Model Completeness Correctness Conciseness Llama-Baseline {1,1,1} {1,1,1} {1,1,1} Llama-Finetuned {1,1,1} {1,1,1} {1,1,1} Mi 3.4.2 Qualitative Analysis To complement the quantitative analysis, we also performed a qualitative evaluation of the results with the help of a clinical expert who read the summaries and evaluated th -orezehtmorfnoitceshcaerednusledomyrateirporpybdeniatbo)CammuS/CNALB/TRUELB/erocStreB/RTT/UELB/}L/2/1{-EGUOR(serocS:3 elbaT dlob ni era cirtem dna noitces rep serocs tseB .tpmorp tohs tohS-enO-inimeG  3.1 Model Selection We evaluated two main classes of models: smaller, open-source models and larger, proprietary ones. All models are decoder-only and have promising results in various NLP tasks [6, 8 over 4.0 to around 1.15. Training durations were similar: Mistral required 3 days, 19 hours, and 53 minutes, while Llama-2 took 3 days, 16 hours, and 39 minutes. WecouldnotapplyQLoRAtotheproprietarymo [39] Papineni,K.,Roukos,S.,Ward,T.,Zhu,W.-J.:BLEU:Amethodforautomaticevaluationofmachinetransla- tion. In: Proceedings of the 40th Annual Meeting on Association for Computational Linguistics. ACL ’02,",
+    "score": 0.01639344262295082
+  },
+  {
+    "paper_id": 6,
+    "chunk_indices": [
+      12,
+      9,
+      16
+    ],
+    "text": ",%27.4 ,904.1- ,%05.45 ,%58.87 ,%66.5 ,014.1- ,%17.94 ,%42.86 ,%68.3 ,514.1- ,%82.45 ,%38.18 ,%99.1 ,334.1- ,%74.45 ,%61.88 %69.76 %57.74 %15.56 %99.74 %02.64 ,%78.1,%01.9,%54.3,%75.41 ,%61.0 ,%93.6 , in BLEU. For Llama, ROUGE-1 dropped by 0.17%, and BLEU by 0.07%. Changes to the other metrics were also negligible and did not contribute to any significant alteration in performance. Fine-tuning did  There is a clear advantage in Mistral, which presented the best scores by far, with our fine-tuned version being fourtimesfasteronaveragethanLlama.Surprisingly,besidesbeingveryslowinitsgeneration,Llam",
+    "score": 0.0125
+  },
+  {
+    "paper_id": 9,
+    "chunk_indices": [
+      11,
+      12,
+      0,
+      1,
+      2,
+      3,
+      4,
+      13,
+      10,
+      7,
+      8,
+      9,
+      5,
+      6
+    ],
+    "text": "8 Limitations ProceedingsoftheFourthInternationalConference onLanguageResourcesandEvaluation(LREC’04), This work is limited by computational resources. Lisbon,Portugal.EuropeanLanguageResourcesAs- The NancyG.Leveson.2012. EngineeringaSaferWorld: NKAHRupasingheandKPanuwatwanich.2020. Ex- SystemsThinkingAppliedtoSafety. TheMITPress. traction and analysis of construction safety hazard factorsfromopend ConstructCIE: A Dataset for Extracting Causal Information from Construction Accident Narratives HungNguyen†,JaehoonLee‡,NamgyunKim‡,andKuan-HaoHuang† †DepartmentofComputerScience,TexasA&MUniversity ‡D publishedbetween2011and2023(Occupational Causal Information Extraction Early work SafetyandHealthAdministration), CONSTRUCT- inCIEreliedonpattern-matchingandrule-based CIE supportsaccident-typepredict Sub-causal CausalFactor Sub-causalFactor Definition FactorType Working ConstructionTrade WorkingCircumstancesdescribethephysicalandoperationalcontextoftheaccident,while Classification Circumstances Co EquipmentCondition(WorkEquip.),Inattentive AccidentType Percentage(%) Behavior(Inatt. Behav.),NoncompliantBehavior Fall 40.6 (Noncomp. Behav.),andAffectedBodyPart(Body Caught-in/between 22.3 Part). Ta Sub-causalFactor Percentage(%) posed CIE task. The LLMs include Llama-3.2- 3B-Instruct(Llama3.2-3B),Llama-3.2-11B-Vision- ConstructionTrade 98.9 Instruct(Llama3.2-11B),Llama-3.1-70B-Instruct Failureof C CausalandSub-causalFactor Examples Parameter Value PretrainedModelName RoBERTa-large Figures3–7showrepresentative CONSTRUCTCIE MaxLength 512 annotationscoveringallaccidenttypesandcausal- TrainBatchS Model Over Under Halluc. Joined Mis-la Mis-ex predictionlikewisedoesnoteliminatedownstream evidence-selectionandspan-boundaryerrors. SupervisedModels TagPrime-C 17.1 27.8 0.0 0.9 10.3 44.0 Thecomparis Work.Circ. Mgmt. Cond. Equip. Behav. Conseq. Model k Constr. Hazard Safety Weather Workspace Prot. Work Inatt. Noncomp. Body Trade Mgmt. Train. Cond. Cond. Equip. Equip. Behav. Behav. Severity Part Ta and managerial sub-causal factors remain difficult. Thus,few-shotpromptingimprovesboth Table7: Comparisonbetweenjointandindividualhier- semantic recovery and span extraction but does archicalextractio 90 80 70 60 50 40 30 20 10 0 0 5 10 20 30 40 k erocs 1F Exact String Match Soft String Match Keyword Match 0 5 10 20 30 40 0 5 10 20 30 40 k k Llama3.1-70B Llama3.2-11B Qwen3.5-9B Qwen3.5-27B Llama3.2 Work.Circ. Mgmt. Cond. Equip. Behav. Conseq. Obj.Inv. Model k Acc. E S K E S K E S K E S K E S K E S K E S K TagPrime-C - 94.7 61.3 79.8 79.0 86.4 86.4 93.0 37.6 39.8 44.3 49.4 49.4 61.8 50.7 55.9 70. = 5, extraction. whileLlama3.2-3Bimprovesfrom8.7%atk = 0 At the sub-causal-factor level, performance to 64.9% at k = 30. At the causal-factor level, variessubstantiallyacrosscategories. Atk = 30, LLMs",
+    "score": 0.01639344262295082
+  },
+  {
+    "paper_id": 1,
+    "chunk_indices": [
+      0,
+      2,
+      11,
+      6,
+      1,
+      9,
+      4,
+      8,
+      10,
+      7,
+      5,
+      3
+    ],
+    "text": "4202 tcO 41 ]AM.sc[ 1v17001.0142:viXra Content Caching-Assisted Vehicular Edge Computing Using Multi-Agent Graph Attention Reinforcement Learning Jinjin Shen, Yan Lin, Member, IEEE, Yijin Zhang, Senio the structural information such as the relationships among nodes [13]. Consequently, it has been used for solving op- timization problems by jointly considering the information of agents close to an a better use of densely deployedcache andservice caching in edgecomputing,” inGLOBECOM2022-2022 resources to further reduce the total system latency. IEEEGlobalCommunications Conference, pp.5189–5194, 2 Graph Modeling ot Q value . . . . . . ht . . . . . . h't . . . . . . h''t DRL . . . Parameter Updating a (t) ca Latent Feature Generating Adjacency MatrixCt i (cid:167) (cid:168) W Q 1 W K 1 W V 1(cid use this material for any other purposes must be obtained fromtheIEEEbysendingarequesttopubs-permissions@ieee.org. framework without cooperative learning. Additionally, X. Ye Thisworkwassupportedinpar calculation of attention weights. We assume learnpolicybycontinuouslyinteractingwiththeenvironment. that the constructed graph in TS t consists of |E t | edges and Moreover, the proposed scheme utiliz assumed to be the same for each TS. Similarly, let P and be expressed by T (t) = (1 − e (t))(Tl (t) + Toff(t)) + n m m m m gdown(t) denote the transmit power of SN n and the channel e (t)Tdown(t). Mat network, where the training network parameters are updated byoptimizingthelossfunctionofthetargetnetwork.Through extractinggraphicalinformationtofacilitatecooperativelearn- ing, the MGARL method can b \u0000\u0013\u0000\u0011\u0000\u001b \u0000\u0013\u0000\u0011\u0000\u001a \u0000\u0013\u0000\u0011\u0000\u0019 \u0000\u0013\u0000\u0011\u0000\u0018 \u0000\u0013\u0000\u0011\u0000\u0017 \u0000\u0013\u0000\u0011\u0000\u0016 \u0000\u0014\u0000\u0013 \u0000\u0015\u0000\u0013 \u0000\u0016\u0000\u0013 \u0000\u0017\u0000\u0013 \u0000\u0018\u0000\u0013 \u00001\u0000X\u0000P\u0000E\u0000H\u0000U\u0000\u0003\u0000R\u0000I\u0000\u0003\u00009\u00008\u0000V \u0000R\u0000L\u0000W\u0000D\u00005\u0000\u0003\u0000W\u0000L\u0000+\u0000\u0003\u0000W\u0000Q\u0000H\u0000W\u0000Q\u0000R\u0000&\u0000\u0003\u0000G\u0000H\u0000J\u0000U\u0000H\u0000Y\u0000Q\u0000R\u0000& \u00003\u0000U\u0000R\u0000S\u0000R\u0000V\u0000H\u0000G\u0000\u0003\u0000 \u0000&\u00007\u0000V\u0000 \u0000\u0003\u0000\u0014\u0000\u0013\u0000 \u00003\u0000U\u0000R\u0000S\u0000R\u0000V\u0000H\u0000 +i according to Ct i to i +i generate h′t by adopting multi-head attention as one-hot representations of At . To be specific, the first row i +i the convolution kernel; of Ct is the one-hot representa if the content of task k is cached on n,k ooo (t)=[x (t),y (t),hca (t),hca (t),··· , SN n in TS t, otherwise hc n a ,k (t) = 0. Note that all SNs m m m m,1 m,2 (4) have limited caching capacity with g oroffloaditforexecution.Inthiscase, performs other baselines in terms of both improving after completing the task, each VU needs to decide whether caching resource utilization and reducing long-term t",
+    "score": 0.01639344262295082
+  },
+  {
+    "paper_id": 7,
+    "chunk_indices": [
+      5,
+      2,
+      25,
+      4,
+      0,
+      3,
+      18,
+      23,
+      24,
+      14,
+      1,
+      17,
+      13,
+      10,
+      11,
+      26,
+      9
+    ],
+    "text": "amount of data at the ith SN that needs to be too closely, disrupting their schedules. They formulate the collected.TheUAVscanmovebetweenthecentersofcellsto bus fleet control problem as an asynchronou 2 ACCEPTEDTOIEEETRANSACTIONSONWIRELESSCOMMUNICATIONS data points and the data size are random and unknown UAVtrajectoryplanningandmayjointlyconsidertransmission in advance; and ii) different collectio 14 ACCEPTEDTOIEEETRANSACTIONSONWIRELESSCOMMUNICATIONS 400 400 400 350 350 350 300 300 300 250 250 250 200 200 200 150 150 150 100 100 100 50 50 50 0 0 0 0 50 100 150 200 250 300 350 400 0 50 100 150 2 C.LEetal.:COOPERATIVEUAVSFORREMOTEDATACOLLECTION:ANASYNCHRONOUSMARLFRAMEWORK 3 SN-selection action, the action space grows exponentially in the number of SNs, resulting in poor scalability. Although o ACCEPTEDTOIEEETRANSACTIONSONWIRELESSCOMMUNICATIONS 1 Cooperative UAVs for Remote Data Collection under Limited Communications: An Asynchronous Multiagent Learning Framework Cuong Le, Symeon Chatzinota to maximize the amount of collected data. The problem is provides a brief review of existing studies and their limita- formulatedasaDec-POMDP,andthensolvedbyindependent tions. Section III introduces t 10 ACCEPTEDTOIEEETRANSACTIONSONWIRELESSCOMMUNICATIONS 400 350 0.8 300 250 0.6 200 0.4 150 100 0.2 50 0 0.0 0 50 100 150 200 250 300 350 400 Data size (Mbits) ininefficientuseofhoveringenergy.Theseresu C.LEetal.:COOPERATIVEUAVSFORREMOTEDATACOLLECTION:ANASYNCHRONOUSMARLFRAMEWORK 13 122 120 118 116 114 112 10 4 10 3 10 2 10 1 Estimation error )s( emit noitelpmoC opt bandwidth 0.270 equal bandwidth 0.2 device positioning in UAV-assisted IoT,” IEEEInternetThingsJ.,vol.7,no.2,pp.1122–1139,2019. In this work, we have presented a solution to the problem [11] C. You and R. Zhang, “3d trajectory optimizat 8 ACCEPTEDTOIEEETRANSACTIONSONWIRELESSCOMMUNICATIONS Mixing network ... MLP GRU ... UAV 1 UAV N MLP gnilpmas-nwoD ... Fig. 2: The architecture of the proposed algorithm. The green, blue, and red block trajectories and bandwidth allocation at each data critical challenges that must be addressed to maximize the collection point to maximize the overall energy efficiency. potential of UAVs and ensure t hovering time same position, at the center of the bottom-left cell depicted needs to guarantee that all data is collected, i.e., in Fig. 3. The observable region of each UAV is an area of R¯in(t)≥Di/ζ its local observation and history, of the asynchronous algorithm is to learn a joint (centralized) the learned policies can be extracted and executed indepen- action-value function Q (s ,u |u−nˆ) cond 6 ACCEPTEDTOIEEETRANSACTIONSONWIRELESSCOMMUNICATIONS B. Detailed Components of (P), and 1(s ,u ,t) is an indicator function indicating m m whether taking action u in state s leads to the termination W action = (cid:90) tˆ m+1 γt−tˆ m (cid:16)(cid:88) φin(t)+αΓ(π)1(s ,u ,t) (cid:17) dt m m of hovering to collect data, moving forward, to the right, tˆ m i∈I backward, and to the left, respectively. To [35] A.Al-Hourani,S.Kandeepan,andS.Lardner,“Optimallapaltitudefor no.1,pp.632–647,2022. maximumcoverage,”IEEEWirel.Commun.Lett.,vol.3,no.6,pp.569– [26] J. Hu, H. Zhang, L. Song, R. Schober, and H. V.  m w,b ψ(w,b) s.t. (1),(5),(6),(11),(15) R(s m ,u m )= (cid:90) tˆ m+1 γt−tˆ mR(cid:98)(s m ,u m ,t)dt (17) where Φ(w,b) and ψ(w,b) are given in (14) and (7), re- tˆ m spectively. In the above problem,",
+    "score": 0.032266458495966696
+  },
+  {
+    "paper_id": 7,
+    "chunk_indices": [
+      19,
+      22,
+      16,
+      15,
+      21,
+      8,
+      20,
+      12,
+      6,
+      7
+    ],
+    "text": "The state downsampling is performed with kernel size of Fig. 6 plots the average results over 1000 testing scenarios, 3×3. The reward function is scaled down by the maximum with the energy budget for  from no communi- cationbetweenUAVstofullcommunication,whereUAVscan exchange information any time and from any position. Note draweR 1x1 4x4 2x2 5x5 3x3 Fig.10:LearningcurvesofAQMIXwithdifferentkernels C.LEetal.:COOPERATIVEUAVSFORREMOTEDATACOLLECTION:ANASYNCHRONOUSMARLFRAMEWORK 9 CSI is infeasible, resulting channel estimation error. Let the algorithms, we use different grid sizes, including 8×8, hi of UAVs and their completion maps to generate the hidden size N is O(N2+N N ) [37], and the fact that we h x x h mixingparametersbenefitingtheUAVscooperation.However, use the same number of N units fo 12 ACCEPTEDTOIEEETRANSACTIONSONWIRELESSCOMMUNICATIONS 1200 1000 800 600 400 200 0 1 2 4 6 Number of UAV(s) )s( emit noitelpmoC 150 AQMIX AIQL QMIX HERT 125 100 75 50 25 0 1 2 4 6 Number of UAV(s) (a)  C.LEetal.:COOPERATIVEUAVSFORREMOTEDATACOLLECTION:ANASYNCHRONOUSMARLFRAMEWORK 5 noise power spectral density. IV. TRAJECTORYOPTIMIZATIONUNDERDEC-POSMDP Consider a particular time t = tn[k] when the n-t C.LEetal.:COOPERATIVEUAVSFORREMOTEDATACOLLECTION:ANASYNCHRONOUSMARLFRAMEWORK 11 80 60 40 20 0 0 10k 20k 30k 40k 50k Training episodes draweR 150 100 50 AQMIX 0 QMIX AIQL 0 10k 20k 30k 40k 50k Training C.LEetal.:COOPERATIVEUAVSFORREMOTEDATACOLLECTION:ANASYNCHRONOUSMARLFRAMEWORK 7 thegoodnessoftakingactionun onhistoryHn.Theprincipal we have premise that makes QMIX efficient is the consistent rela- ma 4 ACCEPTEDTOIEEETRANSACTIONSONWIRELESSCOMMUNICATIONS We have the first constraints regarding to the departure and B. Data Transmission Model arrival locations of UAVs given by Let hin(t) ∈ CNtx×1 be t v 0 represents the mean rotor-induced speed η ≥ 2 is the pathloss exponent, β is the attenuation due to in hover, P 0 ,P 1 and P 2 are constants depending on the NLoS, f c is the carrier frequency, an",
+    "score": 0.01282051282051282
+  },
+  {
+    "paper_id": 8,
+    "chunk_indices": [
+      2,
+      12,
+      0,
+      11,
+      13,
+      10,
+      9,
+      1,
+      14,
+      7,
+      15,
+      3,
+      18,
+      16,
+      17,
+      5,
+      6,
+      8,
+      4
+    ],
+    "text": "Omni-SafetyunderCross-ModalityConflict t-SNE @ Layer 7 t-SNE @ Layer 14 1.0 0.9 0.8 0.7 0.6 0.5 t-SNE @ Layer 21 t-SNE @ Layer 27 0.4 0 5 10 15 20 25 Layer Index Text Image Text+Audio Text+Video Image Omni-SafetyunderCross-ModalityConflict Pi,R.,Han,T.,Zhang,J.,Xie,Y.,Pan,R.,Lian,Q.,Dong, 48. URL https://aclanthology.org/2022. H., Zhang, J., andZhang, T. MLLM-protector: Ensur- findings-acl.48/. ing Omni-Safety under Cross-Modality Conflict: Vulnerabilities, Dynamics Mechanisms and Efficient Alignment KunWang*1 ZheruiLi*2 ZhenhongZhou1 YitongZhang3 YanMi2 KunYang4 YimingZhang5 JunhaoDong1 Zhongxi Omni-SafetyunderCross-ModalityConflict Z.,andChen,W. Baichuan-omnitechnicalreport,2024. Liu,Z.,Nie,Y.,Tan,Y.,Yue,X.,Cui,Q.,Wang,C.,Zhu, URLhttps://arxiv.org/abs/2410.08565. X.,andZheng,B. Safetyalignm Omni-SafetyunderCross-ModalityConflict Wang,R.,Ma,X.,Zhou,H.,Ji,C.,Ye,G.,andJiang,Y.-G. Yin, S., Fu, C., Zhao, S., Li, K., Sun, X., Xu, T., and White-box multimodal jailbreaks against large vision- Ch Omni-SafetyunderCross-ModalityConflict onMachineLearning,volume235ofProceedingsofMa- Ji, J., Liu, M., Dai, J., Pan, X., Zhang, C., Bian, C., chineLearningResearch,pp.12606–12633.PMLR,21– Chen,B.,Sun,R Omni-SafetyunderCross-ModalityConflict magnitude. Tomitigatethis,weproposedOmniSteer,and all you need?, 2025a. URL https://arxiv.org/ itsuccessfullyrestoressafetyagainstcross-modalattacks abs/2406.025 Omni-SafetyunderCross-ModalityConflict geredpurelybymodalityinteraction,motivatingustodelve Single-Modal Transformation AdvBench-Omni deeperintothemodelgenerationandmultimodalalignment (Direct Renderi Omni-SafetyunderCross-ModalityConflict A.1.2.TRAININGDATASETS InthetrainingprocessoftheOmniSteerinthiswork,weemploythefollowingdatasets: • BeaverTails-train. Werandomlysample1,167instancesfromthe30k-t MiniCPM-o-2.6. The evaluation employs 8 datasets Duringinference,weemploytheforwardhooksmechanism across 6 modality combinations, using RSR and BAR toseamlesslyintegrateadaptersintothemodel’sforward a Omni-SafetyunderCross-ModalityConflict • Forcross-modalgeneration,weemphasizeoursemanticseparationstrategy. WefirstutilizeAPIcallstotheGPT-5 model to decompose AdvBench text instructions into two comp Omni-SafetyunderCross-ModalityConflict 100 75 50 25 Text Image Audio Video T+I T+A T+V A+I A+V T+A+IT+A+V )RSR( etaR sseccuS lasufeR Single-modal Dual-modal Tri-modal Single-modal Dual-modal Tri-modal Omni-SafetyunderCross-ModalityConflict PromptforOmniBenchEvaluation You are an expert evaluator for multiple-choice questions. Your task is to determine whether the model’s response is correct based o Omni-SafetyunderCross-ModalityConflict PromptforSemanticSeparation # Role You are an expert data annotator for an AI safety research project focusing on Multimodal Large Language Models (MLLMs). # Tas Omni-SafetyunderCross-ModalityConflict PromptforRefusalSuccessRateEvaluation You are an expert AI safety evaluator. Your task is to analyze the provided [Answer] generated by an AI model and determine Omni-SafetyunderCross-ModalityConflict PC1 (80.3%) PC1 (74.4%) )%5.9( 2CP )%3.51( 2CP 20 10 10 5 0 0 -10 -5 Modality-specific biases -20 PC1: Refusal vector intensity -10 (PC2 in (a)) -20 -10 0 10 20  Omni-SafetyunderCross-ModalityConflict Table3.ComparisonofOmniSteerwithbaselinemethodson8datasets. Text Audio Text+Image Text+Video T+I+A T+V+A OmniBench HB BeaverTails HBAudio BeaverTailsAudio-1K MMS Omni-SafetyunderCross-ModalityConflict (a) Self-Reminderon Qwen2.5-Omni-7B (b) Self-Reminderon Baichuan-Omni-1d5 (c) Self-Reminderon MiniCPM-o-2.6 (d) OmniSteeron Qwen2.5-Omni-7B (e) OmniSteeron Baich Omni-SafetyunderCross-ModalityConflict 1.0 1.0 1.0 0.8 0.8 0.8 0.6 0.6 0.6 0.4 0.4 0.4 0.2 0.2 0.2 0.0 1 4 8 12 16 20 24 27 0.0 1 4 8 12 16 20 24 27 0.0 1 4 8 12 16 20 24 27 1.0 1.0 1.0 0.8 0.8 0.8 0.",
+    "score": 0.01639344262295082
+  },
+  {
+    "paper_id": 4,
+    "chunk_indices": [
+      9,
+      4,
+      1,
+      0,
+      11,
+      5,
+      12,
+      3,
+      8,
+      13,
+      6,
+      15,
+      7,
+      10,
+      14,
+      2
+    ],
+    "text": "MaribethRauh,JohnMellor,JonathanUesato,Po-Sen YuanshunYao,XiaojunXu,andYangLiu.2024. Large Huang,JohannesWelbl,LauraWeidinger,Sumanth language model unlearning. Advances in Neural Dathathri, Amelia Gl Mistral-7B-Instruction Llama3-8B-Instruction Method StereotypeScore(%)→50 StereotypeScore(%)→50 LMS↑ ICAT↑ LMS↑ ICAT↑ Gend. Prof. Race Reli. Overall Gend. Prof. Race Reli. Overall BaseModel 72.16 63.7 producefaireroutputs. Xuetal.(2025b)employed challenges: (1) Significant bias mitigation; (2) model-editingtechnologytodebiasLMs. Preservingmodelcapabilitiespost-debiasing; (3) Avoidingover-debiasing- Mitigating Biases in Language Models via Bias Unlearning DianqingLiu1,2,YiLiu2,*,GuoqingJin2,ZhendongMao1, 1UniversityofScienceandTechnologyofChina 2StateKeyLaboratoryofCommunicationContentCognition,P abling the large model to detect the presence of AlthoughthetrainingdatausedinourBiasUn- undesirable attributes in its own output. Subse- learn approach exhibits a markedly different dis- quently,byad Figure2: BiasscoresineachcategoryofBBQ,splitbywhetherthecontextisambiguousordisambiguated. The higherthebiasscore,thestrongerthebias. reasoningconsequentlyincreasesansweraccuracy separateLLMsbasedonat CEB-Recognition-S CEB-Selection-S Models Gend. Race Reli. Gend. Race Reli. Llama3-8B-Instruction 0.50 0.50 0.50 0.58 0.51 0.57 Llama3-8B-BiasUnlearn 0.51 0.50 0.50 0.56 0.49 0.56 Mistral-7B-Instructio GPT2-Medium GPT2-Large Method StereotypeScore(%)→50 ∆LMS StereotypeScore(%)→50 ∆LMS ICAT↑ ICAT↑ Gend. Prof. Race Reli. Overall →0 Gend. Prof. Race Reli. Overall →0 BaseModel 65.58 63.37 61.44 62.57 62 Thibaut Lavril, Thomas Wang, Timothée Lacroix, Conference on Machine Learning, pages 34654– andWilliamElSayed.2023. Mistral7b. Preprint, 34669.PMLR. arXiv:2310.06825. NicholasMeade,ElinorPoole-Dayan,a ternsandrelationshipsitlearnedduringitstrain- advancementsandbestpracticestoensurethatour ing! models are developed with safety, fairness, and Doesthatmakesense? Doyouhaveanyfollow- transparencyinmind below 50. This is because for fairness, the ratio Limitations ofstereotypetoanti-stereotypedatainSFTtrain- Existingdatasetsrelatedtosocialbiasfailtocover ing data is 1:1, so the debiasing effect is no 2. **Unlabeleddata:**Wealsocollectamassive learnmoregeneralizableandtransferableknowl- amountofunlabeledtextdatafromvarioussources edge. 4. **Iterativerefinement:**Somecompanies like books, articles,  onNaturalLanguageProcessing(Volume1: Long ZhitingFan,RuizheChen,TianxiangHu,andZuozhu Papers),pages1941–1955. Liu. Fairmt-bench: Benchmarkingfairnessformulti- turn dialogue in conversational llms. In  gender profession race religion Overall A.2 Setup train 1471 4782 5871 438 12562 The language models we use are from Hugging dev 50 50 50 50 200 Face, including GPT2-medium2, GPT2-large3, test 497 163 labeleddata,whichcanbebeneficialforbuilding and the fine-tuning process helps it adapt to the morecomprehensivelanguagemodels. newtask. The type of data used for training depends on **Self-supervisedl AdversarialForgetSetSinceforgettinglossaims Once the SS score for a particular bias type falls to forget biases, while retention loss focuses on below 50, we will exchange the two sets of that retaini",
+    "score": 0.01639344262295082
+  },
+  {
+    "paper_id": 2,
+    "chunk_indices": [
+      0,
+      2,
+      1,
+      3
+    ],
+    "text": "Finite Automata Extraction: Low-data World Models as Programs from Gameplay Video DaveGoel MatthewGuzdial AnuragSarkar dgoel1@ualberta.ca guzdial@ualberta.ca sarkar4@ualberta.ca DepartmentofComputingS FiniteAutomataExtraction:Low-dataWorldModelsasProgramsfromGameplayVideo FDG’26,August10–13,2026,Copenhagen,Denmark Method FID(train) FID(test) Error(train) Error(test) Conditions GameGAN 10.17 10.46 3 FDG’26,August10–13,2026,Copenhagen,Denmark DaveGoel,MatthewGuzdial,andAnuragSarkar atonelocationinamomentoftime,wetreatneighbouring forevery𝑖,computethedistance𝐷 =(cid:205)𝑖 𝑥 + = 𝑏 𝑖 𝐴.𝐸(𝐺 𝐼𝑥+1 ,𝐺 𝐼𝑥 FDG’26,August10–13,2026,Copenhagen,Denmark DaveGoel,MatthewGuzdial,andAnuragSarkar RubenVillegas,EmmaWang,JessicaYung,CipBaetu,JordiBerbel,DavidBridson, [23] JackParker-Holder,PhilipBall,JakeBruce,Vib",
+    "score": 0.01639344262295082
+  },
+  {
+    "paper_id": 3,
+    "chunk_indices": [
+      0,
+      1,
+      10,
+      2,
+      11,
+      3,
+      4,
+      12,
+      9,
+      6,
+      8,
+      7,
+      19,
+      5,
+      20,
+      14,
+      16,
+      18,
+      15
+    ],
+    "text": "PublishedasaconferencepaperatICLR2026 AVEX: WHAT MATTERS FOR ANIMAL VOCALIZATION ENCODING MariusMiron†⋆ DavidRobinson†⋆ MiladAlizadeh† EarthSpeciesProject EarthSpeciesProject EarthSpeciesProject Ellen PublishedasaconferencepaperatICLR2026 Figure 1: Our empirical study diagram, assessing (1) models, (2) training data, (3) training paradigms,andproposingan(4)extendedevaluationdataandmethodology. 1 IN PublishedasaconferencepaperatICLR2026 Jort F Gemmeke, Daniel PW Ellis, Dylan Freedman, Aren Jansen, Wade Lawrence, R Channing Moore,ManojPlakal,andMarvinRitter. Audioset: Anontologyandhuman-labeleddat PublishedasaconferencepaperatICLR2026 (2) On the data mix aspect, we train and evaluate across a broader and more taxonomically di- versebioacousticdatasetthanpreviouswork,examiningtheimpactofincorpor PublishedasaconferencepaperatICLR2026 David Robinson, Marius Miron, Masato Hagiwara, and Olivier Pietquin. NatureLM-audio: an audio-language foundation model for bioacoustics. In The Thirteenth Intern PublishedasaconferencepaperatICLR2026 Training Paradigms: Self-Supervised, Supervised, and Two-Stage Approaches. Regarding thetrainingparadigm,currentbioacousticmodelingapproachesuseeitherself-supervi PublishedasaconferencepaperatICLR2026 Table1: Datasetsusedinpre-trainingandpost-training. adenotesdatasetsusedsolelyinablations. Dataset #Hours Description AudioSet(Gemmekeetal.,2017) 5700 generalaudi PublishedasaconferencepaperatICLR2026 A TRAINING AND EVALUATION DATA COMPARISON To complement the related works discussion in Section 2, we provide a comparison with current bioacousticsbenchmarksinTa PublishedasaconferencepaperatICLR2026 Figure 2: (a) Win-rate of adding AudioSet in self-supervised pre-training vs. pure bioacoustic data,withaveragerelativegainpermetric. (b)Supervisedencodersoutperf PublishedasaconferencepaperatICLR2026 follow the official train/validation/test splits in the original benchmark. We exclude the auxiliary dataset SpeechCommands from BEANS but we include ESC-50 becau PublishedasaconferencepaperatICLR2026 BEANSClassification BEANSDetection BirdSet IndividualID VocalRepertoire Model Probe R-auc C-nmi Probe R-auc Probe R-auc Probe R-auc R-auc C-nmi BEATS(SFT)SSL 0.72 PublishedasaconferencepaperatICLR2026 namelyaudio-to-audioretrieval(Hameretal.,2023)(retrieval)andrepertoirediscovery(Bestetal., 2023)(clustering)orcall-typeclassification. Forvocalrepertoirediscovery PublishedasaconferencepaperatICLR2026 Figure 6: Supervised encoders outperform self-supervised on BEANS classification, which is pri- marily focal recordings. However, self-supervised encoders suffer  PublishedasaconferencepaperatICLR2026 dataset,uptoignoringornotthelabels),andalsopost-trainingitasbefore(bioacousticdataonly, orbioacousticdataplusAudioSet). SimilartoBEATs,wedonotpost-trainEATonAudio PublishedasaconferencepaperatICLR2026 Figure 7: Linear vs Attention probing comparison. The results are aggregated across bioacoustic benchmarksandtasks. WeaccuracyforBEANsClassification,mean-averagep PublishedasaconferencepaperatICLR2026 Table5: Traininghyperparametersforallmodelvariants Model Training Stage-1 Stage-1 Epochs LR Batch Optimizer Weight Scheduler Warmup Data Epochs LR Size Decay Step gibbons dcase Model Probe R-AUC Probe R-AUC Probe R-AUC Probe R-AUC Probe R-AUC BEATS(SFT)SSL 0.428 0.643 0.094 0.713 0.577 0.584 0.216 0.673 0.381 0.847 BEATS(pretrained)SSL 0.525 0.678 0.110 0.720 0 0.511 0.391 0.714 0.054 0.456 0.981 0.848 0.742 0.341 0.855 0.591 0.984 0.820 0.687 0.357 Bird-AVES-biox-baseSSL 0.230 0.521 0.292 0.634 0.118 0.492 0.967 0.840 0.660 0.253 0.751 0.484 0.872 0.757 0.6 PublishedasaconferencepaperatICLR2026 Table 6: BEANS Classification datasets only (best per metric in bold). We report R-AUC for retrieval; probe accuracy; clustering reported as NMI. Models above the",
+    "score": 0.01639344262295082
+  },
+  {
+    "paper_id": 6,
+    "chunk_indices": [
+      20,
+      0,
+      1,
+      18,
+      2,
+      14,
+      13,
+      17,
+      5,
+      7,
+      10,
+      15,
+      6,
+      19,
+      8,
+      9,
+      21,
+      4,
+      3
+    ],
+    "text": "Malgapo,E.,Starup-Hansen,J.,etal.:AutomatedGenerationofHospitalDischargeSummariesUsingClinical Guidelines and Large Language Models. OpenReview (2024) [25] Pal, K.: Summarization and Generation of Dis Large Language Model–Based Generation of Discharge Summaries Tiago Rodrigues1,2* and Carla Teixeira Lopes1,2 1Faculty of Engineering, University of Porto, Porto, Portugal. 2INESC TEC, Porto, Portugal. performance, but the fine-tuned version of Mistral produces competitive results. Still, significant advancements are needed for real-world applicability. We release the source code used to conduct the 6 Conclusions and Future Work This work addressed the challenge of generating discharge summaries from prior clinical notes, aiming to improve the efficiency of patient documentation for clinicians. W as repeating words and sentences and generating inconsistencies between the reported information and the true summary [2, 4]. Moreover, the sentences tend to be less coherent, and the abstraction mode 4, the scores don’t vary substantially and are consistent throughout all models. Overall,theresultsindicatethattheopen-sourcemodelstendtobettertranscribeinformationdirectlyfromthe source text into the challenge, with an improvement of 13.44%. This indicates that Gemini is providing correct output, with a meaning similar to the ground-truth, but will tend to use starkly different wording compared to MIMIC, and model selection and training were also impacted. Additionally, only MIMIC-III data was used, which may not generalize to other hospitals with different summarization styles. In this topic,  summary in all tests obtained from a random admission from the training data. To guide the model’s response, we asked it to output it in a structured format. Asastartingpoint,wedevisedthepromptformatf Fig. 2: Histogram with word count per document Looking deeper at the collection of notes, we can see their main constituents in Figure 3a. Nursing, Radiology, and Electrocardiogram (ECG) notes compris BLEU), GPT-3 performed better in TTR, BERTScore, BLANC, and SummaC. Gemini’s strong exact- match scores suggest it closely mimics discharge summary language, whereas GPT-3 scores better in vocabulary  Table5:Resultsofthequalitativeevaluationperdocument.Best scores are in bold Model Completeness Correctness Conciseness Llama-Baseline {1,1,1} {1,1,1} {1,1,1} Llama-Finetuned {1,1,1} {1,1,1} {1,1,1} Mi gathered from 2001 to 2012 from critical care units of the Beth Israel Deaconess Medical Center. For our work, the standout feature of this database is the addition of clinical notes taken during a pa Rodriguez, A., Stojnic, R., Edunov, S., Scialom, T.: Llama 2: Open Foundation and Fine-Tuned Chat Models. arXiv (2023). https://doi.org/10.48550/arXiv.2307.09288 [10] Jangra,A.,Mukherjee,S.,Jatowt,A., 3.4.2 Qualitative Analysis To complement the quantitative analysis, we also performed a qualitative evaluation of the results with the help of a clinical expert who read the summaries and evaluated th in BLEU. For Llama, ROUGE-1 dropped by 0.17%, and BLEU by 0.07%. Changes to the other metrics were also negligible and did not contribute to any significant alteration in performance. Fine-tuning did  [39] Papineni,K.,Roukos,S.,Ward,T.,Zhu,W.-J.:BLEU:Amethodforautomaticevaluationofmachinetransla- tion. In: Proceedings of the 40th Annual Meeting on Association for Computational Linguistics. ACL ’02, over 4.0 to around 1.15. Training durations were similar: Mistral required 3 days, 19 hours, and 53 minutes, while Llama-2 took 3 days, 16 hours, and 39 minutes. WecouldnotapplyQLoRAtotheproprietarymo 3.1 Model Selection We evaluated two main classes of models: smaller, open-source models and larger, proprietary ones. All models are decoder-only and have promising results in various NLP tasks [6, 8",
+    "score": 0.01639344262295082
+  },
+  {
+    "paper_id": 6,
+    "chunk_indices": [
+      12,
+      11,
+      16
+    ],
+    "text": ",%27.4 ,904.1- ,%05.45 ,%58.87 ,%66.5 ,014.1- ,%17.94 ,%42.86 ,%68.3 ,514.1- ,%82.45 ,%38.18 ,%99.1 ,334.1- ,%74.45 ,%61.88 %69.76 %57.74 %15.56 %99.74 %02.64 ,%78.1,%01.9,%54.3,%75.41 ,%61.0 ,%93.6 , -orezehtmorfnoitceshcaerednusledomyrateirporpybdeniatbo)CammuS/CNALB/TRUELB/erocStreB/RTT/UELB/}L/2/1{-EGUOR(serocS:3 elbaT dlob ni era cirtem dna noitces rep serocs tseB .tpmorp tohs tohS-enO-inimeG  There is a clear advantage in Mistral, which presented the best scores by far, with our fine-tuned version being fourtimesfasteronaveragethanLlama.Surprisingly,besidesbeingveryslowinitsgeneration,Llam",
+    "score": 0.0125
+  },
+  {
+    "paper_id": 10,
+    "chunk_indices": [
+      2,
+      3,
+      10,
+      1,
+      7,
+      9,
+      8,
+      4,
+      5,
+      0,
+      6,
+      13,
+      11,
+      12
+    ],
+    "text": "startandendtokenindiceswithinitssourcechunk. withinthatchunk.Givenaqueryq,adenseretriever This span-level grounding lets us later slice the firstfetchesthetop-k textchunksfromthecorpus c corresponding Prompt Query Prompt Query (a)StandardRAG (b)CacheBlend Prompt Query Prompt Query (c)TurboRAG (d)KVLink KV cache computed offline Prompt Query KV cache computed online (e)CoinRAG(Ours) Figure1:Comparis A FutureWork quences are mapped directly to the precomputed full-context KV cache slots, with the target ques- WeevaluateCoinRAGonthreeLongBenchmulti- tion appended at the very end of the prompt se- h expensiveintermsofTTFT.TomeetSLAunder each document chunk with a set of text spans alow-latencybudget,itneedstolimittheretrieval capturing essential information nuggets. Second, scope,degradinganswera 52.5 50.0 47.5 45.0 42.5 40.0 37.5 35.0 32.5 102 103 Latency budget (ms) erocS-1F 44 42 40 38 36 34 32 30 28 102 103 Latency budget (ms) (a) HotpotQA erocS-1F 32 30 28 26 24 22 102 103 Latency budget  LauraDietz,BryanLi,GabrielleLiu,Jia-HueiJu,Eu- Woosuk Kwon, Zhuohan Li, Siyuan Zhuang, Ying gene Yang, Dawn Lawrie, William Walden, and Sheng,LianminZheng,CodyHaoYu,JosephGon- JamesMayfield.2026. Inco Limitations thisassumption,andthissettingisfairforcom- paring them. With large online cache capacity, While CoinRAG has demonstrated a new Pareto standardRAGcouldtakeadvantageofdocument frontier for e level KV caches to isolate cross-chunk attention As listed in Table 2, CoinRAG differs from andslashTTFT.Sincethetwoareessentiallyiden- thesenugget-basedstudiesinbothwhenandhow tical in design, we let 52 50 48 46 44 42 40 38 102 103 Latency budget (ms) erocS-1F 46 44 42 40 38 36 34 32 30 28 102 103 Latency budget (ms) (a) HotpotQA erocS-1F 32 30 28 26 24 22 20 102 103 Latency budget (ms) (b) 2WikiM CoinRAG: Contextualized Information Nugget KV Cache Reuse for Long-Context RAG GyuwanKim1 CheoneumPark2 TaoYang1 1UniversityofCalifornia,SantaBarbara 2HanbatNationalUniversity {gyuwankim, tyang}@ucsb. 52 50 48 46 44 42 40 103 104 Context length budget (# tokens) erocS-1F 46 44 42 40 38 36 34 32 30 28 103 104 Context length budget (# tokens) (a) HotpotQA erocS-1F 32 30 28 26 24 22 20 103 104 Context the RTX PRO 6000, whereas all evaluation and cating positions shared by overlapping nuggets), latencybenchmarksareexecutedontheL40Sen- implyingthatretainingonlynugget-coveredposi- vironmentinbfloat16p YouareaninformationextractionsystemforOpen-DomainQuestionAnswering. Givenapassage,extractallspansthatcouldserveasevidenceordirectanswerstofactualquestions. ###Rules: 1.ExtractspansEXACTLYastheyappeari Inputpassage(longbench-hotpotqa,passage_idx=7): Passage7: Grania:She-KingoftheIrishSeas Grania:She-KingoftheIrishSeasisa1986historicalfictionnovelaboutGraceO’Malley(Irish:GráinneNí Mháille),theso-call",
+    "score": 0.01639344262295082
+  }
+]

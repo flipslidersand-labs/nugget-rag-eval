@@ -254,3 +254,31 @@ def test_invalid_json_chunks_exits_with_error_message(tmp_path):
     result = _run_main(["--chunks", str(c_path), "--gold", str(g_path)])
     assert result.returncode != 0
     assert "ERROR" in result.stderr
+
+
+# ── real data gate (#140) ─────────────────────────────────────────────────────
+
+
+def test_real_data_files_are_committed():
+    """CI 実データゲートが参照するファイルがリポジトリに存在する。"""
+    import pathlib
+
+    repo_root = pathlib.Path(__file__).parent.parent
+    assert (repo_root / "data" / "chunks_large.json").is_file()
+    assert (repo_root / "eval" / "gold_set.json").is_file()
+
+
+def test_real_data_gate_passes_threshold():
+    """実データ（chunks_large + gold_set）で Recall@5 >= 0.95 を満たす。"""
+    result = _run_main(
+        [
+            "--chunks",
+            "data/chunks_large.json",
+            "--gold",
+            "eval/gold_set.json",
+            "--threshold",
+            "0.95",
+        ]
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "[PASS]" in result.stdout
