@@ -273,7 +273,7 @@ def main():
     failure_count = 0
 
     if args.gold_set:
-        gold = json.loads(Path(args.gold_set).read_text())
+        gold = json.loads(Path(args.gold_set).read_text(encoding="utf-8"))
         print(f"Per-query fetch for {len(gold)} gold items", file=sys.stderr)
         all_chunks, failure_count = fetch_per_query(
             api, gold, args.chunk_mode, args.large_chunk_target, fail_fast=args.fail_fast
@@ -308,7 +308,7 @@ def main():
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
     tmp = out.with_suffix(".tmp")
-    tmp.write_text(json.dumps(all_chunks, ensure_ascii=False, indent=2))
+    tmp.write_text(json.dumps(all_chunks, ensure_ascii=False, indent=2), encoding="utf-8")
     tmp.replace(out)
     print(f"Wrote {len(all_chunks)} chunks to {out}", file=sys.stderr)
 
