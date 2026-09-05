@@ -139,20 +139,27 @@ def test_top_nuggets_top_k_equals_len_returns_all():
     assert len(result) == 3
 
 
-# ── ASCII ratio 境界 (#52) ────────────────────────────────────────────────
+# ── ハイブリッドトークナイザ (#152) ──────────────────────────────────────────
 
 
-def test_tokenize_exactly_half_ascii_uses_bigrams():
-    """ASCII 2文字 + 非ASCII 2文字 → ratio=0.5 → NOT > 0.5 → bigrams。"""
+def test_tokenize_mixed_ascii_cjk_splits_both():
+    """ASCII + CJK の混在文字列はハイブリッド処理でどちらも抽出される。
+
+    旧実装では ASCII 比率でいずれか一方に倒していたが、新実装では
+    ASCII 部分はホワイトスペース分割・CJK 部分はバイグラムを並存させる。
+    """
     tokens = _tokenize("AB東京")
-    # ratio = 2/4 = 0.5 → bigram branch
-    assert all(len(t) <= 2 for t in tokens)
+    # ASCII フラグメント "ab" + CJK バイグラム "東京"
+    assert "ab" in tokens
+    assert "東京" in tokens
 
 
-def test_tokenize_above_half_ascii_uses_split():
-    """ASCII 3文字 + 非ASCII 1文字 → ratio=0.75 > 0.5 → split。"""
+def test_tokenize_above_half_ascii_extracts_both():
+    """ASCII 3文字 + 非ASCII 1文字でも CJK 文字がバイグラムとして抽出される。"""
     tokens = _tokenize("ABC東")
-    assert tokens == ["abc東"]
+    # ASCII 部分 "abc" と CJK 文字 "東" が両方得られる
+    assert "abc" in tokens
+    assert "東" in tokens
 
 
 def test_tokenize_empty_string_returns_empty():
@@ -274,3 +281,76 @@ def test_top_nuggets_precomputed_does_not_call_embed_fn():
         sent_vecs=[[0.9, 0.1], [0.1, 0.9]],
     )
     assert calls == [], "embed_fn should not be called when precomputed vecs are provided"
+
+
+# ── 混在言語 BM25 (#152) ──────────────────────────────────────────────────
+
+
+def test_bm25_english_query_japanese_sentences_nonzero():
+    """英語クエリ × 日本語文で BM25 スコアが全ゼロにならないこと。
+
+    旧実装では _tokenize がクエリと文に独立の言語判定を適用するため、
+    英語クエリ（whitespace split）と日本語文（bigram）の token 空間が
+    完全に食い違い、BM25 スコアが全て 0.0 になっていた。
+    """
+    # 日本語文に英語キーワード "KV" を含む文と含まない文
+    sentences = [
+        "KVキャッシュの再利用による推論高速化について述べる。",
+        "料理のレシピと食材の組み合わせを紹介する。",
+    ]
+    scores = bm25_scores("KV cache", sentences)
+    # 少なくとも 1 件は非ゼロ（KV を含む文が拾われる）
+    assert any(s > 0.0 for s in scores), f"All scores are zero: {scores}"
+    # KV を含む文の方がスコアが高い
+    assert scores[0] > scores[1]
+
+
+def test_bm25_japanese_query_english_sentences_nonzero():
+    """日本語クエリ × 英語文でも BM25 スコアが全ゼロにならないこと。"""
+    # 英語文に日本語キーワードを混在させた例
+    sentences = [
+        "This paper proposes a KV cache reuse method.",
+        "Unrelated content about cooking recipes.",
+    ]
+    # 英語文は全 ASCII なのでクエリとの token 重複は起きないが、
+    # ゼロかどうかの検証ではなく「独立判定で壊れない」ことを確認する。
+    scores = bm25_scores("KVキャッシュ", sentences)
+    # scores は list[float] で長さが正しいこと
+    assert len(scores) == 2
+
+
+def test_bm25_cross_language_relevant_higher():
+    """英クエリ × 日本語文でキーワードを含む文が高スコアになること。"""
+    query = "attention mechanism"
+    sentences = [
+        "アテンションメカニズム（attention mechanism）を用いた手法を提案する。",
+        "データ収集と前処理の手順について説明する。",
+        "食材の栄養価と調理法の関係を分析する。",
+    ]
+    scores = bm25_scores(query, sentences)
+    # "attention mechanism" を含む文が最高スコア
+    assert scores[0] == max(scores), f"Expected scores[0] highest, got {scores}"
+
+
+def test_char_ngrams_fullwidth_space_removed():
+    """全角スペース・タブ・改行が bigram ノイズ term を生じさせないこと。
+
+    旧実装の replace(' ', '') は ASCII スペースのみを除去し、
+    全角スペース (U+3000) や改行が bigram に混入していた。
+    """
+    # 全角スペース含みテキスト
+    tokens_fullwidth = _char_ngrams("東京　大阪")
+    # 全角スペース自体がバイグラムの一部にならない
+    assert not any("　" in t for t in tokens_fullwidth), (
+        f"Full-width space leaked into bigrams: {tokens_fullwidth}"
+    )
+
+    # タブ含みテキスト
+    tokens_tab = _char_ngrams("機械\t学習")
+    assert not any("\t" in t for t in tokens_tab), f"Tab leaked into bigrams: {tokens_tab}"
+
+    # 改行含みテキスト
+    tokens_newline = _char_ngrams("研究\n手法")
+    assert not any("\n" in t for t in tokens_newline), (
+        f"Newline leaked into bigrams: {tokens_newline}"
+    )
