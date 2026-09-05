@@ -75,24 +75,35 @@ def top_nuggets(
     top_k: int = 2,
     embed_fn: Callable[[list[str]], list[list[float]]] | None = None,
     embed_weight: float = 0.5,
+    query_vec: list[float] | None = None,
+    sent_vecs: list[list[float]] | None = None,
 ) -> list[str]:
     """Return top-k sentences most relevant to query.
 
     When embed_fn is provided, scores are a weighted blend of BM25 and
     cosine similarity (embed_weight controls the embedding contribution).
     Without embed_fn, falls back to BM25-only.
+
+    Pre-computed vectors can be supplied via ``query_vec`` and ``sent_vecs``
+    to avoid redundant HTTP calls when batching across multiple chunks.
+    When both are provided, ``embed_fn`` is not called.
     """
     if not sentences:
         return []
 
     bm25 = _normalize(bm25_scores(query, sentences))
 
-    if embed_fn is not None:
+    use_precomputed = query_vec is not None and sent_vecs is not None
+    if use_precomputed or embed_fn is not None:
         from nugget_rag.embedder import embed_scores
 
-        vecs = embed_fn([query] + sentences)
-        query_vec, sent_vecs = vecs[0], vecs[1:]
-        emb = _normalize(embed_scores(query_vec, sent_vecs))
+        if use_precomputed:
+            qv = query_vec
+            sv = sent_vecs
+        else:
+            vecs = embed_fn([query] + sentences)  # type: ignore[misc]
+            qv, sv = vecs[0], vecs[1:]
+        emb = _normalize(embed_scores(qv, sv))
         combined = [(1 - embed_weight) * b + embed_weight * e for b, e in zip(bm25, emb)]
     else:
         combined = bm25

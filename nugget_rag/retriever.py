@@ -34,16 +34,53 @@ def retrieve_nuggets(
     """Extract top nugget sentences from query-ranked chunks, then return top-k.
 
     When embed_fn is provided, nugget selection uses BM25 + embedding hybrid scoring.
+
+    Batching optimisation (#150): when embed_fn is provided, all sentences
+    from the top-k chunks are collected into a single embed_fn call together
+    with the query.  This reduces HTTP round-trips from O(top_k) to O(1)
+    per query and eliminates repeated query-vector computation.
     """
+    ranked_chunks = _rank_chunks(chunks, query)[:top_k]
+
+    if embed_fn is None:
+        # BM25-only path — no batching needed
+        results = []
+        for chunk in ranked_chunks:
+            sentences = split_sentences(chunk["text"])
+            nugget_sents = top_nuggets(
+                query,
+                sentences,
+                top_k=nuggets_per_chunk,
+                embed_weight=embed_weight,
+            )
+            results.append({**chunk, "nugget": " ".join(nugget_sents)})
+        return results
+
+    # Hybrid path — one batch embed call for query + all chunk sentences
+    chunk_sentences: list[list[str]] = [split_sentences(c["text"]) for c in ranked_chunks]
+    all_sentences: list[str] = [s for sents in chunk_sentences for s in sents]
+
+    if all_sentences:
+        all_vecs = embed_fn([query] + all_sentences)
+        query_vec: list[float] = all_vecs[0]
+        flat_sent_vecs: list[list[float]] = all_vecs[1:]
+    else:
+        query_vec = []
+        flat_sent_vecs = []
+
     results = []
-    for chunk in _rank_chunks(chunks, query)[:top_k]:
-        sentences = split_sentences(chunk["text"])
+    offset = 0
+    for chunk, sentences in zip(ranked_chunks, chunk_sentences):
+        n = len(sentences)
+        sent_vecs = flat_sent_vecs[offset : offset + n]
+        offset += n
         nugget_sents = top_nuggets(
             query,
             sentences,
             top_k=nuggets_per_chunk,
-            embed_fn=embed_fn,
             embed_weight=embed_weight,
+            query_vec=query_vec if sentences else None,
+            sent_vecs=sent_vecs if sentences else None,
         )
         results.append({**chunk, "nugget": " ".join(nugget_sents)})
     return results

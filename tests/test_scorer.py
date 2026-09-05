@@ -229,3 +229,48 @@ def test_bm25_ubiquitous_term_has_low_idf_contribution():
     assert max(scores) < 0.5, (
         f"Ubiquitous term should have low IDF contribution, max score={max(scores):.3f}"
     )
+
+
+# ── #150 precomputed query_vec / sent_vecs ───────────────────────────────
+
+
+def test_top_nuggets_precomputed_vecs_match_embed_fn():
+    """#150: query_vec+sent_vecs を渡すと embed_fn と同じ結果になる。"""
+    sentences = ["KV cache reuse", "diffusion model training"]
+
+    def mock_embed(texts):
+        return [[1.0, 0.0]] + [[0.9, 0.1], [0.1, 0.9]]
+
+    result_fn = top_nuggets("query", sentences, top_k=1, embed_fn=mock_embed, embed_weight=1.0)
+
+    # Provide the same vectors directly (bypassing embed_fn)
+    result_pre = top_nuggets(
+        "query",
+        sentences,
+        top_k=1,
+        embed_weight=1.0,
+        query_vec=[1.0, 0.0],
+        sent_vecs=[[0.9, 0.1], [0.1, 0.9]],
+    )
+    assert result_fn == result_pre
+
+
+def test_top_nuggets_precomputed_does_not_call_embed_fn():
+    """#150: query_vec+sent_vecs がある場合 embed_fn は呼ばれない。"""
+    calls: list = []
+
+    def should_not_be_called(texts):
+        calls.append(texts)
+        return [[0.0, 1.0]] * len(texts)
+
+    sentences = ["KV cache reuse", "diffusion model"]
+    top_nuggets(
+        "query",
+        sentences,
+        top_k=1,
+        embed_fn=should_not_be_called,
+        embed_weight=0.5,
+        query_vec=[1.0, 0.0],
+        sent_vecs=[[0.9, 0.1], [0.1, 0.9]],
+    )
+    assert calls == [], "embed_fn should not be called when precomputed vecs are provided"
