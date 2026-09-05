@@ -22,7 +22,9 @@ from eval.evaluate import (
     _float_between_0_1,
     _load_json,
     _positive_int,
+    build_chunks_index,
     evaluate,
+    validate_chunks,
 )
 
 
@@ -54,10 +56,12 @@ def main() -> None:
     chunks_data: list[dict] = _load_json(args.chunks, "--chunks")
     gold: list[dict] = _load_json(args.gold, "--gold")
 
-    chunks_by_paper: dict[str | int, list[dict]] = {}
-    for c in chunks_data:
-        key = c.get("arxiv_id") or c["paper_id"]
-        chunks_by_paper.setdefault(key, []).append(c)
+    try:
+        validate_chunks(chunks_data)
+    except ValueError as exc:
+        sys.exit(f"[ERROR] {exc}")
+
+    chunks_by_paper = build_chunks_index(chunks_data)
 
     try:
         result = evaluate(chunks_by_paper, gold, top_k=args.top_k, verbose=args.verbose)
