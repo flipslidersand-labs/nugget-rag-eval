@@ -393,6 +393,22 @@ def test_main_invalid_json_chunks_exits_with_message(tmp_path, monkeypatch):
     assert "ERROR" in str(exc_info.value.code)
 
 
+def test_main_non_utf8_chunks_exits_with_message(tmp_path, monkeypatch):
+    """Non-UTF-8 bytes in --chunks should produce a friendly [ERROR] message, not a traceback."""
+    from eval.evaluate import main
+
+    c_path = tmp_path / "chunks.json"
+    c_path.write_bytes(b'[{"text": "\xff\xfe invalid utf-8"}]')
+    g_path = tmp_path / "gold.json"
+    _write_json(g_path, [])
+    monkeypatch.setattr(
+        sys, "argv", ["evaluate.py", "--chunks", str(c_path), "--gold", str(g_path)]
+    )
+    with pytest.raises(SystemExit) as exc_info:
+        main()
+    assert "not valid UTF-8" in str(exc_info.value.code)
+
+
 def test_main_invalid_json_gold_exits_with_message(tmp_path, monkeypatch):
     """Malformed JSON in --gold should produce a friendly [ERROR] message, not a traceback."""
     from eval.evaluate import main
