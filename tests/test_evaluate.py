@@ -1,8 +1,16 @@
-"""Tests for evaluate.py — mrr_at_k, evaluate() arxiv_id resolution, validate_gold."""
+"""Tests for evaluate.py — mrr_at_k, evaluate() arxiv_id resolution, validate_gold, validate_chunks, build_chunks_index."""
 
 import pytest
 
-from eval.evaluate import ARXIV_MAP, evaluate, mrr_at_k, recall_at_k, validate_gold
+from eval.evaluate import (
+    ARXIV_MAP,
+    build_chunks_index,
+    evaluate,
+    mrr_at_k,
+    recall_at_k,
+    validate_chunks,
+    validate_gold,
+)
 from tests.conftest import make_results
 
 _make_results = make_results  # backward-compat alias for existing tests
@@ -350,3 +358,95 @@ def test_recall_matches_mrr_positivity():
     ]
     for results in cases:
         assert recall_at_k(results, ["answer span"]) == (mrr_at_k(results, ["answer span"]) > 0)
+
+
+# ── validate_chunks (#149) ─────────────────────────────────────────────────────
+
+
+def test_validate_chunks_passes_on_valid_list():
+    chunks = [
+        {"paper_id": 1, "text": "some text"},
+        {"arxiv_id": "2410.10071", "text": "other text"},
+    ]
+    validate_chunks(chunks)  # must not raise
+
+
+def test_validate_chunks_passes_on_empty_list():
+    validate_chunks([])  # empty chunks is valid (evaluate() returns zeros)
+
+
+def test_validate_chunks_rejects_dict():
+    """A JSON object (dict) instead of array must raise ValueError immediately."""
+    with pytest.raises(ValueError, match="must be a JSON array"):
+        validate_chunks({"paper_id": 1, "text": "x"})  # type: ignore[arg-type]
+
+
+def test_validate_chunks_missing_both_id_fields_raises():
+    chunk = {"text": "some text"}
+    with pytest.raises(ValueError, match="'arxiv_id' or 'paper_id'"):
+        validate_chunks([chunk])
+
+
+def test_validate_chunks_missing_text_raises():
+    chunk = {"paper_id": 1}
+    with pytest.raises(ValueError, match="missing or empty 'text'"):
+        validate_chunks([chunk])
+
+
+def test_validate_chunks_empty_text_raises():
+    chunk = {"paper_id": 1, "text": ""}
+    with pytest.raises(ValueError, match="missing or empty 'text'"):
+        validate_chunks([chunk])
+
+
+def test_validate_chunks_reports_correct_index():
+    chunks = [
+        {"paper_id": 1, "text": "ok"},
+        {"paper_id": 2, "text": ""},  # index 1 is bad
+    ]
+    with pytest.raises(ValueError, match=r"chunks\[1\]"):
+        validate_chunks(chunks)
+
+
+def test_validate_chunks_arxiv_id_only_is_valid():
+    chunk = {"arxiv_id": "2410.10071", "text": "valid text"}
+    validate_chunks([chunk])  # must not raise
+
+
+def test_validate_chunks_both_ids_present_is_valid():
+    chunk = {"arxiv_id": "2410.10071", "paper_id": 1, "text": "valid text"}
+    validate_chunks([chunk])  # must not raise
+
+
+# ── build_chunks_index (#149) ──────────────────────────────────────────────────
+
+
+def test_build_chunks_index_groups_by_paper_id():
+    chunks = [
+        {"paper_id": 1, "text": "a"},
+        {"paper_id": 2, "text": "b"},
+        {"paper_id": 1, "text": "c"},
+    ]
+    idx = build_chunks_index(chunks)
+    assert set(idx.keys()) == {1, 2}
+    assert len(idx[1]) == 2
+    assert len(idx[2]) == 1
+
+
+def test_build_chunks_index_prefers_arxiv_id():
+    """When arxiv_id is present and truthy, it is used as the key (not paper_id)."""
+    chunks = [{"arxiv_id": "2410.10071", "paper_id": 999, "text": "x"}]
+    idx = build_chunks_index(chunks)
+    assert "2410.10071" in idx
+    assert 999 not in idx
+
+
+def test_build_chunks_index_falls_back_to_paper_id_when_arxiv_id_falsy():
+    chunks = [{"arxiv_id": "", "paper_id": 42, "text": "x"}]
+    idx = build_chunks_index(chunks)
+    assert 42 in idx
+    assert "" not in idx
+
+
+def test_build_chunks_index_empty_input_returns_empty_dict():
+    assert build_chunks_index([]) == {}
