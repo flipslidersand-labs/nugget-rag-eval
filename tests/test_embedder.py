@@ -331,6 +331,27 @@ def test_retry_5xx_retries(mock_open, mock_sleep):
 
 @patch("nugget_rag.embedder.time.sleep")
 @patch("nugget_rag.embedder.urlopen")
+def test_retry_5xx_closes_response_before_retry(mock_open, mock_sleep):
+    """5xx HTTPError のレスポンスボディはリトライ前に close される (#141)。"""
+    from nugget_rag.embedder import EmbedError
+
+    excs = [
+        HTTPError(url=None, code=503, msg="Service Unavailable", hdrs=None, fp=None)  # type: ignore[arg-type]
+        for _ in range(3)
+    ]
+    close_mocks = []
+    for exc in excs:
+        exc.close = MagicMock()  # type: ignore[method-assign]
+        close_mocks.append(exc.close)
+    mock_open.side_effect = excs
+    with pytest.raises(EmbedError):
+        _retry_client(max_retries=2, backoff=0.0).embed(["t"])
+    for close_mock in close_mocks:
+        close_mock.assert_called_once()
+
+
+@patch("nugget_rag.embedder.time.sleep")
+@patch("nugget_rag.embedder.urlopen")
 def test_retry_max_retries_zero_no_retry(mock_open, mock_sleep):
     """max_retries=0 → リトライなし、1 回のみ試行。"""
     from nugget_rag.embedder import EmbedError
