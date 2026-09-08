@@ -32,3 +32,8 @@ jobs:
         run: python eval/check_regression.py --chunks tests/fixtures/chunks_test.json --gold tests/fixtures/gold_test.json --threshold 0.95
       - name: Eval regression gate (BM25-only, real data)
         run: python eval/check_regression.py --chunks data/chunks_large.json --gold eval/gold_set.json --threshold 0.95
+
+  gitleaks:
+    permissions:
+      contents: read
+    uses: flipslidersand-labs/qa-workflows/.github/workflows/gitleaks.yml@main
