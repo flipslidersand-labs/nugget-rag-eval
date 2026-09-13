@@ -11,3 +11,5 @@ htmlcov/
 data/*
 !data/chunks_large.json
 !tests/fixtures/
+.env
+.env.local
