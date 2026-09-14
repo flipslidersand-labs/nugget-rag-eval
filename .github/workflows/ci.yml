@@ -8,7 +8,7 @@ on:
 
 jobs:
   markdownlint:
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.GATE_RUNNER || 'ubuntu-latest' }}
     steps:
       - uses: actions/checkout@v4
       - run: npx --yes markdownlint-cli --config .markdownlint.json "**/*.md" --ignore node_modules --ignore .venv
