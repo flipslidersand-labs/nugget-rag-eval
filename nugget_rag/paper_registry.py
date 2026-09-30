@@ -22,3 +22,19 @@ ARXIV_MAP: dict[str, int] = {
 
 # Reverse: paper_id → arxiv_id
 PAPER_ID_TO_ARXIV: dict[int, str] = {v: k for k, v in ARXIV_MAP.items()}
+
+
+def resolve_paper_key(item: dict) -> str | int | None:
+    """Resolve a chunk or gold item to its canonical registry key.
+
+    Prefers ``arxiv_id`` translated through ARXIV_MAP to the internal
+    ``paper_id`` so that chunks and gold items sharing the same arxiv_id
+    always resolve to the same key regardless of which (possibly stale)
+    ``paper_id`` they carry. Falls back to the raw arxiv_id string if it is
+    not registered, then to the ``paper_id`` field. Returns ``None`` if
+    neither is present.
+    """
+    arxiv_id = item.get("arxiv_id")
+    if arxiv_id:
+        return ARXIV_MAP.get(arxiv_id, arxiv_id)
+    return item.get("paper_id")

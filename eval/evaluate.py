@@ -22,7 +22,7 @@ import sys
 from collections.abc import Callable
 from pathlib import Path
 
-from nugget_rag.paper_registry import ARXIV_MAP
+from nugget_rag.paper_registry import resolve_paper_key
 from nugget_rag.retriever import retrieve_full_chunk, retrieve_nuggets
 
 _REQUIRED_FIELDS = frozenset({"query", "answer_spans"})
@@ -58,12 +58,13 @@ def validate_chunks(chunks: list[dict]) -> None:
 def build_chunks_index(chunks: list[dict]) -> dict[str | int, list[dict]]:
     """Group a flat chunks list into a dict keyed by paper identifier.
 
-    Uses ``arxiv_id`` when present and truthy, otherwise ``paper_id``.
+    Uses :func:`resolve_paper_key` so chunks resolve to the same key as gold
+    items sharing the same arxiv_id, regardless of which paper_id they carry.
     Assumes *chunks* has already been validated by :func:`validate_chunks`.
     """
     chunks_by_paper: dict[str | int, list[dict]] = {}
     for c in chunks:
-        key: str | int = c.get("arxiv_id") or c["paper_id"]
+        key = resolve_paper_key(c)
         chunks_by_paper.setdefault(key, []).append(c)
     return chunks_by_paper
 
@@ -105,14 +106,6 @@ def validate_gold(gold: list[dict]) -> None:
             )
 
 
-def _resolve_key(item: dict) -> str | int:
-    """Resolve a gold item to its chunks_by_paper key (arxiv_id via ARXIV_MAP, else paper_id)."""
-    arxiv_id = item.get("arxiv_id")
-    if arxiv_id:
-        return ARXIV_MAP.get(arxiv_id, arxiv_id)
-    return item["paper_id"]
-
-
 def check_gold_chunk_coverage(chunks_by_paper: dict[str, list[dict]], gold: list[dict]) -> int:
     """Warn about gold keys missing from chunks_by_paper; return the count of affected queries.
 
@@ -122,7 +115,7 @@ def check_gold_chunk_coverage(chunks_by_paper: dict[str, list[dict]], gold: list
         ValueError: If *gold* is non-empty and no gold key resolves to any chunks
             (every query would silently score recall 0).
     """
-    missing = [key for item in gold if (key := _resolve_key(item)) not in chunks_by_paper]
+    missing = [key for item in gold if (key := resolve_paper_key(item)) not in chunks_by_paper]
     if not missing:
         return 0
 
@@ -188,7 +181,7 @@ def evaluate(
 
     for i, item in enumerate(gold):
         # Support both arxiv_id (new) and paper_id (legacy)
-        key = _resolve_key(item)
+        key = resolve_paper_key(item)
         query = item["query"]
         spans = item["answer_spans"]
         chunks = chunks_by_paper.get(key, [])
