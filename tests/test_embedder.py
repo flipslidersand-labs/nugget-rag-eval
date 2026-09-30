@@ -95,21 +95,21 @@ def test_embed_302_redirect_raises_embed_error_without_following():
 
 def test_embed_client_rejects_file_scheme_base_url():
     with pytest.raises(ValueError, match="file"):
-        EmbedClient("file:///etc/passwd", api_key="k")
+        EmbedClient("file:///etc/passwd")
 
 
 def test_embed_client_rejects_ftp_scheme_base_url():
     with pytest.raises(ValueError, match="ftp"):
-        EmbedClient("ftp://internal/resource", api_key="k")
+        EmbedClient("ftp://internal/resource")
 
 
 def test_embed_client_accepts_http_base_url():
-    client = EmbedClient("http://localhost:9092", api_key="k")
+    client = EmbedClient("http://localhost:9092")
     assert client.base_url == "http://localhost:9092"
 
 
 def test_embed_client_accepts_https_base_url():
-    client = EmbedClient("https://embed.example.com", api_key="k")
+    client = EmbedClient("https://embed.example.com")
     assert client.base_url == "https://embed.example.com"
 
 
@@ -299,9 +299,7 @@ def test_embed_batch_preserves_order(mock_open):
 
 
 def _retry_client(max_retries=3, backoff=0.0):
-    return EmbedClient(
-        "http://localhost:9092", api_key="k", max_retries=max_retries, retry_backoff=backoff
-    )
+    return EmbedClient("http://localhost:9092", max_retries=max_retries, retry_backoff=backoff)
 
 
 def _ok_response(n=1):
