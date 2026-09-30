@@ -121,6 +121,10 @@ def test_bm25_single_empty_sentence():
     assert scores == [0.0]
 
 
+def test_bm25_empty_sentence_list_returns_empty_list():
+    assert bm25_scores("query", []) == []
+
+
 # ── top_k クリップ (#51) ──────────────────────────────────────────────────
 
 
