@@ -6,7 +6,7 @@ import json
 import subprocess
 import sys
 
-from eval.evaluate import ARXIV_MAP
+from nugget_rag.paper_registry import ARXIV_MAP
 
 
 def _write_json(path, data):
