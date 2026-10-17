@@ -492,3 +492,100 @@ def test_main_chunks_empty_text_exits_with_error(tmp_path, monkeypatch):
     with pytest.raises(SystemExit) as exc_info:
         main()
     assert "[ERROR]" in str(exc_info.value.code)
+
+
+# ── #182: --embedding-url 分岐(ハイブリッドスコアリング経路) ───────────────────
+
+_EMBED_URL = "http://127.0.0.1:9092"
+_ANSWER = "Zebra quokka marmot"
+
+
+@pytest.fixture()
+def hybrid_data(tmp_path):
+    """BM25 では答え文が選ばれず、embedding でのみ選ばれるデータ。
+
+    4文はクエリ語 "retrieval" を含み、答え文はクエリ語を含まない。
+    nuggets_per_chunk=3 なので BM25 のみでは答え文は落ちる。
+    """
+    paper_id = ARXIV_MAP["2410.10071"]
+    text = (
+        "Retrieval alpha here. Retrieval beta here. Retrieval gamma here. "
+        f"Retrieval delta here. {_ANSWER}."
+    )
+    c_path = tmp_path / "chunks.json"
+    g_path = tmp_path / "gold.json"
+    _write_json(c_path, [{"paper_id": paper_id, "text": text}])
+    _write_json(
+        g_path, [{"arxiv_id": "2410.10071", "query": "retrieval", "answer_spans": [_ANSWER]}]
+    )
+    return c_path, g_path
+
+
+def _fake_embed(calls):
+    """クエリ(先頭)と答え文を同じ向き、他を直交させる embed のフェイク。"""
+
+    def embed(self, texts):
+        calls.append(list(texts))
+        return [[1.0, 0.0] if (i == 0 or _ANSWER in t) else [0.0, 1.0] for i, t in enumerate(texts)]
+
+    return embed
+
+
+def _run_main(monkeypatch, c_path, g_path, *extra):
+    from eval.evaluate import main
+
+    monkeypatch.setattr(
+        sys, "argv", ["evaluate.py", "--chunks", str(c_path), "--gold", str(g_path), *extra]
+    )
+    main()
+
+
+def _result_json(out: str) -> dict:
+    return json.loads(out[out.index("{") :])
+
+
+def test_main_embedding_url_warns_when_api_key_missing(hybrid_data, monkeypatch, capsys):
+    from nugget_rag.embedder import EmbedClient
+
+    monkeypatch.delenv("EMBEDDING_API_KEY", raising=False)
+    monkeypatch.setattr(EmbedClient, "embed", _fake_embed([]))
+    _run_main(monkeypatch, *hybrid_data, "--embedding-url", _EMBED_URL)
+    err = capsys.readouterr().err
+    assert "[WARN] EMBEDDING_API_KEY not set" in err
+    assert f"Embedding: {_EMBED_URL}  weight=0.5" in err
+
+
+def test_main_embedding_url_no_warn_when_api_key_set(hybrid_data, monkeypatch, capsys):
+    from nugget_rag.embedder import EmbedClient
+
+    monkeypatch.setenv("EMBEDDING_API_KEY", "dummy-for-test")
+    monkeypatch.setattr(EmbedClient, "embed", _fake_embed([]))
+    _run_main(monkeypatch, *hybrid_data, "--embedding-url", _EMBED_URL)
+    assert "[WARN] EMBEDDING_API_KEY not set" not in capsys.readouterr().err
+
+
+def test_main_embedding_url_mode_label_includes_weight(hybrid_data, monkeypatch, capsys):
+    from nugget_rag.embedder import EmbedClient
+
+    monkeypatch.setenv("EMBEDDING_API_KEY", "dummy-for-test")
+    monkeypatch.setattr(EmbedClient, "embed", _fake_embed([]))
+    _run_main(monkeypatch, *hybrid_data, "--embedding-url", _EMBED_URL, "--embed-weight", "0.3")
+    assert "nugget(e0.3)" in capsys.readouterr().out
+
+
+def test_main_embedding_url_uses_embed_fn_for_nugget_selection(hybrid_data, monkeypatch, capsys):
+    """embed_fn が evaluate() に配線され、embedding スコアで答え文が選ばれる。"""
+    from nugget_rag.embedder import EmbedClient
+
+    monkeypatch.setenv("EMBEDDING_API_KEY", "dummy-for-test")
+
+    # 対照: BM25 のみでは答え文が nugget に入らない
+    _run_main(monkeypatch, *hybrid_data)
+    assert _result_json(capsys.readouterr().out)["nugget"]["recall"] == 0.0
+
+    calls: list[list[str]] = []
+    monkeypatch.setattr(EmbedClient, "embed", _fake_embed(calls))
+    _run_main(monkeypatch, *hybrid_data, "--embedding-url", _EMBED_URL, "--embed-weight", "1.0")
+    assert calls, "EmbedClient.embed が呼ばれていない(embed_fn 未配線)"
+    assert calls[0][0] == "retrieval"
+    assert _result_json(capsys.readouterr().out)["nugget"]["recall"] == 1.0
