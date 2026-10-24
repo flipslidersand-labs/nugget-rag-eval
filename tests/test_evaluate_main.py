@@ -492,3 +492,63 @@ def test_main_chunks_empty_text_exits_with_error(tmp_path, monkeypatch):
     with pytest.raises(SystemExit) as exc_info:
         main()
     assert "[ERROR]" in str(exc_info.value.code)
+
+
+# ── #180: gold 側 / PermissionError / evaluate() の ValueError 終了パス ─────────
+
+
+def test_main_permission_denied_exits_with_message(minimal_data, monkeypatch):
+    """read_text が PermissionError を送出したら permission denied の [ERROR] + SystemExit。"""
+    from pathlib import Path
+
+    from eval.evaluate import main
+
+    c_path, g_path = minimal_data
+
+    def _deny(self, *args, **kwargs):
+        raise PermissionError(13, "Permission denied", str(self))
+
+    monkeypatch.setattr(Path, "read_text", _deny)
+    monkeypatch.setattr(
+        sys, "argv", ["evaluate.py", "--chunks", str(c_path), "--gold", str(g_path)]
+    )
+    with pytest.raises(SystemExit) as exc_info:
+        main()
+    msg = str(exc_info.value.code)
+    assert msg.startswith("[ERROR] permission denied reading --chunks file")
+    assert str(c_path) in msg
+
+
+def test_main_gold_missing_query_exits_with_error(tmp_path, monkeypatch):
+    """gold の必須フィールド(query)欠落は validate_gold 経由で [ERROR] + SystemExit。"""
+    from eval.evaluate import main
+
+    c_path = tmp_path / "chunks.json"
+    _write_json(c_path, [{"paper_id": 1, "text": "x"}])
+    g_path = tmp_path / "gold.json"
+    _write_json(g_path, [{"arxiv_id": "2410.10071", "answer_spans": ["x"]}])
+    monkeypatch.setattr(
+        sys, "argv", ["evaluate.py", "--chunks", str(c_path), "--gold", str(g_path)]
+    )
+    with pytest.raises(SystemExit) as exc_info:
+        main()
+    msg = str(exc_info.value.code)
+    assert msg.startswith("[ERROR] gold[0] missing required fields")
+    assert "query" in msg
+
+
+def test_main_evaluate_value_error_exits_with_error(tmp_path, monkeypatch):
+    """gold は妥当だが全 gold キーが chunks に無い場合、evaluate() の ValueError が [ERROR] + SystemExit になる。"""
+    from eval.evaluate import main
+
+    c_path = tmp_path / "chunks.json"
+    _write_json(c_path, [{"paper_id": 1, "text": "x"}])
+    g_path = tmp_path / "gold.json"
+    _write_json(g_path, [{"paper_id": 999, "query": "q", "answer_spans": ["x"]}])
+    monkeypatch.setattr(
+        sys, "argv", ["evaluate.py", "--chunks", str(c_path), "--gold", str(g_path)]
+    )
+    with pytest.raises(SystemExit) as exc_info:
+        main()
+    msg = str(exc_info.value.code)
+    assert msg.startswith("[ERROR] no gold paper key found in chunks")
