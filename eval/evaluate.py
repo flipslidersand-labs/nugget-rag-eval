@@ -21,8 +21,12 @@ import os
 import sys
 import time
 from collections.abc import Callable
-from pathlib import Path
 
+from eval.cli_helpers import existing_file as _existing_file
+from eval.cli_helpers import float_between_0_1 as _float_between_0_1
+from eval.cli_helpers import load_json as _load_json
+from eval.cli_helpers import non_negative_int as _non_negative_int
+from eval.cli_helpers import positive_int as _positive_int
 from eval.compare import compare
 from nugget_rag.paper_registry import resolve_paper_key
 from nugget_rag.retriever import retrieve_full_chunk, retrieve_nuggets
@@ -291,51 +295,6 @@ def evaluate(
             nugget_tokens / n if n else 0.0,
         ),
     }
-
-
-def _float_between_0_1(v: str) -> float:
-    """Argparse type for --embed-weight: must be in [0.0, 1.0]."""
-    f = float(v)
-    if not (0.0 <= f <= 1.0):
-        raise argparse.ArgumentTypeError(f"must be in [0, 1], got {f}")
-    return f
-
-
-def _positive_int(v: str) -> int:
-    """Argparse type for --top-k: must be >= 1."""
-    n = int(v)
-    if n < 1:
-        raise argparse.ArgumentTypeError(f"must be >= 1, got {n}")
-    return n
-
-
-def _non_negative_int(v: str) -> int:
-    """Argparse type for --nugget-window: must be >= 0."""
-    n = int(v)
-    if n < 0:
-        raise argparse.ArgumentTypeError(f"must be >= 0, got {n}")
-    return n
-
-
-def _existing_file(value: str) -> str:
-    """argparse type= helper: abort early if the path does not point to a file."""
-    if not Path(value).is_file():
-        raise argparse.ArgumentTypeError(f"file not found: {value}")
-    return value
-
-
-def _load_json(path: str, label: str) -> list[dict]:
-    """Read *path* and parse JSON, exiting with a friendly message on failure."""
-    try:
-        return json.loads(Path(path).read_text(encoding="utf-8"))
-    except FileNotFoundError:
-        sys.exit(f"[ERROR] {label} file not found: {path}")
-    except PermissionError:
-        sys.exit(f"[ERROR] permission denied reading {label} file: {path}")
-    except UnicodeDecodeError:
-        sys.exit(f"[ERROR] {label} file is not valid UTF-8: {path}")
-    except json.JSONDecodeError as exc:
-        sys.exit(f"[ERROR] {label} file is not valid JSON ({path}): {exc}")
 
 
 def main():

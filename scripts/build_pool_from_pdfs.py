@@ -18,18 +18,12 @@ import subprocess
 import sys
 from pathlib import Path
 
+from eval.cli_helpers import positive_int
 from nugget_rag.paper_registry import ARXIV_MAP
 
 # Split only where whitespace follows the terminator, so decimals such as "0.5"
 # stay intact (nugget_rag.chunker.split_sentences also splits inside "0.5").
 _SENT_BOUNDARY = re.compile(r"(?<=[.!?])\s+")
-
-
-def _positive_int(v: str) -> int:
-    n = int(v)
-    if n < 1:
-        raise argparse.ArgumentTypeError(f"must be >= 1, got {v}")
-    return n
 
 
 def pdf_to_text(pdf: Path) -> str:
@@ -91,7 +85,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--pdf-dir", type=Path, default=Path("data/papers"))
     parser.add_argument("--out", type=Path, default=Path("data/chunks_pdf.json"))
-    parser.add_argument("--target-words", type=_positive_int, default=300)
+    parser.add_argument("--target-words", type=positive_int, default=300)
     args = parser.parse_args()
 
     if not args.pdf_dir.is_dir():

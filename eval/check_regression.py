@@ -19,15 +19,8 @@ import json
 import sys
 from pathlib import Path
 
-from eval.evaluate import (
-    _existing_file,
-    _float_between_0_1,
-    _load_json,
-    _positive_int,
-    build_chunks_index,
-    evaluate,
-    validate_chunks,
-)
+from eval.cli_helpers import existing_file, float_between_0_1, load_json, positive_int
+from eval.evaluate import build_chunks_index, evaluate, validate_chunks
 
 
 def check_baseline(result: dict, baseline_path: str, max_drop: float) -> tuple[list[str], str]:
@@ -60,19 +53,19 @@ def check_baseline(result: dict, baseline_path: str, max_drop: float) -> tuple[l
 def main() -> None:
     parser = argparse.ArgumentParser(description="Recall@5 regression check")
     parser.add_argument(
-        "--chunks", required=True, type=_existing_file, help="Path to chunks JSON file"
+        "--chunks", required=True, type=existing_file, help="Path to chunks JSON file"
     )
     parser.add_argument(
-        "--gold", required=True, type=_existing_file, help="Path to gold set JSON file"
+        "--gold", required=True, type=existing_file, help="Path to gold set JSON file"
     )
     parser.add_argument(
         "--threshold",
-        type=_float_between_0_1,
+        type=float_between_0_1,
         default=0.95,
         help="Minimum acceptable Recall@5, in [0, 1] (default: 0.95)",
     )
     parser.add_argument(
-        "--top-k", type=_positive_int, default=5, help="Top-k for retrieval (default: 5)"
+        "--top-k", type=positive_int, default=5, help="Top-k for retrieval (default: 5)"
     )
     parser.add_argument(
         "--baseline",
@@ -82,7 +75,7 @@ def main() -> None:
     )
     parser.add_argument(
         "--max-drop",
-        type=_float_between_0_1,
+        type=float_between_0_1,
         default=0.05,
         help="Allowed recall drop below --baseline (default: 0.05)",
     )
@@ -99,8 +92,8 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    chunks_data: list[dict] = _load_json(args.chunks, "--chunks")
-    gold: list[dict] = _load_json(args.gold, "--gold")
+    chunks_data: list[dict] = load_json(args.chunks, "--chunks")
+    gold: list[dict] = load_json(args.gold, "--gold")
 
     try:
         validate_chunks(chunks_data)
