@@ -30,8 +30,11 @@ def retrieve_nuggets(
     nuggets_per_chunk: int = 3,
     embed_fn: Callable[[list[str]], list[list[float]]] | None = None,
     embed_weight: float = 0.5,
+    window: int = 0,
 ) -> list[dict]:
     """Extract top nugget sentences from query-ranked chunks, then return top-k.
+
+    ``window`` > 0 also returns that many neighbouring sentences around each pick (#201).
 
     When embed_fn is provided, nugget selection uses BM25 + embedding hybrid scoring.
 
@@ -52,6 +55,7 @@ def retrieve_nuggets(
                 sentences,
                 top_k=nuggets_per_chunk,
                 embed_weight=embed_weight,
+                window=window,
             )
             results.append({**chunk, "nugget": " ".join(nugget_sents)})
         return results
@@ -81,6 +85,7 @@ def retrieve_nuggets(
             embed_weight=embed_weight,
             query_vec=query_vec if sentences else None,
             sent_vecs=sent_vecs if sentences else None,
+            window=window,
         )
         results.append({**chunk, "nugget": " ".join(nugget_sents)})
     return results

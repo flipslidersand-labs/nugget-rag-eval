@@ -170,6 +170,7 @@ def evaluate(
     embed_fn: Callable[[list[str]], list[list[float]]] | None = None,
     embed_weight: float = 0.5,
     estimator: str = "words",
+    nugget_window: int = 0,
 ) -> dict:
     validate_gold(gold)
     n_queries_without_chunks = check_gold_chunk_coverage(chunks_by_paper, gold)
@@ -193,6 +194,7 @@ def evaluate(
             top_k,
             embed_fn=embed_fn,
             embed_weight=embed_weight,
+            window=nugget_window,
         )
 
         full_hit = recall_at_k(full, spans, "text")
@@ -249,6 +251,14 @@ def _positive_int(v: str) -> int:
     return n
 
 
+def _non_negative_int(v: str) -> int:
+    """Argparse type for --nugget-window: must be >= 0."""
+    n = int(v)
+    if n < 0:
+        raise argparse.ArgumentTypeError(f"must be >= 0, got {n}")
+    return n
+
+
 def _existing_file(value: str) -> str:
     """argparse type= helper: abort early if the path does not point to a file."""
     if not Path(value).is_file():
@@ -299,6 +309,12 @@ def main():
         default="words",
         help="Token count estimator: words=split() (default), chars=len/4",
     )
+    parser.add_argument(
+        "--nugget-window",
+        type=_non_negative_int,
+        default=0,
+        help="Also return N neighbouring sentences around each nugget (default: 0 = off)",
+    )
     args = parser.parse_args()
 
     embed_fn = None
@@ -338,6 +354,7 @@ def main():
             embed_fn=embed_fn,
             embed_weight=args.embed_weight,
             estimator=args.token_estimator,
+            nugget_window=args.nugget_window,
         )
     except ValueError as exc:
         sys.exit(f"[ERROR] {exc}")
