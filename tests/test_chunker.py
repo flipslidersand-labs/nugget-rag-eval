@@ -41,3 +41,25 @@ def test_split_japanese_question():
     assert len(sentences) == 2
     assert sentences[0] == "質問です？"
     assert sentences[1] == "答えはここ。"
+
+
+def test_split_keeps_decimals_intact():
+    """#198: '0.5' / '88.3%' must not be cut at the decimal point."""
+    text = "We add noise with a probability of 0.5 at a random SNR. It accounts for 88.3% of the variance."
+    sentences = split_sentences(text)
+    assert sentences == [
+        "We add noise with a probability of 0.5 at a random SNR.",
+        "It accounts for 88.3% of the variance.",
+    ]
+
+
+def test_split_keeps_inline_abbreviation_without_space():
+    """'Fig.2' and 'v1.2.3' have no whitespace after the dot, so they stay whole."""
+    sentences = split_sentences("See Fig.2 for details. Version v1.2.3 is used.")
+    assert sentences == ["See Fig.2 for details.", "Version v1.2.3 is used."]
+
+
+def test_split_japanese_with_decimal():
+    """CJK terminators still split without whitespace; decimals inside are kept."""
+    sentences = split_sentences("精度は0.95です。次の文です。")
+    assert sentences == ["精度は0.95です。", "次の文です。"]
