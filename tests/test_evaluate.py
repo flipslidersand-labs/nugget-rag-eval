@@ -3,7 +3,6 @@
 import pytest
 
 from eval.evaluate import (
-    ARXIV_MAP,
     build_chunks_index,
     evaluate,
     mrr_at_k,
@@ -11,6 +10,7 @@ from eval.evaluate import (
     validate_chunks,
     validate_gold,
 )
+from nugget_rag.paper_registry import ARXIV_MAP
 from tests.conftest import make_results
 
 _make_results = make_results  # backward-compat alias for existing tests
@@ -434,10 +434,12 @@ def test_build_chunks_index_groups_by_paper_id():
 
 
 def test_build_chunks_index_prefers_arxiv_id():
-    """When arxiv_id is present and truthy, it is used as the key (not paper_id)."""
+    """arxiv_id resolves via ARXIV_MAP to the canonical paper_id, ignoring a
+    stale/mismatched paper_id field on the chunk itself (#183)."""
+    real_paper_id = ARXIV_MAP["2410.10071"]  # == 1
     chunks = [{"arxiv_id": "2410.10071", "paper_id": 999, "text": "x"}]
     idx = build_chunks_index(chunks)
-    assert "2410.10071" in idx
+    assert real_paper_id in idx
     assert 999 not in idx
 
 
@@ -446,6 +448,19 @@ def test_build_chunks_index_falls_back_to_paper_id_when_arxiv_id_falsy():
     idx = build_chunks_index(chunks)
     assert 42 in idx
     assert "" not in idx
+
+
+def test_build_chunks_index_matches_evaluate_key_for_fetch_papers_style_chunks():
+    """Regression (#183): chunks carrying both arxiv_id and paper_id (as
+    scripts/fetch_papers.py always writes them) must key identically in
+    build_chunks_index() and evaluate()'s gold resolution — previously
+    build_chunks_index used the raw arxiv_id string while evaluate()
+    resolved through ARXIV_MAP to an int, so lookups silently missed."""
+    chunks = [{"arxiv_id": "2608.07458", "paper_id": 10, "text": "KV cache reuse answer"}]
+    gold = [{"arxiv_id": "2608.07458", "query": "KV cache", "answer_spans": ["KV cache"]}]
+    chunks_by_paper = build_chunks_index(chunks)
+    result = evaluate(chunks_by_paper, gold, top_k=5)
+    assert result["full_chunk"]["recall"] == 1.0
 
 
 def test_build_chunks_index_empty_input_returns_empty_dict():

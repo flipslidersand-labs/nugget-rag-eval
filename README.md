@@ -21,10 +21,11 @@ academic-paper-system に導入する前に定量評価するためのリポジ�
 
 ```text
 nugget_rag/
-  chunker.py     # 文単位分割（CJK 対応）
-  scorer.py      # BM25 + 埋め込み類似度でナゲットスコアリング
-  retriever.py   # full-chunk / nugget 両モードのリトリーバー
-  embedder.py    # 外部 embedding サービスクライアント
+  chunker.py        # 文単位分割（CJK 対応）
+  scorer.py         # BM25 + 埋め込み類似度でナゲットスコアリング
+  retriever.py      # full-chunk / nugget 両モードのリトリーバー
+  embedder.py       # 外部 embedding サービスクライアント
+  paper_registry.py # arxiv_id ↔ paper_id マッピング（ARXIV_MAP）
 eval/
   gold_set.json  # クエリ + 正解スパン（手作りゴールドセット）
   evaluate.py    # Recall@k / MRR@k 計算
@@ -35,7 +36,15 @@ tests/
   test_chunker.py
   test_scorer.py
   test_evaluate.py
+  test_evaluate_main.py
   test_check_regression.py
+  test_embedder.py
+  test_fetch_papers.py
+  test_no_runtime_deps.py
+  test_paper_registry.py
+  test_retriever.py
+  test_token_estimator.py
+  fixtures/  # 評価スクリプト用テストデータ
 ```
 
 ## セットアップ
