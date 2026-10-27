@@ -4,6 +4,12 @@ CoinRAG ([arxiv 2608.07458](https://arxiv.org/abs/2608.07458)) のコアアイ�
 **チャンク全体でなくクエリ関連スパン（ナゲット）だけを LLM に渡す** — を
 academic-paper-system に導入する前に定量評価するためのリポジトリ。
 
+## 設計判断（ADR）/ Design decisions
+
+- [Compare before adopting](docs/adr/ADR-001-compare-before-adopting.md) — 導入前に同じ条件で比較する
+- [Zero runtime dependencies](docs/adr/ADR-002-zero-runtime-dependencies.md) — 実行時の依存ゼロ、BM25 は自前実装
+- [Gold set and regression gate](docs/adr/ADR-003-gold-set-and-regression-gate.md) — 手作りのゴールドセットと Recall の回帰チェック
+
 ## 仮説
 
 > 512トークンのチャンク全体よりも、チャンク内の上位1〜2文だけを返す方が
