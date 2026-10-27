@@ -20,6 +20,7 @@ from urllib.parse import urlencode
 # Shared with nugget_rag.embedder: scheme/netloc validation and a
 # redirect-refusing urlopen (see #147 — redirects would forward headers
 # to arbitrary hosts).
+from eval.cli_helpers import load_json, non_negative_int, positive_int
 from nugget_rag.embedder import _validate_url, urlopen
 from nugget_rag.paper_registry import ARXIV_MAP as ARXIV_TO_PAPER_ID
 from nugget_rag.paper_registry import PAPER_ID_TO_ARXIV
@@ -219,22 +220,6 @@ def fetch_per_query(
     return list(seen.values()), failure_count
 
 
-def _positive_int(v: str) -> int:
-    """Argparse type for integer arguments that must be >= 1."""
-    n = int(v)
-    if n < 1:
-        raise argparse.ArgumentTypeError(f"must be >= 1, got {n}")
-    return n
-
-
-def _non_negative_int(v: str) -> int:
-    """Argparse type for --max-failures: must be >= 0."""
-    n = int(v)
-    if n < 0:
-        raise argparse.ArgumentTypeError(f"must be >= 0, got {n}")
-    return n
-
-
 def _api_url_type(v: str) -> str:
     """Argparse type for --api-url: validate scheme and host, suggest http:// on bare host.
 
@@ -251,21 +236,6 @@ def _api_url_type(v: str) -> str:
     except ValueError as exc:
         raise argparse.ArgumentTypeError(str(exc)) from exc
     return stripped
-
-
-def _load_gold(path: str) -> list[dict]:
-    """Read and parse a gold-set JSON file, printing [ERROR] and exiting on failure."""
-    try:
-        return json.loads(Path(path).read_text(encoding="utf-8"))
-    except FileNotFoundError:
-        print(f"[ERROR] gold-set file not found: {path}", file=sys.stderr)
-        sys.exit(1)
-    except PermissionError:
-        print(f"[ERROR] permission denied reading gold-set file: {path}", file=sys.stderr)
-        sys.exit(1)
-    except json.JSONDecodeError as exc:
-        print(f"[ERROR] gold-set file is not valid JSON ({path}): {exc}", file=sys.stderr)
-        sys.exit(1)
 
 
 def main():
@@ -291,7 +261,7 @@ def main():
     )
     parser.add_argument(
         "--large-chunk-target",
-        type=_positive_int,
+        type=positive_int,
         default=512,
         help="Target token count for large chunk mode (must be >= 1)",
     )
@@ -303,7 +273,7 @@ def main():
     )
     parser.add_argument(
         "--max-failures",
-        type=_non_negative_int,
+        type=non_negative_int,
         default=None,
         help="Exit with code 1 when failure count exceeds this threshold (must be >= 0; "
         "default: any failure exits 1)",
@@ -314,7 +284,7 @@ def main():
     failure_count = 0
 
     if args.gold_set:
-        gold = _load_gold(args.gold_set)
+        gold = load_json(args.gold_set, "gold-set")
         try:
             from eval.evaluate import validate_gold
 
