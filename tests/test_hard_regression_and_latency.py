@@ -12,7 +12,11 @@ from eval.check_regression import check_baseline
 from eval.evaluate import _percentile, evaluate
 from nugget_rag.paper_registry import ARXIV_MAP
 
-RESULT = {"full_chunk": {"recall": 0.5}, "nugget": {"recall": 0.2}}
+RESULT = {
+    "modes": ["full_chunk", "nugget"],  # evaluate() always reports its mode list (#181)
+    "full_chunk": {"recall": 0.5},
+    "nugget": {"recall": 0.2},
+}
 
 
 def _baseline(tmp_path, full=0.525, nugget=0.2):
