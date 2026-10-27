@@ -6,6 +6,8 @@ import math
 from collections import Counter
 from collections.abc import Callable
 
+from nugget_rag.vectors import embed_scores
+
 
 def _char_ngrams(text: str, n: int = 2) -> list[str]:
     """Return character n-grams for a CJK run (whitespace already stripped).
@@ -143,8 +145,6 @@ def top_nuggets(
 
     use_precomputed = query_vec is not None and sent_vecs is not None
     if use_precomputed or embed_fn is not None:
-        from nugget_rag.embedder import embed_scores
-
         if use_precomputed:
             qv = query_vec
             sv = sent_vecs
