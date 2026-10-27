@@ -19,6 +19,7 @@ import argparse
 import json
 import os
 import sys
+import time
 from collections.abc import Callable
 from pathlib import Path
 
@@ -162,6 +163,22 @@ def avg_tokens(results: list[dict], field: str = "text", estimator: str = "words
     return sum(len(t.split()) for t in texts) / max(len(texts), 1)
 
 
+def _percentile(values: list[float], pct: float) -> float:
+    """Nearest-rank percentile (pct in 0-100). Empty input -> 0.0."""
+    if not values:
+        return 0.0
+    ordered = sorted(values)
+    rank = max(1, -(-len(ordered) * pct // 100))  # ceil without math import
+    return ordered[int(rank) - 1]
+
+
+def _latency_summary(values_s: list[float]) -> dict:
+    return {
+        "p50": round(_percentile(values_s, 50) * 1000, 2),
+        "p95": round(_percentile(values_s, 95) * 1000, 2),
+    }
+
+
 def evaluate(
     chunks_by_paper: dict[str, list[dict]],
     gold: list[dict],
@@ -179,6 +196,21 @@ def evaluate(
     full_tokens = nugget_tokens = 0.0
     full_mrr_sum = nugget_mrr_sum = 0.0
     nugget_misses = []
+    full_times: list[float] = []
+    nugget_times: list[float] = []
+    embed_times: list[float] = []
+    embed_spent = 0.0
+
+    timed_embed_fn = embed_fn
+    if embed_fn is not None:
+
+        def timed_embed_fn(texts):  # noqa: F811 - wraps embed_fn to time HTTP calls
+            nonlocal embed_spent
+            t0 = time.perf_counter()
+            try:
+                return embed_fn(texts)
+            finally:
+                embed_spent += time.perf_counter() - t0
 
     for i, item in enumerate(gold):
         # Support both arxiv_id (new) and paper_id (legacy)
@@ -187,15 +219,22 @@ def evaluate(
         spans = item["answer_spans"]
         chunks = chunks_by_paper.get(key, [])
 
+        t0 = time.perf_counter()
         full = retrieve_full_chunk(chunks, query, top_k)
+        full_times.append(time.perf_counter() - t0)
+
+        embed_spent = 0.0
+        t0 = time.perf_counter()
         nugget = retrieve_nuggets(
             chunks,
             query,
             top_k,
-            embed_fn=embed_fn,
+            embed_fn=timed_embed_fn,
             embed_weight=embed_weight,
             window=nugget_window,
         )
+        nugget_times.append(time.perf_counter() - t0)
+        embed_times.append(embed_spent)
 
         full_hit = recall_at_k(full, spans, "text")
         nugget_hit = recall_at_k(nugget, spans, "nugget")
@@ -219,6 +258,13 @@ def evaluate(
         for idx, q, span in nugget_misses[:5]:
             print(f"  [{idx}] {q}... → {span}...", file=sys.stderr)
 
+    latency = {
+        "full_chunk": _latency_summary(full_times),
+        "nugget": _latency_summary(nugget_times),
+    }
+    if embed_fn is not None:
+        latency["nugget_embed_calls"] = _latency_summary(embed_times)
+
     return {
         "n_queries": n,
         "n_queries_without_chunks": n_queries_without_chunks,
@@ -232,6 +278,7 @@ def evaluate(
             "mrr": round(nugget_mrr_sum / n, 3) if n else 0,
             "avg_tokens": round(nugget_tokens / n, 1) if n else 0,
         },
+        "latency_ms": latency,
     }
 
 
