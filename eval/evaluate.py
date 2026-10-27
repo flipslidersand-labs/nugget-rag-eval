@@ -21,6 +21,7 @@ import os
 import sys
 import time
 from collections.abc import Callable
+from dataclasses import dataclass
 
 from eval.cli_helpers import existing_file as _existing_file
 from eval.cli_helpers import float_between_0_1 as _float_between_0_1
@@ -184,6 +185,30 @@ def _latency_summary(values_s: list[float]) -> dict:
     }
 
 
+@dataclass(frozen=True)
+class RetrievalMode:
+    """One retrieval mode to evaluate. Add an entry to MODES to add a mode."""
+
+    name: str  # key in the result dict (and in baseline files)
+    field: str  # chunk field holding the text that is judged and counted
+    label: str  # display name
+    show_misses: bool = False  # list recall misses under --verbose
+
+
+MODES: tuple[RetrievalMode, ...] = (
+    RetrievalMode("full_chunk", "text", "full-chunk"),
+    RetrievalMode("nugget", "nugget", "nugget", show_misses=True),
+)
+
+
+def mode_label(name: str, embed_weight: float | None = None) -> str:
+    """Display label for a mode; nugget shows the embed weight when embeddings are used."""
+    label = next(m.label for m in MODES if m.name == name)
+    if name == "nugget" and embed_weight is not None:
+        return f"nugget(e{embed_weight:.1f})"
+    return label
+
+
 def evaluate(
     chunks_by_paper: dict[str, list[dict]],
     gold: list[dict],
@@ -197,17 +222,7 @@ def evaluate(
     validate_gold(gold)
     n_queries_without_chunks = check_gold_chunk_coverage(chunks_by_paper, gold)
 
-    full_hits = nugget_hits = 0
-    full_tokens = nugget_tokens = 0.0
-    full_mrr_sum = nugget_mrr_sum = 0.0
-    nugget_misses = []
-    full_times: list[float] = []
-    nugget_times: list[float] = []
-    embed_times: list[float] = []
     embed_spent = 0.0
-    full_hit_flags: list[bool] = []
-    nugget_hit_flags: list[bool] = []
-
     timed_embed_fn = embed_fn
     if embed_fn is not None:
 
@@ -219,6 +234,27 @@ def evaluate(
             finally:
                 embed_spent += time.perf_counter() - t0
 
+    retrievers: dict[str, Callable[[list[dict], str], list[dict]]] = {
+        "full_chunk": lambda chunks, query: retrieve_full_chunk(chunks, query, top_k),
+        "nugget": lambda chunks, query: retrieve_nuggets(
+            chunks,
+            query,
+            top_k,
+            embed_fn=timed_embed_fn,
+            embed_weight=embed_weight,
+            window=nugget_window,
+        ),
+    }
+    assert set(retrievers) == {m.name for m in MODES}, "MODES and retrievers out of sync"
+
+    hits = {m.name: 0 for m in MODES}
+    tokens = {m.name: 0.0 for m in MODES}
+    mrr_sum = {m.name: 0.0 for m in MODES}
+    times: dict[str, list[float]] = {m.name: [] for m in MODES}
+    flags: dict[str, list[bool]] = {m.name: [] for m in MODES}
+    misses: dict[str, list[tuple[int, str, str]]] = {m.name: [] for m in MODES}
+    embed_times: list[float] = []
+
     for i, item in enumerate(gold):
         # Support both arxiv_id (new) and paper_id (legacy)
         key = resolve_paper_key(item)
@@ -226,75 +262,55 @@ def evaluate(
         spans = item["answer_spans"]
         chunks = chunks_by_paper.get(key, [])
 
-        t0 = time.perf_counter()
-        full = retrieve_full_chunk(chunks, query, top_k)
-        full_times.append(time.perf_counter() - t0)
+        for mode in MODES:
+            embed_spent = 0.0
+            t0 = time.perf_counter()
+            results = retrievers[mode.name](chunks, query)
+            times[mode.name].append(time.perf_counter() - t0)
+            if mode.name == "nugget":
+                embed_times.append(embed_spent)
 
-        embed_spent = 0.0
-        t0 = time.perf_counter()
-        nugget = retrieve_nuggets(
-            chunks,
-            query,
-            top_k,
-            embed_fn=timed_embed_fn,
-            embed_weight=embed_weight,
-            window=nugget_window,
-        )
-        nugget_times.append(time.perf_counter() - t0)
-        embed_times.append(embed_spent)
-
-        full_hit = recall_at_k(full, spans, "text")
-        nugget_hit = recall_at_k(nugget, spans, "nugget")
-        full_hit_flags.append(full_hit)
-        nugget_hit_flags.append(nugget_hit)
-
-        if full_hit:
-            full_hits += 1
-        if nugget_hit:
-            nugget_hits += 1
-        else:
-            nugget_misses.append((i, query[:40], spans[0][:50]))
-
-        full_mrr_sum += mrr_at_k(full, spans, "text")
-        nugget_mrr_sum += mrr_at_k(nugget, spans, "nugget")
-
-        full_tokens += avg_tokens(full, "text", estimator)
-        nugget_tokens += avg_tokens(nugget, "nugget", estimator)
+            hit = recall_at_k(results, spans, mode.field)
+            flags[mode.name].append(hit)
+            if hit:
+                hits[mode.name] += 1
+            else:
+                misses[mode.name].append((i, query[:40], spans[0][:50]))
+            mrr_sum[mode.name] += mrr_at_k(results, spans, mode.field)
+            tokens[mode.name] += avg_tokens(results, mode.field, estimator)
 
     n = len(gold)
-    if verbose and nugget_misses:
-        print("\n## Nugget Recall Misses:", file=sys.stderr)
-        for idx, q, span in nugget_misses[:5]:
-            print(f"  [{idx}] {q}... → {span}...", file=sys.stderr)
+    if verbose:
+        for mode in MODES:
+            if mode.show_misses and misses[mode.name]:
+                print(f"\n## {mode.label.capitalize()} Recall Misses:", file=sys.stderr)
+                for idx, q, span in misses[mode.name][:5]:
+                    print(f"  [{idx}] {q}... → {span}...", file=sys.stderr)
 
-    latency = {
-        "full_chunk": _latency_summary(full_times),
-        "nugget": _latency_summary(nugget_times),
-    }
+    latency: dict[str, dict] = {m.name: _latency_summary(times[m.name]) for m in MODES}
     if embed_fn is not None:
         latency["nugget_embed_calls"] = _latency_summary(embed_times)
 
-    return {
+    result: dict = {
         "n_queries": n,
         "n_queries_without_chunks": n_queries_without_chunks,
-        "full_chunk": {
-            "recall": round(full_hits / n, 3) if n else 0,
-            "mrr": round(full_mrr_sum / n, 3) if n else 0,
-            "avg_tokens": round(full_tokens / n, 1) if n else 0,
-        },
-        "nugget": {
-            "recall": round(nugget_hits / n, 3) if n else 0,
-            "mrr": round(nugget_mrr_sum / n, 3) if n else 0,
-            "avg_tokens": round(nugget_tokens / n, 1) if n else 0,
-        },
-        "latency_ms": latency,
-        "comparison": compare(
-            full_hit_flags,
-            nugget_hit_flags,
-            full_tokens / n if n else 0.0,
-            nugget_tokens / n if n else 0.0,
-        ),
+        "modes": [m.name for m in MODES],
     }
+    for m in MODES:
+        result[m.name] = {
+            "recall": round(hits[m.name] / n, 3) if n else 0,
+            "mrr": round(mrr_sum[m.name] / n, 3) if n else 0,
+            "avg_tokens": round(tokens[m.name] / n, 1) if n else 0,
+        }
+    result["latency_ms"] = latency
+    # The paired comparison is defined between the reference (full_chunk) and nugget.
+    result["comparison"] = compare(
+        flags["full_chunk"],
+        flags["nugget"],
+        tokens["full_chunk"] / n if n else 0.0,
+        tokens["nugget"] / n if n else 0.0,
+    )
+    return result
 
 
 def main():
@@ -377,15 +393,14 @@ def main():
         sys.exit(f"[ERROR] {exc}")
 
     tok_label = f"Avg tokens({args.token_estimator})"
-    mode_label = f"nugget(e{args.embed_weight:.1f})" if embed_fn else "nugget"
     print(
         f"{'Mode':<18} {'Recall@' + str(args.top_k):<12} {'MRR@' + str(args.top_k):<12} {tok_label}"
     )
     print("-" * 60)
-    fc = result["full_chunk"]
-    ng = result["nugget"]
-    print(f"{'full-chunk':<18} {fc['recall']:<12} {fc['mrr']:<12} {fc['avg_tokens']}")
-    print(f"{mode_label:<18} {ng['recall']:<12} {ng['mrr']:<12} {ng['avg_tokens']}")
+    for name in result["modes"]:
+        m = result[name]
+        label = mode_label(name, args.embed_weight if embed_fn else None)
+        print(f"{label:<18} {m['recall']:<12} {m['mrr']:<12} {m['avg_tokens']}")
     print()
     print(json.dumps(result, indent=2))
 

@@ -20,7 +20,7 @@ import sys
 from pathlib import Path
 
 from eval.cli_helpers import existing_file, float_between_0_1, load_json, positive_int
-from eval.evaluate import build_chunks_index, evaluate, validate_chunks
+from eval.evaluate import build_chunks_index, evaluate, mode_label, validate_chunks
 
 
 def check_baseline(result: dict, baseline_path: str, max_drop: float) -> tuple[list[str], str]:
@@ -35,12 +35,14 @@ def check_baseline(result: dict, baseline_path: str, max_drop: float) -> tuple[l
         return [], f"baseline not found ({baseline_path}); drop check skipped"
     try:
         baseline = json.loads(path.read_text(encoding="utf-8"))
-        base = {mode: float(baseline[mode]["recall"]) for mode in ("full_chunk", "nugget")}
+        base = {
+            mode: float(baseline[mode]["recall"]) for mode in result["modes"] if mode in baseline
+        }
     except (OSError, ValueError, KeyError, TypeError) as exc:
         sys.exit(f"[ERROR] invalid baseline file {baseline_path}: {exc!r}")
 
     failures = []
-    for mode in ("full_chunk", "nugget"):
+    for mode in base:  # modes without a recorded baseline are not checked yet
         now = result[mode]["recall"]
         drop = round(base[mode] - now, 3)
         if drop > max_drop:
@@ -107,20 +109,17 @@ def main() -> None:
     except ValueError as exc:
         sys.exit(f"[ERROR] {exc}")
 
-    full_recall = result["full_chunk"]["recall"]
-    nugget_recall = result["nugget"]["recall"]
     threshold = args.threshold
 
     print(f"Recall@{args.top_k} regression check")
     print(f"  threshold  : {threshold}")
-    print(f"  full-chunk : {full_recall}")
-    print(f"  nugget     : {nugget_recall}")
-
     failed = []
-    if full_recall < threshold:
-        failed.append(f"full-chunk Recall@{args.top_k} {full_recall} < threshold {threshold}")
-    if nugget_recall < threshold:
-        failed.append(f"nugget     Recall@{args.top_k} {nugget_recall} < threshold {threshold}")
+    for name in result["modes"]:
+        recall = result[name]["recall"]
+        label = mode_label(name)
+        print(f"  {label:<10} : {recall}")
+        if recall < threshold:
+            failed.append(f"{label:<10} Recall@{args.top_k} {recall} < threshold {threshold}")
 
     drops: list[str] = []
     if args.baseline:
