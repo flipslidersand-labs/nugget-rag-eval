@@ -18,6 +18,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sys
 import time
 from collections.abc import Callable
@@ -140,24 +141,45 @@ def check_gold_chunk_coverage(chunks_by_paper: dict[str, list[dict]], gold: list
     return len(missing)
 
 
-def recall_at_k(results: list[dict], answer_spans: list[str], field: str = "text") -> bool:
+_NON_WORD = re.compile(r"[\W_]+")
+
+
+def _normalize_for_match(text: str) -> str:
+    """Lowercase and drop whitespace/punctuation (keeps letters and digits, incl. CJK).
+
+    Text extractors differ in spacing ("University of California" vs
+    "UniversityofCalifornia"), so spans taken from one extraction only match
+    another after this normalization.
+    """
+    return _NON_WORD.sub("", text.lower())
+
+
+def _span_in(text: str, spans: list[str], normalize: bool) -> bool:
+    if normalize:
+        norm_text = _normalize_for_match(text)
+        return any(n and n in norm_text for n in map(_normalize_for_match, spans))
+    low = text.lower()
+    return any(span.lower() in low for span in spans)
+
+
+def recall_at_k(
+    results: list[dict], answer_spans: list[str], field: str = "text", normalize: bool = False
+) -> bool:
     """Return True if any single result contains any answer span.
 
     Judged per-result (same criterion as :func:`mrr_at_k`) — never on joined
     text, which would create false positives when a span only matches across
     the boundary of two concatenated results (#146).
     """
-    return any(
-        any(span.lower() in text for span in answer_spans)
-        for text in (r.get(field, "").lower() for r in results)
-    )
+    return any(_span_in(r.get(field, ""), answer_spans, normalize) for r in results)
 
 
-def mrr_at_k(results: list[dict], answer_spans: list[str], field: str = "text") -> float:
+def mrr_at_k(
+    results: list[dict], answer_spans: list[str], field: str = "text", normalize: bool = False
+) -> float:
     """Return reciprocal rank of the first hit (1-indexed), 0 if no hit."""
     for rank, result in enumerate(results, start=1):
-        text = result.get(field, "").lower()
-        if any(span.lower() in text for span in answer_spans):
+        if _span_in(result.get(field, ""), answer_spans, normalize):
             return 1.0 / rank
     return 0.0
 
@@ -218,7 +240,11 @@ def evaluate(
     embed_weight: float = 0.5,
     estimator: str = "words",
     nugget_window: int = 0,
+    match: str = "exact",
 ) -> dict:
+    if match not in ("exact", "normalized"):
+        raise ValueError(f"match must be 'exact' or 'normalized', got {match!r}")
+    normalize = match == "normalized"
     validate_gold(gold)
     n_queries_without_chunks = check_gold_chunk_coverage(chunks_by_paper, gold)
 
@@ -270,13 +296,13 @@ def evaluate(
             if mode.name == "nugget":
                 embed_times.append(embed_spent)
 
-            hit = recall_at_k(results, spans, mode.field)
+            hit = recall_at_k(results, spans, mode.field, normalize)
             flags[mode.name].append(hit)
             if hit:
                 hits[mode.name] += 1
             else:
                 misses[mode.name].append((i, query[:40], spans[0][:50]))
-            mrr_sum[mode.name] += mrr_at_k(results, spans, mode.field)
+            mrr_sum[mode.name] += mrr_at_k(results, spans, mode.field, normalize)
             tokens[mode.name] += avg_tokens(results, mode.field, estimator)
 
     n = len(gold)
@@ -292,6 +318,7 @@ def evaluate(
         latency["nugget_embed_calls"] = _latency_summary(embed_times)
 
     result: dict = {
+        "match": match,
         "n_queries": n,
         "n_queries_without_chunks": n_queries_without_chunks,
         "modes": [m.name for m in MODES],
@@ -348,6 +375,19 @@ def main():
         default=0,
         help="Also return N neighbouring sentences around each nugget (default: 0 = off)",
     )
+    parser.add_argument(
+        "--match",
+        choices=["exact", "normalized"],
+        default="exact",
+        help="Span matching: exact = case-insensitive substring (default); normalized = also "
+        "ignore whitespace/punctuation, for chunks from a different text extractor than the gold",
+    )
+    parser.add_argument(
+        "--pool-label",
+        default=None,
+        help="Free-text note on how the chunk pool was built (e.g. 'api hybrid per-query, "
+        "snippet_length=0, 2026-10-28'). Echoed in the JSON output as 'pool'.",
+    )
     args = parser.parse_args()
 
     embed_fn = None
@@ -388,9 +428,13 @@ def main():
             embed_weight=args.embed_weight,
             estimator=args.token_estimator,
             nugget_window=args.nugget_window,
+            match=args.match,
         )
     except ValueError as exc:
         sys.exit(f"[ERROR] {exc}")
+
+    if args.pool_label:
+        result["pool"] = args.pool_label
 
     tok_label = f"Avg tokens({args.token_estimator})"
     print(

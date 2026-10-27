@@ -71,11 +71,13 @@ pip install -e ".[dev]"
 ## 実行
 
 ```bash
-# 1. 論文チャンクを取得（推奨: per-query fetch）
+# 1. 論文チャンクを取得（推奨: per-query fetch・チャンク全文）
+#    --snippet-length 0 を付けないと API は各チャンクの先頭 200 文字しか返さない
 python scripts/fetch_papers.py \
   --api-url http://localhost:8020 \
   --gold-set eval/gold_set.json \
   --chunk-mode large \
+  --snippet-length 0 \
   --out data/chunks_large_perquery.json
 
 # または generic query で一括取得（小チャンク）
@@ -99,9 +101,14 @@ EMBEDDING_API_KEY=<key> python eval/evaluate.py \
 # 4. 前後の文も返す窓（既定 0 = 無効）
 python eval/evaluate.py --chunks <chunks> --gold <gold> --nugget-window 1
 
-# 5. API に依存せず PDF から候補プールを作って難問セットを評価（結果表はこの方式）
+# 5. API に依存せず PDF から候補プールを作って難問セットを評価
 python scripts/build_pool_from_pdfs.py --pdf-dir data/papers --out data/chunks_pdf.json
 python eval/evaluate.py --chunks data/chunks_pdf.json --gold eval/gold_set_hard.json
+
+# 6. API のチャンクは PDF と空白の入り方が違う（"UniversityofCalifornia"）。
+#    gold の span を別の抽出器のテキストに当てるときは --match normalized
+python eval/evaluate.py --chunks data/chunks_large_perquery.json --gold eval/gold_set_hard.json \
+  --match normalized --pool-label "api hybrid per-query, snippet_length=0, 2026-10-28"
 ```
 
 候補プールの作り方で結果が変わる（[限界](#限界)）。per-query fetch は、gold のクエリで検索した上位だけが候補になる。
@@ -173,7 +180,38 @@ python eval/check_regression.py \
 
 ## 評価結果（実測値）
 
-### 現行: PDF 全文プール（354 チャンク）・BM25 のみ（2026-10-28）
+### 評価の前提（推奨構成）と、候補プールによる違い（2026-10-28）
+
+実運用に最も近いのは **C: API の per-query hybrid 検索・`--snippet-length 0`（実チャンク全文）・`--match normalized`**。
+本番のチャンク分割と検索の結果をそのまま使うため。PDF 全文プール（B）はクエリに依存しない再現用の対照。
+
+同じゴールド・同じ BM25 評価での比較（正解論文のチャンクだけから検索）:
+
+| プール | チャンク数 | 既存 19: full / nugget Recall | 難問 40: full / nugget Recall | 難問の根拠が候補にある割合 |
+|---|---|---|---|---|
+| A 旧: per-query hybrid・先頭 200 字の断片 | 66 | 1.000 / 1.000 | 0.025 / 0.025 | 0.025 |
+| **C per-query hybrid・チャンク全文** | 187 | 1.000 / 0.842 | 0.500 / 0.050 | 0.950（正規化照合 38/40） |
+| B PDF 全文プール | 354 | 0.842 / 0.789 | 0.525 / 0.200 | 1.000 |
+
+（C は `--match normalized`、A・B は完全一致。A の難問が 0.025 なのは、根拠が先頭 200 字に入らないため。C の完全一致では
+根拠の一致が 15/40 にとどまり、英数字で正規化すると 38/40。差は空白の入り方で、内容の欠落ではない。）
+
+- 検索範囲を「正解論文のみ」から「全論文」にすると、さらに下がる（B・難問: full 0.525 → 0.275、nugget 0.200 → 0.125）。
+- keyword 検索で候補を作る案は成立しない（複数語クエリで 0 件。59 件中 39 件がチャンクなし）。
+
+実チャンク（C）での full-chunk と nugget の差（`comparison`）:
+
+| ゴールド | 窓 | full / nugget Recall | 保持率 | 語数/full | 判別 |
+|---|---|---|---|---|---|
+| 既存 19 件 | 0 | 1.000 / 0.842 | 0.84 | 0.175 | できない（p=0.25） |
+| 既存 19 件 | 1 | 1.000 / 0.895 | 0.90 | 0.334 | できない（p=0.5） |
+| 難問 40 件 | 0 | 0.500 / 0.050 | 0.10 | 0.183 | できる（p<0.0001） |
+| 難問 40 件 | 1 | 0.500 / 0.150 | 0.30 | 0.357 | できる（p=0.0001） |
+
+難問では、実チャンクの nugget は PDF プール（B）よりさらに Recall を落とす（0.050 vs 0.200）。保持率は 10%（窓 1 でも 30%）。
+既存 19 件では逆に C のほうが高い（0.842 vs 0.789）ので、プールの違いの方向は一定ではない。
+
+### 参考: PDF 全文プール（354 チャンク）・BM25 のみ（2026-10-28）
 
 候補プールは `build_pool_from_pdfs.py`（10 論文、約 300 語/チャンク）。評価は正解論文のチャンクだけから検索する。
 再現: [実行](#実行)の手順 5。数値は `evaluate.py` の出力による。
@@ -203,9 +241,12 @@ full-chunk と nugget は差があるか（`comparison`。判別条件は実測�
   文分割で根拠が割れた 2 件、成功 8 件（#201）。検索の失敗は full-chunk も同じなので、nugget だけ直しても Recall 0.525 を超えない。
 - 窓 1 は `nuggets_per_chunk` を増やすより効率がよい（難問で 0.200 → 0.350、語数は full の約 56%）。既定は窓 0 のまま。採否は #199・#200 の後に判断する。
 
-### 旧結果（参考・条件が異なる）: per-query fetch・22 チャンク
+### 旧結果（参考・条件が異なる）: per-query fetch・先頭 200 文字の断片
 
 19 クエリ・10 論文。候補プールは gold のクエリで hybrid 検索した上位のみで、全体で **22 チャンク**。
+**この「チャンク」は実チャンクではない。** 検索 API は既定で各チャンクの**先頭 200 文字**だけを返す（`snippet_length=200`）。
+旧 `fetch_papers.py` はこれを指定せず、約 14 個の先頭断片を結合して「large チャンク」（約 320 語）にしていた。
+512 トークンのチャンク全体に対する結果ではない。
 
 ```text
 Mode               Recall@5     MRR@5        Avg tokens(words)
@@ -214,9 +255,9 @@ full-chunk         1.000        0.823        300.1
 nugget             1.000        0.791        100.5        (削減率 66.5%)
 ```
 
-この Recall 1.0 は**小さなプールと易しいクエリによる飽和**で、nugget の有効性の証拠にはならない。
-同じ 19 件でも、PDF 全文プールでは full-chunk が 0.842 に下がる。以前の「Recall を完全維持して語数を 66.5% 削減、導入を推奨」
-という結論は、この結果からは言えない。旧い数値と比べるときは、プールの作り方が違うことに注意する。
+この Recall 1.0 は**断片に対する飽和**で、nugget の有効性の証拠にはならない。gold の span がチャンクの先頭 200 文字から選ばれていたため、
+断片だけで当たっていた。実チャンク全文では、同じ 19 件でも nugget は Recall 0.84（窓 0）に下がる（下表）。
+以前の「Recall を完全維持して語数を 66.5% 削減、導入を推奨」という結論は言えない。
 
 **embed-weight について:** 現在の `--embed-weight 0.5` は仮置き値。旧結果が Recall 1.0 に飽和していたためチューニングを止めていた（Issue #11）。
 難問セットで再評価する（#199）。ただし embedding サービスのキー不一致で hybrid 検索が使えない状態（academic-paper-system#792）。
@@ -225,14 +266,14 @@ nugget             1.000        0.791        100.5        (削減率 66.5%)
 ## 限界
 
 - **正解論文が既知の前提。** 評価は正解論文のチャンクだけから検索する。実運用（全論文から検索）より易しい。全論文プールでの比較は #200。
-- **候補プールで結果が変わる。** 同じ 19 件でも、22 チャンクのプールでは Recall 1.0、PDF 全文プールでは 0.842。どちらが実運用に近いかは未検証（#200）。
+- **候補プールで結果が変わる。** 同じ 19 件でも、先頭 200 字の断片では nugget Recall 1.0、実チャンクでは 0.842、PDF 全文プールでは 0.789。上の表のとおり、実運用に近い C を前提にする。
 - **nugget は構造上 full-chunk を上回れない。** 上位チャンクから文を選ぶ部分集合のため、Recall での優劣は常に「同じ」か「full が上」。
   方式の良し悪しは Recall だけでなく、語数削減との組（`token_ratio` / `recall_retained`）で判断する。採否の閾値は利用側の要件で決まる。
 - **ゴールドの規模と作り方。** 既存 19 件＋難問 40 件、10 論文。難問は LLM が起草し、span は PDF 由来のプール本文での実在を機械検証した。
   「クエリが根拠文と語彙を共有しない」ことは起草時の目視のみ。人による抜き取り確認は未了（#194）。
 - **span の含有で判定している。** 回答として正しいか、LLM が実際に答えられるかは評価していない（Recall のみ）。
-- **本文の表記が API 由来のチャンクと異なりうる。** 難問の span は `pdftotext` の出力で検証した。academic-paper-system の API が返すチャンクは別の抽出で、
-  スペースの扱いなどが異なる。API 由来のチャンクで測るときは span の再検証が要る。
+- **本文の表記が API 由来のチャンクと異なる。** 難問の span は `pdftotext` の出力で作った。API のチャンクは空白の入り方が違う（`UniversityofCalifornia`）ので、
+  API 由来のチャンクで測るときは `--match normalized` が必要。正規化は空白・記号を無視するだけだが、わずかに偽の一致を増やしうる。
 - **小標本。** 既存 19 件では差を検出する力が低い。難問 40 件でも、論文ごとの偏りは未検証。
 - **embedding 併用は未測定**（上記）。latency は BM25 のみの値で、embedding 呼び出しの時間は含まない。
 

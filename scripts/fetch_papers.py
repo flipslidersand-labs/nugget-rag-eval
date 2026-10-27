@@ -27,6 +27,8 @@ from nugget_rag.paper_registry import PAPER_ID_TO_ARXIV
 
 # Unified timeout constants
 _TIMEOUT_PAPERS = 15
+# The API's own default; it returns only the first N characters of each chunk (0 = full text).
+DEFAULT_SNIPPET_LENGTH = 200
 _TIMEOUT_CHUNKS = 30
 
 # Retry policy (mirrors nugget_rag.embedder.EmbedClient exponential backoff)
@@ -87,10 +89,23 @@ def _sanitize_query(query: str) -> str:
     return re.sub(r"[^\w\s]", " ", query).strip()
 
 
-def fetch_chunks_for_paper(api_url: str, paper_id: int, query: str, limit: int = 20) -> list[dict]:
+def fetch_chunks_for_paper(
+    api_url: str,
+    paper_id: int,
+    query: str,
+    limit: int = 20,
+    snippet_length: int = DEFAULT_SNIPPET_LENGTH,
+) -> list[dict]:
     _validate_url(api_url)
     safe_query = _sanitize_query(query)
-    url = f"{api_url}/search?{urlencode({'q': safe_query, 'mode': 'hybrid', 'paper_id': paper_id, 'limit': limit})}"
+    params = {
+        "q": safe_query,
+        "mode": "hybrid",
+        "paper_id": paper_id,
+        "limit": limit,
+        "snippet_length": snippet_length,
+    }
+    url = f"{api_url}/search?{urlencode(params)}"
     try:
         body = _urlopen_with_retry(url, timeout=_TIMEOUT_CHUNKS)
     except (URLError, HTTPError) as exc:
@@ -156,6 +171,7 @@ def fetch_per_query(
     chunk_mode: str,
     target_tokens: int,
     fail_fast: bool = False,
+    snippet_length: int = DEFAULT_SNIPPET_LENGTH,
 ) -> tuple[list[dict], int]:
     """Fetch chunks using each gold set query for its target paper.
 
@@ -194,7 +210,9 @@ def fetch_per_query(
             pid = item["paper_id"]
         query = item["query"]
         try:
-            raw = fetch_chunks_for_paper(api_url, pid, query, limit=30)
+            raw = fetch_chunks_for_paper(
+                api_url, pid, query, limit=30, snippet_length=snippet_length
+            )
         except FetchError as exc:
             if fail_fast:
                 raise
@@ -272,6 +290,14 @@ def main():
         help="Abort on first fetch error instead of skipping and continuing",
     )
     parser.add_argument(
+        "--snippet-length",
+        type=non_negative_int,
+        default=DEFAULT_SNIPPET_LENGTH,
+        help="Max characters of chunk text the API returns per result (0 = full chunk text). "
+        "The API default (200) returns only the head of each chunk, so results built with "
+        "it are not real chunks. Default kept at 200 for comparability with earlier results.",
+    )
+    parser.add_argument(
         "--max-failures",
         type=non_negative_int,
         default=None,
@@ -295,7 +321,12 @@ def main():
         print(f"Per-query fetch for {len(gold)} gold items", file=sys.stderr)
         try:
             all_chunks, failure_count = fetch_per_query(
-                api, gold, args.chunk_mode, args.large_chunk_target, fail_fast=args.fail_fast
+                api,
+                gold,
+                args.chunk_mode,
+                args.large_chunk_target,
+                fail_fast=args.fail_fast,
+                snippet_length=args.snippet_length,
             )
         except FetchError as exc:
             print(f"[ERROR] {exc}", file=sys.stderr)
@@ -311,7 +342,9 @@ def main():
         for p in papers:
             pid = p["id"]
             try:
-                raw = fetch_chunks_for_paper(api, pid, args.query)
+                raw = fetch_chunks_for_paper(
+                    api, pid, args.query, snippet_length=args.snippet_length
+                )
             except FetchError as exc:
                 if args.fail_fast:
                     print(f"[ERROR] {exc}", file=sys.stderr)
