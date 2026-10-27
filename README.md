@@ -110,6 +110,27 @@ python eval/check_regression.py \
 
 Recall@5 がいずれかのモードで閾値を下回ると exit 1 で CI を落とす。
 
+### 難問セットの回帰チェック（ローカル実行・助言）
+
+難問（`eval/gold_set_hard.json`）は Recall が約 0.5 のため、固定閾値ではなく**記録した基準値からの低下幅**で見る。
+候補プールは論文 PDF の本文を含むためリポに入れない（`data/` は gitignore）。PDF を `data/papers/` に置いて次で作る。
+
+```bash
+python scripts/build_pool_from_pdfs.py --pdf-dir data/papers --out data/chunks_pdf.json
+
+python eval/check_regression.py \
+  --chunks data/chunks_pdf.json \
+  --gold eval/gold_set_hard.json \
+  --threshold 0 \
+  --baseline eval/baseline_hard.json --max-drop 0.05 --advisory
+```
+
+- 基準値は `eval/baseline_hard.json`。意図した変更で動かすときだけ更新し、新しい値を PR 本文に書く。
+- `--advisory` は低下を `[WARN]` で出して exit 0（ADR-006: まず助言）。安定したら外して失敗にする。
+- 基準ファイルが無いと低下チェックはスキップされる。
+
+`evaluate.py` の出力には `latency_ms`（クエリあたりの p50/p95）が含まれる。embedding を使う場合は `nugget_embed_calls` に埋め込み呼び出しの時間を分けて出す。
+
 ## 評価指標
 
 | 指標 | 説明 |
