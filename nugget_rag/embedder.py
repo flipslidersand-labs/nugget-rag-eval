@@ -12,12 +12,13 @@ Usage:
 from __future__ import annotations
 
 import json
-import math
 import os
 import time
 from urllib.error import HTTPError, URLError
 from urllib.parse import urljoin, urlparse
 from urllib.request import HTTPRedirectHandler, Request, build_opener
+
+from nugget_rag.vectors import cosine_similarity, embed_scores  # noqa: F401 (re-exported)
 
 MAX_BATCH_SIZE = 256
 
@@ -150,17 +151,3 @@ class EmbedClient:
         for i in range(0, len(texts), MAX_BATCH_SIZE):
             results.extend(self._call(texts[i : i + MAX_BATCH_SIZE]))
         return results
-
-
-def cosine_similarity(a: list[float], b: list[float]) -> float:
-    dot = sum(x * y for x, y in zip(a, b))
-    norm_a = math.sqrt(sum(x * x for x in a))
-    norm_b = math.sqrt(sum(y * y for y in b))
-    if norm_a == 0 or norm_b == 0:
-        return 0.0
-    return dot / (norm_a * norm_b)
-
-
-def embed_scores(query_vec: list[float], sentence_vecs: list[list[float]]) -> list[float]:
-    """Return cosine similarity of each sentence vector against the query vector."""
-    return [cosine_similarity(query_vec, sv) for sv in sentence_vecs]
