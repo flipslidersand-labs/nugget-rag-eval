@@ -23,6 +23,7 @@ import time
 from collections.abc import Callable
 from pathlib import Path
 
+from eval.compare import compare
 from nugget_rag.paper_registry import resolve_paper_key
 from nugget_rag.retriever import retrieve_full_chunk, retrieve_nuggets
 
@@ -200,6 +201,8 @@ def evaluate(
     nugget_times: list[float] = []
     embed_times: list[float] = []
     embed_spent = 0.0
+    full_hit_flags: list[bool] = []
+    nugget_hit_flags: list[bool] = []
 
     timed_embed_fn = embed_fn
     if embed_fn is not None:
@@ -238,6 +241,8 @@ def evaluate(
 
         full_hit = recall_at_k(full, spans, "text")
         nugget_hit = recall_at_k(nugget, spans, "nugget")
+        full_hit_flags.append(full_hit)
+        nugget_hit_flags.append(nugget_hit)
 
         if full_hit:
             full_hits += 1
@@ -279,6 +284,12 @@ def evaluate(
             "avg_tokens": round(nugget_tokens / n, 1) if n else 0,
         },
         "latency_ms": latency,
+        "comparison": compare(
+            full_hit_flags,
+            nugget_hit_flags,
+            full_tokens / n if n else 0.0,
+            nugget_tokens / n if n else 0.0,
+        ),
     }
 
 
