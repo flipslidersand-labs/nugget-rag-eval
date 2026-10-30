@@ -80,14 +80,6 @@
     "notes": "hard: limitation / 3.3 / span出現回数1"
   },
   {
-    "query": "How are frame-level representations collapsed before fitting the simple supervised head?",
-    "arxiv_id": "2508.11845",
-    "answer_spans": [
-      "time-averaged embeddings from the final layer"
-    ],
-    "notes": "hard: method detail / 3.4 Evaluation Setup / span出現回数1"
-  },
-  {
     "query": "Why was one particular pairing of the transformer backbone and a general sound corpus skipped in supervised adaptation?",
     "arxiv_id": "2508.11845",
     "answer_spans": [
@@ -120,14 +112,6 @@
     "notes": "hard: numeric result / 4.3 Results / span出現回数1"
   },
   {
-    "query": "Which partition of the stereotype benchmark is used for fitting, and which for assessment?",
-    "arxiv_id": "2509.25673",
-    "answer_spans": [
-      "set of StereoSet as our training set and repurpose"
-    ],
-    "notes": "hard: experimental condition / 4.1 / span出現回数1"
-  },
-  {
     "query": "Why might a drop in harmful-language scores at very aggressive compression fail to indicate a genuinely safer model?",
     "arxiv_id": "2511.07482",
     "answer_spans": [
@@ -152,28 +136,12 @@
     "notes": "hard: numeric-condition paraphrase / Experimentation and Results / span出現回数1"
   },
   {
-    "query": "In the written discussion for the heavier-sparsity setting on the smaller chat model, how often did the proposed approach wrongly let harmful requests through versus the baseline?",
-    "arxiv_id": "2511.07482",
-    "answer_spans": [
-      "0.216 vs 0.353 at 0.3"
-    ],
-    "notes": "hard: confusable (Table 1 reports 0.254 vs 0.313 for same setting) / Alignment Accuracy / span出現回数1"
-  },
-  {
     "query": "What cutoff on sequence size was applied when filtering hospital stays, and why was it set below the smallest model's window?",
     "arxiv_id": "2512.06812",
     "answer_spans": [
       "7,600 tokens. This value was chosen"
     ],
     "notes": "hard: confusable (8,192 minimum context also discussed) / 3.3 Dataset Pre-Processing / span出現回数1"
-  },
-  {
-    "query": "Which result was unexpected regarding the precision-oriented overlap score of the smallest open-source chat model relative to every other system?",
-    "arxiv_id": "2512.06812",
-    "answer_spans": [
-      "no model surpasses the BLEU score"
-    ],
-    "notes": "hard: confusable (one-shot Gemini BLEU 'nearly tripling' discussed elsewhere) / 4.1.2 Proprietary Models / span出現回数1"
   },
   {
     "query": "Why were adapter weight updates computed from a single training example at a time?",
@@ -294,14 +262,6 @@
       "to extract nuggets from 512-token"
     ],
     "notes": "hard: setup detail / sec 4.1 / span出現回数1"
-  },
-  {
-    "query": "How long was training of the proposed system run?",
-    "arxiv_id": "2608.07458",
-    "answer_spans": [
-      "fine-tune CoinRAG for one epoch"
-    ],
-    "notes": "hard: training budget / sec 4.1 / span出現回数1"
   },
   {
     "query": "In which operating regime does renumbering rotary indices for stitched pieces help the most?",
