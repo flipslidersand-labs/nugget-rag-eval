@@ -1,5 +1,5 @@
 {
-  "_comment": "Recall@5 baseline for eval/gold_set_hard.json (35 items after the #194 review). Re-recorded 2026-10-31 (was 0.525 / 0.200 on the unreviewed 40). Update only on an intended change, with the new numbers in the PR body.",
+  "_comment": "Recall@5 baseline for eval/gold_set_hard.json (35 items). Re-recorded 2026-10-31 after the review and after the four triangle (△) items were fixed (was 0.514 / 0.200 before the fixes). Update only on an intended change, with the new numbers in the PR body.",
   "gold": "eval/gold_set_hard.json",
   "pool": "python scripts/build_pool_from_pdfs.py --pdf-dir data/papers --target-words 300 (354 chunks)",
   "top_k": 5,
@@ -8,7 +8,7 @@
     "recall": 0.514
   },
   "nugget": {
-    "recall": 0.2
+    "recall": 0.229
   },
   "n": 35
 }

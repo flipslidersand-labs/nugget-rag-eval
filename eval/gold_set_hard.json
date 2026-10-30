@@ -32,12 +32,12 @@
     "notes": "hard: paraphrase / II.A Network Model / span出現回数1"
   },
   {
-    "query": "Which visual element could the pretrained reconstruction network not give its own category to, and for what reason?",
+    "query": "Which visual element could the reconstruction network not give its own category to, and for what reason?",
     "arxiv_id": "2508.11836",
     "answer_spans": [
       "a sprite-class for the normal pellets due to their size"
     ],
-    "notes": "hard: limitation / 6.1 Learned Programs / span出現回数1"
+    "notes": "hard: limitation / 6.1 Learned Programs / span出現回数1 | 2026-10-31 レビュー(△): クエリから『pretrained』を削除"
   },
   {
     "query": "Which test protocol feeds the model's own earlier outputs back in to judge long-horizon consistency?",
@@ -96,12 +96,12 @@
     "notes": "hard: confusable (other SS-score sentences) / 3 Dynamic Dataset Swapping / span出現回数1"
   },
   {
-    "query": "How many times more examples of the preserved kind than of the erased kind does each training bundle hold?",
+    "query": "What proportion constraint does the method impose between the data to be removed and the data to be kept when it assembles each training bundle?",
     "arxiv_id": "2509.25673",
     "answer_spans": [
       "to 1 : n (n > 1) within each data chunk"
     ],
-    "notes": "hard: design decision / 3 Data Chunk / span出現回数1"
+    "notes": "hard: design decision / 3 Data Chunk / span出現回数1 | 2026-10-31 レビュー(△): 『何倍か』の数を問う形をやめ、割合の制約を問う形に"
   },
   {
     "query": "What is the lower bound on the improvement in stereotype preference across the four tested models?",
@@ -144,12 +144,12 @@
     "notes": "hard: confusable (8,192 minimum context also discussed) / 3.3 Dataset Pre-Processing / span出現回数1"
   },
   {
-    "query": "Why were adapter weight updates computed from a single training example at a time?",
+    "query": "Why could each micro-step of adapter fine-tuning consume only one training example?",
     "arxiv_id": "2512.06812",
     "answer_spans": [
       "we only applied 1 item per batch"
     ],
-    "notes": "hard: design-decision paraphrase / 3.2 Model Adaptation / span出現回数1"
+    "notes": "hard: design-decision paraphrase / 3.2 Model Adaptation / span出現回数1 | 2026-10-31 レビュー(△): 『1例ずつ更新』は誤り(勾配累積4回)。マイクロステップの理由に"
   },
   {
     "query": "How big was the clinician-reviewed sample used for the human assessment?",
@@ -251,9 +251,10 @@
     "query": "What public records and which publication window did the corpus builders draw from?",
     "arxiv_id": "2608.06495",
     "answer_spans": [
-      "investigation summaries published"
+      "investigation summaries published",
+      "published between 2011 and 2023"
     ],
-    "notes": "hard: data source / sec 3.3 / span出現回数1"
+    "notes": "hard: data source / sec 3.3 / span出現回数1 | 2026-10-31 レビュー(△): 序論にも同じ文があるため別 span を追加"
   },
   {
     "query": "Which model and input size is used in the preprocessing pass that identifies key snippets?",
