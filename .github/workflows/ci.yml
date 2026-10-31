@@ -14,7 +14,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
-      - run: npx --yes markdownlint-cli --config .markdownlint.json "**/*.md" --ignore node_modules --ignore .venv
+      - run: npx --yes markdownlint-cli@0.49.1 --config .markdownlint.json "**/*.md" --ignore node_modules --ignore .venv
 
   test:
     uses: flipslidersand-labs/qa-workflows/.github/workflows/python-test.yml@fcccf3f5895340faa5c6ef2469068b7b32a6c60e  # main
@@ -39,4 +39,4 @@ jobs:
   gitleaks:
     permissions:
       contents: read
-    uses: flipslidersand-labs/qa-workflows/.github/workflows/gitleaks.yml@main
+    uses: flipslidersand-labs/qa-workflows/.github/workflows/gitleaks.yml@6742b2cd54d0de6387cc1a60d46069518ec331e0  # main
