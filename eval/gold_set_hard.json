@@ -1,0 +1,299 @@
+[
+  {
+    "query": "Which radio-propagation effect is deliberately ignored when modeling links between cars and roadside infrastructure?",
+    "arxiv_id": "2410.10071",
+    "answer_spans": [
+      "neglecting the effects of shadow fading"
+    ],
+    "notes": "hard: paraphrase+numeric-free design choice / II.B Communication Model / span出現回数1"
+  },
+  {
+    "query": "What rule decides whether two moving road users are joined in the relational structure given to the learner?",
+    "arxiv_id": "2410.10071",
+    "answer_spans": [
+      "distance does not exceed the maximum communication range"
+    ],
+    "notes": "hard: design decision paraphrase / IV.A Graph Modeling / span出現回数0"
+  },
+  {
+    "query": "Under what circumstance is a negative term added to an individual decision-maker's payoff?",
+    "arxiv_id": "2410.10071",
+    "answer_spans": [
+      "leads to the excess of caching capacity"
+    ],
+    "notes": "hard: confusable (similar capacity limit in constraint 3c) / III.C Reward Function / span出現回数1"
+  },
+  {
+    "query": "How are the participants' speeds modeled over time as they travel through the grid-like street layout?",
+    "arxiv_id": "2410.10071",
+    "answer_spans": [
+      "Markov-Gaussian stochastic process independently and may"
+    ],
+    "notes": "hard: paraphrase / II.A Network Model / span出現回数1"
+  },
+  {
+    "query": "Which visual element could the reconstruction network not give its own category to, and for what reason?",
+    "arxiv_id": "2508.11836",
+    "answer_spans": [
+      "a sprite-class for the normal pellets due to their size"
+    ],
+    "notes": "hard: limitation / 6.1 Learned Programs / span出現回数1 | 2026-10-31 レビュー(△): クエリから『pretrained』を削除"
+  },
+  {
+    "query": "Which test protocol feeds the model's own earlier outputs back in to judge long-horizon consistency?",
+    "arxiv_id": "2508.11836",
+    "answer_spans": [
+      "evaluates global coherency of the learned programs"
+    ],
+    "notes": "hard: confusable (Next Frame vs Total Simulation) / 5 Evaluation / span出現回数1"
+  },
+  {
+    "query": "What sampling frequency was used when pulling stills out of the recorded footage?",
+    "arxiv_id": "2508.11836",
+    "answer_spans": [
+      "at a rate of four frames per second"
+    ],
+    "notes": "hard: experimental condition / 5.1 Domains / span出現回数1"
+  },
+  {
+    "query": "How many consecutive transitions are grouped when scoring candidate rule sets during the search?",
+    "arxiv_id": "2508.11836",
+    "answer_spans": [
+      "𝑏 = 3 based on experimentation"
+    ],
+    "notes": "hard: hyperparameter, confusable with gamma=10 / 4.3 Search Algorithm / span出現回数0"
+  },
+  {
+    "query": "In what fraction of cases is environmental interference injected into a training clip, and how is its level chosen?",
+    "arxiv_id": "2508.11845",
+    "answer_spans": [
+      "with a probability of 0.5 at a random signal-to-noise ratio"
+    ],
+    "notes": "hard: confusable (mixup also prob 0.5) / 3.3 Training Recipes / span出現回数1"
+  },
+  {
+    "query": "What shortcoming is admitted regarding the audio resolution chosen to keep model comparisons even?",
+    "arxiv_id": "2508.11845",
+    "answer_spans": [
+      "species contain important auditory information above 8kHz"
+    ],
+    "notes": "hard: limitation / 3.3 / span出現回数1"
+  },
+  {
+    "query": "How are frame-level representations collapsed before fitting the simple supervised head?",
+    "arxiv_id": "2508.11845",
+    "answer_spans": [
+      "time-averaged embeddings"
+    ],
+    "notes": "hard: method detail / 3.4 Evaluation Setup / span出現回数1 | 2026-10-31: span を『time-averaged embeddings』に変更(本文の2節に共通。旧 span は1か所にしか当たらなかった)"
+  },
+  {
+    "query": "Why was one particular pairing of the transformer backbone and a general sound corpus skipped in supervised adaptation?",
+    "arxiv_id": "2508.11845",
+    "answer_spans": [
+      "exclude post-training BEATs on AudioSet only"
+    ],
+    "notes": "hard: confusable (EAT analogue sentence) / 3.3 / span出現回数1"
+  },
+  {
+    "query": "What trigger makes the method interchange which examples are to be erased versus preserved for a given category?",
+    "arxiv_id": "2509.25673",
+    "answer_spans": [
+      "SS score for a particular bias type falls"
+    ],
+    "notes": "hard: confusable (other SS-score sentences) / 3 Dynamic Dataset Swapping / span出現回数1"
+  },
+  {
+    "query": "What proportion constraint does the method impose between the data to be removed and the data to be kept when it assembles each training bundle?",
+    "arxiv_id": "2509.25673",
+    "answer_spans": [
+      "to 1 : n (n > 1) within each data chunk"
+    ],
+    "notes": "hard: design decision / 3 Data Chunk / span出現回数1 | 2026-10-31 レビュー(△): 『何倍か』の数を問う形をやめ、割合の制約を問う形に"
+  },
+  {
+    "query": "What is the lower bound on the improvement in stereotype preference across the four tested models?",
+    "arxiv_id": "2509.25673",
+    "answer_spans": [
+      "scores of BiasUnlearn decreased by at least"
+    ],
+    "notes": "hard: numeric result / 4.3 Results / span出現回数1"
+  },
+  {
+    "query": "Why might a drop in harmful-language scores at very aggressive compression fail to indicate a genuinely safer model?",
+    "arxiv_id": "2511.07482",
+    "answer_spans": [
+      "may reflect linguistic degradation rather than improved"
+    ],
+    "notes": "hard: causal-caveat paraphrase / Experimentation and Results (Toxicity against Prune Ratio) / span出現回数1"
+  },
+  {
+    "query": "Which partition of the stereotype benchmark is used for fitting, and which for assessment?",
+    "arxiv_id": "2509.25673",
+    "answer_spans": [
+      "set of StereoSet as our training set and repurpose"
+    ],
+    "notes": "hard: experimental condition / 4.1 / span出現回数1 | 2026-10-31: 一度外したが復元。本文と付録 A.1 が同一文で、span は両方に一致するため一意性の問題はなかった(外したのは誤り)"
+  },
+  {
+    "query": "Which transformer blocks at the beginning and end of the network were left untouched by the sparsification procedure?",
+    "arxiv_id": "2511.07482",
+    "answer_spans": [
+      "excluding the first 6 and last 3 layers"
+    ],
+    "notes": "hard: experimental-condition paraphrase / Experimentation and Results / span出現回数1"
+  },
+  {
+    "query": "How long were the evaluation inputs and the generated continuations, measured in sub-word units?",
+    "arxiv_id": "2511.07482",
+    "answer_spans": [
+      "prompts of avg. length 300 tokens"
+    ],
+    "notes": "hard: numeric-condition paraphrase / Experimentation and Results / span出現回数1"
+  },
+  {
+    "query": "What cutoff on sequence size was applied when filtering hospital stays, and why was it set below the smallest model's window?",
+    "arxiv_id": "2512.06812",
+    "answer_spans": [
+      "7,600 tokens. This value was chosen"
+    ],
+    "notes": "hard: confusable (8,192 minimum context also discussed) / 3.3 Dataset Pre-Processing / span出現回数1"
+  },
+  {
+    "query": "Why could each micro-step of adapter fine-tuning consume only one training example?",
+    "arxiv_id": "2512.06812",
+    "answer_spans": [
+      "we only applied 1 item per batch"
+    ],
+    "notes": "hard: design-decision paraphrase / 3.2 Model Adaptation / span出現回数1 | 2026-10-31 レビュー(△): 『1例ずつ更新』は誤り(勾配累積4回)。マイクロステップの理由に"
+  },
+  {
+    "query": "How big was the clinician-reviewed sample used for the human assessment?",
+    "arxiv_id": "2512.06812",
+    "answer_spans": [
+      "three randomly selected admissions"
+    ],
+    "notes": "hard: numeric paraphrase / 3.4.2 Qualitative Analysis / span出現回数1"
+  },
+  {
+    "query": "What restriction on movement choices prevents the flying agents from oscillating back and forth between neighboring locations?",
+    "arxiv_id": "2601.10849",
+    "answer_spans": [
+      "not allowed to immediately return to"
+    ],
+    "notes": "hard: design-decision paraphrase / IV-B Action space / span出現回数1"
+  },
+  {
+    "query": "How is the grid-based belief map shrunk before reaching the component that generates the value-mixing weights?",
+    "arxiv_id": "2601.10849",
+    "answer_spans": [
+      "pooling layer to downsample the resolution"
+    ],
+    "notes": "hard: design-decision paraphrase / V-B State Downsampling / span出現回数1"
+  },
+  {
+    "query": "What recurrent architecture backs each per-vehicle value estimator, and are its weights shared across vehicles?",
+    "arxiv_id": "2601.10849",
+    "answer_spans": [
+      "DRQN [36] with parameter sharing"
+    ],
+    "notes": "hard: confusable (Sec V-C describes the same network as input FC + GRU + output FC) / V-A / span出現回数1"
+  },
+  {
+    "query": "Why can the earlier multi-robot coordination formulation not be solved exactly in domains with infinitely many states?",
+    "arxiv_id": "2601.10849",
+    "answer_spans": [
+      "undecidable over continuous space"
+    ],
+    "notes": "hard: confusable (Dec-POMDP PSPACE-completeness also in Related Work) / II Related Work / span出現回数1"
+  },
+  {
+    "query": "Which of the two factors behind weakened internal rejection signals for mixed-input prompts dominates when a statistical breakdown of their contributions is performed?",
+    "arxiv_id": "2602.10161",
+    "answer_spans": [
+      "accounts for 88.3% of the total variance"
+    ],
+    "notes": "hard: confusable: direction deviation (cos 0.73-0.86) in same section / sec 4.2 / span出現回数1"
+  },
+  {
+    "query": "At what transformer depth range was the shared direction injected during the preliminary comparison of candidate vectors?",
+    "arxiv_id": "2602.10161",
+    "answer_spans": [
+      "interventions at Layer 15 to 17"
+    ],
+    "notes": "hard: confusable: PCA at Layer 18, Layer 12 peak / sec 5.2 / span出現回数1"
+  },
+  {
+    "query": "What kind of small network predicts a per-depth intervention scale from the current activation?",
+    "arxiv_id": "2602.10161",
+    "answer_spans": [
+      "simple 2-layer MLP"
+    ],
+    "notes": "hard: architecture detail / sec 5.3 / span出現回数1"
+  },
+  {
+    "query": "How many innocuous prompts were gathered to enable the contrast needed for direction extraction?",
+    "arxiv_id": "2602.10161",
+    "answer_spans": [
+      "collected 500 benign queries"
+    ],
+    "notes": "hard: numeric setup / sec 3.2.1 / span出現回数1"
+  },
+  {
+    "query": "What preprocessing technique stripped calendar references from the narratives so models would not exploit them?",
+    "arxiv_id": "2608.06495",
+    "answer_spans": [
+      "removed using regular-expression"
+    ],
+    "notes": "hard: design decision / sec 3.3 / span出現回数1"
+  },
+  {
+    "query": "What cutoff on approximate string resemblance decides a lenient span match?",
+    "arxiv_id": "2608.06495",
+    "answer_spans": [
+      "similarity threshold, 0.8"
+    ],
+    "notes": "hard: confusable: exact and keyword match definitions / sec 3.5 / span出現回数1"
+  },
+  {
+    "query": "For the smallest Llama model, what share of fabricated unsupported outputs occurs under the per-factor strategy versus the grouped one?",
+    "arxiv_id": "2608.06495",
+    "answer_spans": [
+      "87.4% of IHE errors and 28.8%"
+    ],
+    "notes": "hard: confusable: other Llama shares 36.0/19.4, 19.0/14.9 / sec 4.5 / span出現回数1"
+  },
+  {
+    "query": "What public records and which publication window did the corpus builders draw from?",
+    "arxiv_id": "2608.06495",
+    "answer_spans": [
+      "investigation summaries published",
+      "published between 2011 and 2023"
+    ],
+    "notes": "hard: data source / sec 3.3 / span出現回数1 | 2026-10-31 レビュー(△): 序論にも同じ文があるため別 span を追加"
+  },
+  {
+    "query": "Which model and input size is used in the preprocessing pass that identifies key snippets?",
+    "arxiv_id": "2608.07458",
+    "answer_spans": [
+      "to extract nuggets from 512-token"
+    ],
+    "notes": "hard: setup detail / sec 4.1 / span出現回数1"
+  },
+  {
+    "query": "In which operating regime does renumbering rotary indices for stitched pieces help the most?",
+    "arxiv_id": "2608.07458",
+    "answer_spans": [
+      "beneficial under a tight"
+    ],
+    "notes": "hard: confusable: conclusion restates; other ablations / sec 4.3 / span出現回数1"
+  },
+  {
+    "query": "How much accuracy drops when each selected snippet is encoded without its surrounding passage?",
+    "arxiv_id": "2608.07458",
+    "answer_spans": [
+      "6.3, 4.9, and 3.9 points"
+    ],
+    "notes": "hard: confusable: fine-tuning gains 11.3/6.3/6.4 / sec 4.3 / span出現回数1"
+  }
+]

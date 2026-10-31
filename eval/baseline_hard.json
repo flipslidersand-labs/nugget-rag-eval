@@ -1,0 +1,14 @@
+{
+  "_comment": "Recall@5 baseline for eval/gold_set_hard.json (37 items). Re-recorded 2026-10-31 after items 11 and 16 were restored (was 0.514 / 0.229 on 35). Update only on an intended change, with the new numbers in the PR body.",
+  "gold": "eval/gold_set_hard.json",
+  "pool": "python scripts/build_pool_from_pdfs.py --pdf-dir data/papers --target-words 300 (354 chunks)",
+  "top_k": 5,
+  "nugget_window": 0,
+  "full_chunk": {
+    "recall": 0.514
+  },
+  "nugget": {
+    "recall": 0.216
+  },
+  "n": 37
+}

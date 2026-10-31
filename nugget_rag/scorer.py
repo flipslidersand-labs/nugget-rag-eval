@@ -6,6 +6,8 @@ import math
 from collections import Counter
 from collections.abc import Callable
 
+from nugget_rag.vectors import embed_scores
+
 
 def _char_ngrams(text: str, n: int = 2) -> list[str]:
     """Return character n-grams for a CJK run (whitespace already stripped).
@@ -121,8 +123,12 @@ def top_nuggets(
     embed_weight: float = 0.5,
     query_vec: list[float] | None = None,
     sent_vecs: list[list[float]] | None = None,
+    window: int = 0,
 ) -> list[str]:
     """Return top-k sentences most relevant to query.
+
+    ``window`` adds that many neighbouring sentences on each side of every
+    selected sentence (0 = off, behaviour unchanged). Output stays in document order.
 
     When embed_fn is provided, scores are a weighted blend of BM25 and
     cosine similarity (embed_weight controls the embedding contribution).
@@ -139,8 +145,6 @@ def top_nuggets(
 
     use_precomputed = query_vec is not None and sent_vecs is not None
     if use_precomputed or embed_fn is not None:
-        from nugget_rag.embedder import embed_scores
-
         if use_precomputed:
             qv = query_vec
             sv = sent_vecs
@@ -155,5 +159,7 @@ def top_nuggets(
     # Select top-k indices by score
     top_indices = sorted(range(len(combined)), key=lambda i: combined[i], reverse=True)[:top_k]
     # Sort indices back to original order to preserve context flow
-    top_indices_sorted = sorted(top_indices)
-    return [sentences[i] for i in top_indices_sorted]
+    selected = set(top_indices)
+    for i in top_indices:
+        selected.update(j for j in range(i - window, i + window + 1) if 0 <= j < len(sentences))
+    return [sentences[i] for i in sorted(selected)]
