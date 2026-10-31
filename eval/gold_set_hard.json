@@ -80,6 +80,14 @@
     "notes": "hard: limitation / 3.3 / span出現回数1"
   },
   {
+    "query": "How are frame-level representations collapsed before fitting the simple supervised head?",
+    "arxiv_id": "2508.11845",
+    "answer_spans": [
+      "time-averaged embeddings"
+    ],
+    "notes": "hard: method detail / 3.4 Evaluation Setup / span出現回数1 | 2026-10-31: span を『time-averaged embeddings』に変更(本文の2節に共通。旧 span は1か所にしか当たらなかった)"
+  },
+  {
     "query": "Why was one particular pairing of the transformer backbone and a general sound corpus skipped in supervised adaptation?",
     "arxiv_id": "2508.11845",
     "answer_spans": [
@@ -118,6 +126,14 @@
       "may reflect linguistic degradation rather than improved"
     ],
     "notes": "hard: causal-caveat paraphrase / Experimentation and Results (Toxicity against Prune Ratio) / span出現回数1"
+  },
+  {
+    "query": "Which partition of the stereotype benchmark is used for fitting, and which for assessment?",
+    "arxiv_id": "2509.25673",
+    "answer_spans": [
+      "set of StereoSet as our training set and repurpose"
+    ],
+    "notes": "hard: experimental condition / 4.1 / span出現回数1 | 2026-10-31: 一度外したが復元。本文と付録 A.1 が同一文で、span は両方に一致するため一意性の問題はなかった(外したのは誤り)"
   },
   {
     "query": "Which transformer blocks at the beginning and end of the network were left untouched by the sparsification procedure?",
