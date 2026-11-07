@@ -383,3 +383,16 @@ def test_tokenize_cjk_bigrams_unaffected_by_punct():
 def test_bm25_matches_query_against_sentence_final_word():
     scores = bm25_scores("accuracy", ["We report accuracy.", "Nothing here."])
     assert scores[0] > 0 and scores[1] == 0
+
+
+def test_tokenize_keeps_digits():
+    assert _tokenize("gpt-4 3.14") == ["gpt", "4", "3", "14"]
+
+
+def test_tokenize_symbols_and_format_chars_are_separators():
+    # © (So), ± (Sm), zero-width space (Cf) must not become CJK 1-char tokens
+    assert _tokenize("a©b±c​d") == ["a", "b", "c", "d"]
+
+
+def test_tokenize_cjk_ascii_boundary_has_no_false_bigram():
+    assert _tokenize("東京AB大阪") == ["東京", "ab", "大阪"]
