@@ -629,6 +629,13 @@ def test_fetch_papers_null_or_missing_id_raises_fetch_error(mock_open, body):
         fetch_papers("http://api")
 
 
+@patch("scripts.fetch_papers.urlopen")
+def test_fetch_papers_list_id_raises_fetch_error(mock_open):
+    mock_open.return_value = _cm(b'{"papers": [{"id": [1]}]}').return_value
+    with pytest.raises(FetchError):
+        fetch_papers("http://api")
+
+
 @pytest.mark.parametrize("body", [b'{"results": {}}', b'{"results": "x"}'])
 @patch("scripts.fetch_papers.urlopen")
 def test_fetch_chunks_non_list_results_raises_fetch_error(mock_open, body):

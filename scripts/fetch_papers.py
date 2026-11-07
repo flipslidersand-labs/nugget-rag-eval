@@ -83,9 +83,12 @@ def fetch_papers(api_url: str, limit: int = 100) -> list[dict]:
         papers = json.loads(body)["papers"]
         # main() reads p["id"]; validate here so a bad entry is a FetchError too.
         if not isinstance(papers, list) or any(
-            not isinstance(p, dict) or p.get("id") is None for p in papers
+            not isinstance(p, dict)
+            or not isinstance(p.get("id"), int)
+            or isinstance(p.get("id"), bool)
+            for p in papers
         ):
-            raise ValueError("papers must be a list of objects with a non-null id")
+            raise ValueError("papers must be a list of objects with an int id")
     except (ValueError, KeyError, TypeError) as exc:
         raise FetchError(f"Malformed papers response: {exc!r}") from exc
     return papers
@@ -139,9 +142,9 @@ def fetch_chunks_for_paper(
                 raise ValueError("chunk_index must be int, snippet str, score number")
             chunk = {
                 "paper_id": paper_id,
-                "chunk_index": r["chunk_index"],
-                "text": r["snippet"],
-                "score": r["score"],
+                "chunk_index": idx,
+                "text": snippet,
+                "score": score,
             }
             if arxiv_id is not None:
                 chunk["arxiv_id"] = arxiv_id
