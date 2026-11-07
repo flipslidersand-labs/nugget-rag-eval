@@ -63,7 +63,10 @@ def test_default_threshold_zero_any_failure_exits_1(monkeypatch, tmp_path, capsy
     with pytest.raises(SystemExit) as exc:
         fp.main()
     assert exc.value.code == 1
-    assert "1 fetch failure(s) exceeded threshold (0)" in capsys.readouterr().err
+    assert (
+        "1 failure(s) (fetch errors + unregistered arxiv_id) exceeded threshold (0)"
+        in capsys.readouterr().err
+    )
 
 
 def test_failures_equal_to_threshold_do_not_exit(monkeypatch, tmp_path):
