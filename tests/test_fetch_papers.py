@@ -502,3 +502,52 @@ def test_main_max_failures_zero_is_valid(tmp_path):
     assert result.returncode == 1
     assert "[ERROR]" in result.stderr
     assert "Traceback" not in result.stderr
+
+
+# ── 200 応答の本文不正は FetchError (#234) ───────────────────────────────────
+
+_BAD_CHUNK_BODIES = [
+    b"not json",
+    b"{}",
+    b'{"results": null}',
+    b'{"results": [{"chunk_index": 0}]}',
+    b'{"results": [1]}',
+]
+
+_BAD_PAPERS_BODIES = [
+    b"not json",
+    b"{}",
+    b'{"papers": null}',
+    b'{"papers": [{"name": "x"}]}',
+    b'{"papers": [1]}',
+]
+
+
+@pytest.mark.parametrize("body", _BAD_CHUNK_BODIES)
+@patch("scripts.fetch_papers.urlopen")
+def test_fetch_chunks_malformed_body_raises_fetch_error(mock_open, body):
+    mock_open.return_value = _cm(body).return_value
+    with pytest.raises(FetchError):
+        fetch_chunks_for_paper("http://api", paper_id=1, query="test")
+
+
+@pytest.mark.parametrize("body", _BAD_PAPERS_BODIES)
+@patch("scripts.fetch_papers.urlopen")
+def test_fetch_papers_malformed_body_raises_fetch_error(mock_open, body):
+    mock_open.return_value = _cm(body).return_value
+    with pytest.raises(FetchError):
+        fetch_papers("http://api")
+
+
+@patch("scripts.fetch_papers.urlopen")
+def test_fetch_per_query_counts_malformed_body_and_continues(mock_open):
+    good = json.dumps({"results": [{"chunk_index": 0, "snippet": "t", "score": 0.5}]}).encode()
+    mock_open.side_effect = [
+        _cm(b"not json").return_value,
+        _cm(b'{"results": null}').return_value,
+        _cm(good).return_value,
+    ]
+    gold = [{"paper_id": 1, "query": f"q{i}"} for i in range(3)]
+    chunks, failures = fetch_per_query("http://api", gold, "small", 512)
+    assert failures == 2
+    assert len(chunks) == 1

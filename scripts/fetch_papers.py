@@ -79,7 +79,12 @@ def fetch_papers(api_url: str, limit: int = 100) -> list[dict]:
         body = _urlopen_with_retry(url, timeout=_TIMEOUT_PAPERS)
     except (URLError, HTTPError) as exc:
         raise FetchError(f"Failed to fetch papers: {exc}") from exc
-    return json.loads(body)["papers"]
+    try:
+        papers = json.loads(body)["papers"]
+        # main() reads p["id"]; validate here so a bad entry is a FetchError too.
+        return [{**p, "id": p["id"]} for p in papers]
+    except (ValueError, KeyError, TypeError) as exc:
+        raise FetchError(f"Malformed papers response: {exc!r}") from exc
 
 
 def _sanitize_query(query: str) -> str:
@@ -110,19 +115,21 @@ def fetch_chunks_for_paper(
         body = _urlopen_with_retry(url, timeout=_TIMEOUT_CHUNKS)
     except (URLError, HTTPError) as exc:
         raise FetchError(f"Failed to fetch chunks for paper {paper_id}: {exc}") from exc
-    results = json.loads(body)["results"]
     arxiv_id = PAPER_ID_TO_ARXIV.get(paper_id)
     chunks = []
-    for r in results:
-        chunk = {
-            "paper_id": paper_id,
-            "chunk_index": r["chunk_index"],
-            "text": r["snippet"],
-            "score": r["score"],
-        }
-        if arxiv_id is not None:
-            chunk["arxiv_id"] = arxiv_id
-        chunks.append(chunk)
+    try:
+        for r in json.loads(body)["results"]:
+            chunk = {
+                "paper_id": paper_id,
+                "chunk_index": r["chunk_index"],
+                "text": r["snippet"],
+                "score": r["score"],
+            }
+            if arxiv_id is not None:
+                chunk["arxiv_id"] = arxiv_id
+            chunks.append(chunk)
+    except (ValueError, KeyError, TypeError) as exc:
+        raise FetchError(f"Malformed search response for paper {paper_id}: {exc!r}") from exc
     return chunks
 
 
