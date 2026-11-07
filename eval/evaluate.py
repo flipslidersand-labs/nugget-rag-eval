@@ -21,6 +21,7 @@ import os
 import re
 import sys
 import time
+import unicodedata
 from collections.abc import Callable
 from dataclasses import dataclass
 
@@ -157,13 +158,14 @@ _NON_WORD = re.compile(r"[\W_]+")
 
 
 def _normalize_for_match(text: str) -> str:
-    """Lowercase and drop whitespace/punctuation (keeps letters and digits, incl. CJK).
+    """NFKC-fold, lowercase and drop whitespace/punctuation (keeps letters and digits, incl. CJK).
 
     Text extractors differ in spacing ("University of California" vs
-    "UniversityofCalifornia"), so spans taken from one extraction only match
-    another after this normalization.
+    "UniversityofCalifornia") and in ligatures / full-width forms ("eﬃcient",
+    "９５％"), so spans taken from one extraction only match another after this
+    normalization.
     """
-    return _NON_WORD.sub("", text.lower())
+    return _NON_WORD.sub("", unicodedata.normalize("NFKC", text).lower())
 
 
 def _span_in(text: str, spans: list[str], normalize: bool) -> bool:
