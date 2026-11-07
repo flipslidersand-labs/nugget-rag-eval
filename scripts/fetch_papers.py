@@ -82,9 +82,13 @@ def fetch_papers(api_url: str, limit: int = 100) -> list[dict]:
     try:
         papers = json.loads(body)["papers"]
         # main() reads p["id"]; validate here so a bad entry is a FetchError too.
-        return [{**p, "id": p["id"]} for p in papers]
+        if not isinstance(papers, list) or any(
+            not isinstance(p, dict) or p.get("id") is None for p in papers
+        ):
+            raise ValueError("papers must be a list of objects with a non-null id")
     except (ValueError, KeyError, TypeError) as exc:
         raise FetchError(f"Malformed papers response: {exc!r}") from exc
+    return papers
 
 
 def _sanitize_query(query: str) -> str:
@@ -118,7 +122,10 @@ def fetch_chunks_for_paper(
     arxiv_id = PAPER_ID_TO_ARXIV.get(paper_id)
     chunks = []
     try:
-        for r in json.loads(body)["results"]:
+        results = json.loads(body)["results"]
+        if not isinstance(results, list):
+            raise ValueError("results must be a list")
+        for r in results:
             chunk = {
                 "paper_id": paper_id,
                 "chunk_index": r["chunk_index"],

@@ -551,3 +551,19 @@ def test_fetch_per_query_counts_malformed_body_and_continues(mock_open):
     chunks, failures = fetch_per_query("http://api", gold, "small", 512)
     assert failures == 2
     assert len(chunks) == 1
+
+
+@pytest.mark.parametrize("body", [b'{"papers": [{"id": null}]}', b'{"papers": [{}]}'])
+@patch("scripts.fetch_papers.urlopen")
+def test_fetch_papers_null_or_missing_id_raises_fetch_error(mock_open, body):
+    mock_open.return_value = _cm(body).return_value
+    with pytest.raises(FetchError):
+        fetch_papers("http://api")
+
+
+@pytest.mark.parametrize("body", [b'{"results": {}}', b'{"results": "x"}'])
+@patch("scripts.fetch_papers.urlopen")
+def test_fetch_chunks_non_list_results_raises_fetch_error(mock_open, body):
+    mock_open.return_value = _cm(body).return_value
+    with pytest.raises(FetchError):
+        fetch_chunks_for_paper("http://api", paper_id=1, query="test")
