@@ -7,6 +7,7 @@ Covers: _sanitize_query, combine_large_chunks,
 
 from __future__ import annotations
 
+import http.client
 import json
 from unittest.mock import MagicMock, patch
 from urllib.error import HTTPError, URLError
@@ -14,6 +15,7 @@ from urllib.error import HTTPError, URLError
 import pytest
 
 from scripts.fetch_papers import (
+    _MAX_RETRIES,
     ARXIV_TO_PAPER_ID,
     PAPER_ID_TO_ARXIV,
     FetchError,
@@ -456,6 +458,44 @@ def test_fetch_per_query_fail_fast_raises(mock_fetch):
         fetch_per_query("http://api", gold, chunk_mode="small", target_tokens=512, fail_fast=True)
 
 
+_BAD_RESULT_ITEMS = [
+    {"chunk_index": 0, "snippet": None, "score": 0.5},
+    {"chunk_index": [1, 2], "snippet": "t", "score": 0.5},
+    {"chunk_index": True, "snippet": "t", "score": 0.5},
+    {"chunk_index": 0, "snippet": "t", "score": "high"},
+]
+
+
+@pytest.mark.parametrize("item", _BAD_RESULT_ITEMS)
+@patch("scripts.fetch_papers.urlopen")
+def test_fetch_chunks_wrong_value_types_raise_fetch_error(mock_open, item):
+    """値の型が想定外 (null snippet / list chunk_index 等) でも FetchError (#241)。"""
+    mock_open.return_value = _cm(json.dumps({"results": [item]}).encode()).return_value
+    with pytest.raises(FetchError, match="Malformed search response"):
+        fetch_chunks_for_paper("http://api", paper_id=1, query="test")
+
+
+@pytest.mark.parametrize("chunk_mode", ["small", "large"])
+@patch("scripts.fetch_papers.urlopen")
+def test_fetch_per_query_wrong_value_types_counted_and_continues(mock_open, chunk_mode, capsys):
+    """型不正の応答は failure_count に加算され、次の項目の処理が継続する (#241)。"""
+    bad = {"results": [{"chunk_index": [1], "snippet": None, "score": 0.5}]}
+    good = {"results": [{"chunk_index": 0, "snippet": "ok text", "score": 0.7}]}
+    mock_open.side_effect = [
+        _cm(json.dumps(bad).encode()).return_value,
+        _cm(json.dumps(good).encode()).return_value,
+    ]
+    gold = [
+        {"paper_id": 1, "query": "q1", "answer_spans": ["x"]},
+        {"paper_id": 2, "query": "q2", "answer_spans": ["ok"]},
+    ]
+    result, failures = fetch_per_query("http://api", gold, chunk_mode=chunk_mode, target_tokens=512)
+    assert failures == 1
+    assert len(result) == 1
+    assert result[0]["paper_id"] == 2
+    assert "WARNING" in capsys.readouterr().err
+
+
 # ── main() subprocess tests ──────────────────────────────────────────────────
 
 
@@ -591,9 +631,69 @@ def test_fetch_papers_null_or_missing_id_raises_fetch_error(mock_open, body):
         fetch_papers("http://api")
 
 
+@patch("scripts.fetch_papers.urlopen")
+def test_fetch_papers_list_id_raises_fetch_error(mock_open):
+    mock_open.return_value = _cm(b'{"papers": [{"id": [1]}]}').return_value
+    with pytest.raises(FetchError):
+        fetch_papers("http://api")
+
+
 @pytest.mark.parametrize("body", [b'{"results": {}}', b'{"results": "x"}'])
 @patch("scripts.fetch_papers.urlopen")
 def test_fetch_chunks_non_list_results_raises_fetch_error(mock_open, body):
     mock_open.return_value = _cm(body).return_value
     with pytest.raises(FetchError):
         fetch_chunks_for_paper("http://api", paper_id=1, query="test")
+
+
+# ── read() 中のタイムアウト/切断 (#265) ───────────────────────────────────────
+
+
+def _read_raises_cm(exc: BaseException) -> MagicMock:
+    """urlopen() は成功するが read() が exc を投げるレスポンスのモック。"""
+    resp = MagicMock()
+    resp.read.side_effect = exc
+    resp.__enter__.return_value = resp
+    resp.__exit__.return_value = False
+    return resp
+
+
+_READ_ERRORS = [
+    pytest.param(lambda: TimeoutError("timed out"), id="timeout"),
+    pytest.param(lambda: ConnectionResetError("reset"), id="conn-reset"),
+    pytest.param(lambda: http.client.IncompleteRead(b"par", 10), id="incomplete-read"),
+]
+
+
+@pytest.mark.parametrize("make_exc", _READ_ERRORS)
+@patch("scripts.fetch_papers.time.sleep")
+@patch("scripts.fetch_papers.urlopen")
+def test_retry_succeeds_after_read_error(mock_open, mock_sleep, make_exc):
+    """read() 中の例外は再試行され、次の試行で成功すればボディが返る。"""
+    ok = _cm(b"payload").return_value
+    mock_open.side_effect = [_read_raises_cm(make_exc()), ok]
+    assert _urlopen_with_retry("http://api", timeout=5) == b"payload"
+    assert mock_open.call_count == 2
+    assert mock_sleep.call_count == 1
+
+
+@pytest.mark.parametrize("make_exc", _READ_ERRORS)
+@patch("scripts.fetch_papers.time.sleep")
+@patch("scripts.fetch_papers.urlopen")
+def test_fetch_chunks_read_error_exhaustion_raises_fetch_error(mock_open, mock_sleep, make_exc):
+    """再試行を使い切ったら FetchError（traceback で止まらない）。"""
+    mock_open.side_effect = lambda *a, **k: _read_raises_cm(make_exc())
+    with pytest.raises(FetchError, match="Failed to fetch chunks for paper 1"):
+        fetch_chunks_for_paper("http://api", paper_id=1, query="q")
+    assert mock_open.call_count == _MAX_RETRIES + 1
+    assert mock_sleep.call_count == _MAX_RETRIES
+
+
+@pytest.mark.parametrize("make_exc", _READ_ERRORS)
+@patch("scripts.fetch_papers.time.sleep")
+@patch("scripts.fetch_papers.urlopen")
+def test_fetch_papers_read_error_exhaustion_raises_fetch_error(mock_open, mock_sleep, make_exc):
+    mock_open.side_effect = lambda *a, **k: _read_raises_cm(make_exc())
+    with pytest.raises(FetchError, match="Failed to fetch papers"):
+        fetch_papers("http://api")
+    assert mock_open.call_count == _MAX_RETRIES + 1

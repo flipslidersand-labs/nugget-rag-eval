@@ -10,6 +10,7 @@ Usage:
 """
 
 import argparse
+import http.client
 import json
 import sys
 import time
@@ -35,6 +36,12 @@ _TIMEOUT_CHUNKS = 30
 _MAX_RETRIES = 3
 _RETRY_BACKOFF = 1.0
 
+# Errors raised by read() after the headers arrived (timeout / disconnect /
+# truncated body). Same set embedder retries (#232).
+_READ_ERRORS = (TimeoutError, ConnectionError, http.client.HTTPException)
+# Everything _urlopen_with_retry can raise that callers convert to FetchError.
+_FETCH_ERRORS = (URLError, HTTPError, *_READ_ERRORS)
+
 
 class FetchError(Exception):
     """Raised when an HTTP/network fetch fails."""
@@ -48,14 +55,15 @@ def _urlopen_with_retry(
 ) -> bytes:
     """Fetch *url* with exponential-backoff retry, returning the response body.
 
-    Retries up to *max_retries* times on URLError or 5xx HTTPError so a single
+    Retries up to *max_retries* times on URLError, 5xx HTTPError, or errors raised
+    while reading the body (timeout, connection reset, IncompleteRead) so a single
     transient error does not silently drop a paper. 4xx errors are re-raised
     immediately without retrying (permanent failures).
 
     Raises:
-        HTTPError | URLError: on non-retryable errors or after retries exhausted.
+        HTTPError | URLError | TimeoutError | ConnectionError | HTTPException: on non-retryable errors or after retries exhausted.
     """
-    last_exc: URLError | None = None
+    last_exc: Exception | None = None
     for attempt in range(max_retries + 1):
         try:
             with urlopen(url, timeout=timeout) as http_resp:
@@ -65,6 +73,8 @@ def _urlopen_with_retry(
                 raise
             last_exc = exc
         except URLError as exc:
+            last_exc = exc
+        except _READ_ERRORS as exc:
             last_exc = exc
         if attempt < max_retries:
             time.sleep(retry_backoff * (2**attempt))
@@ -77,15 +87,18 @@ def fetch_papers(api_url: str, limit: int = 100) -> list[dict]:
     url = f"{api_url}/papers?{urlencode({'limit': limit, 'sort': 'score'})}"
     try:
         body = _urlopen_with_retry(url, timeout=_TIMEOUT_PAPERS)
-    except (URLError, HTTPError) as exc:
+    except _FETCH_ERRORS as exc:
         raise FetchError(f"Failed to fetch papers: {exc}") from exc
     try:
         papers = json.loads(body)["papers"]
         # main() reads p["id"]; validate here so a bad entry is a FetchError too.
         if not isinstance(papers, list) or any(
-            not isinstance(p, dict) or p.get("id") is None for p in papers
+            not isinstance(p, dict)
+            or not isinstance(p.get("id"), int)
+            or isinstance(p.get("id"), bool)
+            for p in papers
         ):
-            raise ValueError("papers must be a list of objects with a non-null id")
+            raise ValueError("papers must be a list of objects with an int id")
     except (ValueError, KeyError, TypeError) as exc:
         raise FetchError(f"Malformed papers response: {exc!r}") from exc
     return papers
@@ -117,7 +130,7 @@ def fetch_chunks_for_paper(
     url = f"{api_url}/search?{urlencode(params)}"
     try:
         body = _urlopen_with_retry(url, timeout=_TIMEOUT_CHUNKS)
-    except (URLError, HTTPError) as exc:
+    except _FETCH_ERRORS as exc:
         raise FetchError(f"Failed to fetch chunks for paper {paper_id}: {exc}") from exc
     arxiv_id = PAPER_ID_TO_ARXIV.get(paper_id)
     chunks = []
@@ -126,11 +139,22 @@ def fetch_chunks_for_paper(
         if not isinstance(results, list):
             raise ValueError("results must be a list")
         for r in results:
+            # Value types are checked here so downstream code (.split(), hashing
+            # as a dedup key, max()) cannot crash outside the FetchError path (#241).
+            idx, snippet, score = r["chunk_index"], r["snippet"], r["score"]
+            if (
+                not isinstance(idx, int)
+                or isinstance(idx, bool)
+                or not isinstance(snippet, str)
+                or not isinstance(score, (int, float))
+                or isinstance(score, bool)
+            ):
+                raise ValueError("chunk_index must be int, snippet str, score number")
             chunk = {
                 "paper_id": paper_id,
-                "chunk_index": r["chunk_index"],
-                "text": r["snippet"],
-                "score": r["score"],
+                "chunk_index": idx,
+                "text": snippet,
+                "score": score,
             }
             if arxiv_id is not None:
                 chunk["arxiv_id"] = arxiv_id
