@@ -133,3 +133,55 @@ def test_main_rejects_missing_input_file(env, monkeypatch, capsys):
 def test_load_cache_missing_file_or_none_gives_empty(tmp_path):
     assert sw.load_cache(None) == {}
     assert sw.load_cache(tmp_path / "absent.json") == {}
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        "{not json",
+        "[]",
+        "null",
+        '"text"',
+        '{"a": "not a vector"}',
+        '{"a": null}',
+        '{"a": [1.0, "x"]}',
+        '{"a": [true]}',
+        '{"a": []}',
+    ],
+)
+def test_main_exits_on_corrupt_cache(env, monkeypatch, content):
+    tmp_path, chunks, gold = env
+    out = tmp_path / "out"
+    out.mkdir()
+    cache = out / "embed_cache.json"
+    cache.write_text(content, encoding="utf-8")
+    with pytest.raises(SystemExit) as exc:
+        _run(monkeypatch, tmp_path, chunks, gold)
+    msg = str(exc.value)
+    assert msg.startswith("[ERROR] cache file is corrupt") and str(cache) in msg
+    assert not FakeClient.instances
+    assert cache.read_text(encoding="utf-8") == content  # not discarded or overwritten
+
+
+@pytest.mark.parametrize(
+    "cache",
+    [{}, {"a": [1, 2], "b": [3]}, {"a": [1, 2.5], "b": [0.5, 3]}],
+)
+def test_load_cache_accepts_valid_cache(tmp_path, cache):
+    path = tmp_path / "embed_cache.json"
+    path.write_text(json.dumps(cache), encoding="utf-8")
+    assert sw.load_cache(path) == cache
+
+
+def test_load_cache_exits_on_unreadable_file(tmp_path, monkeypatch):
+    path = tmp_path / "embed_cache.json"
+    path.write_text("{}", encoding="utf-8")
+
+    def deny(self, *args, **kwargs):
+        raise PermissionError("denied")
+
+    monkeypatch.setattr(type(path), "read_text", deny)
+    with pytest.raises(SystemExit) as exc:
+        sw.load_cache(path)
+    assert str(exc.value).startswith("[ERROR] permission denied reading cache file")
+    assert str(path) in str(exc.value)

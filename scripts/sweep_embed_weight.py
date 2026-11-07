@@ -46,9 +46,27 @@ def collect_texts(chunks_by_paper: dict, gold: list[dict], top_k: int, match: st
 
 
 def load_cache(path: Path | None) -> dict[str, list[float]]:
-    if path and path.is_file():
-        return json.loads(path.read_text(encoding="utf-8"))
-    return {}
+    if not (path and path.is_file()):
+        return {}
+    # Re-embedding is expensive, so a corrupt cache is an error, never silently discarded.
+    try:
+        cache = json.loads(path.read_text(encoding="utf-8"))
+    except PermissionError:
+        sys.exit(f"[ERROR] permission denied reading cache file: {path}")
+    except OSError as exc:
+        sys.exit(f"[ERROR] cannot read cache file: {path} ({exc})")
+    except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+        sys.exit(f"[ERROR] cache file is corrupt: {path} ({exc})")
+    if not isinstance(cache, dict):
+        sys.exit(f"[ERROR] cache file is corrupt: {path} (expected a JSON object)")
+    for key, vec in cache.items():
+        if not (
+            isinstance(vec, list)
+            and vec
+            and all(isinstance(x, (int, float)) and not isinstance(x, bool) for x in vec)
+        ):
+            sys.exit(f"[ERROR] cache file is corrupt: {path} (entry {key[:60]!r} is not a vector)")
+    return cache
 
 
 def save_cache(path: Path | None, cache: dict[str, list[float]]) -> None:
