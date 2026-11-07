@@ -24,16 +24,25 @@ from nugget_rag.paper_registry import ARXIV_MAP
 # Split only where whitespace follows the terminator, so decimals such as "0.5"
 # stay intact (nugget_rag.chunker.split_sentences also splits inside "0.5").
 _SENT_BOUNDARY = re.compile(r"(?<=[.!?])\s+")
+PDFTOTEXT_TIMEOUT_SEC = 120
 
 
 def pdf_to_text(pdf: Path) -> str:
     """Extract text with pdftotext (reading order, no layout) and collapse whitespace."""
-    proc = subprocess.run(
-        ["pdftotext", "-enc", "UTF-8", str(pdf), "-"],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
+    try:
+        proc = subprocess.run(
+            ["pdftotext", "-enc", "UTF-8", str(pdf), "-"],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=PDFTOTEXT_TIMEOUT_SEC,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise RuntimeError(
+            f"pdftotext timed out after {PDFTOTEXT_TIMEOUT_SEC}s for {pdf.name}"
+        ) from exc
+    except OSError as exc:  # FileNotFoundError when poppler-utils is missing
+        raise RuntimeError(f"pdftotext not found (install poppler-utils): {exc}") from exc
     if proc.returncode != 0:
         raise RuntimeError(f"pdftotext failed for {pdf.name}: {proc.stderr.strip()[:200]}")
     return re.sub(r"\s+", " ", proc.stdout).strip()
@@ -66,7 +75,14 @@ def build_pool(pdf_dir: Path, target_words: int) -> list[dict]:
         if paper_id is None:
             print(f"  WARNING: {pdf.name} is not in ARXIV_MAP, skipping", file=sys.stderr)
             continue
-        pieces = chunk_text(pdf_to_text(pdf), target_words)
+        text = pdf_to_text(pdf)
+        if not text:
+            print(
+                f"  WARNING: {pdf.name} has no extractable text (scanned?), skipping",
+                file=sys.stderr,
+            )
+            continue
+        pieces = chunk_text(text, target_words)
         for i, piece in enumerate(pieces):
             pool.append(
                 {

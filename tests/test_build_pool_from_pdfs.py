@@ -7,6 +7,7 @@ failure), build_pool (chunk shape, unregistered PDF skipped), main() exit paths.
 from __future__ import annotations
 
 import json
+import subprocess
 import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -53,6 +54,52 @@ def test_pdf_to_text_raises_on_pdftotext_failure():
     with patch("scripts.build_pool_from_pdfs.subprocess.run", return_value=proc):
         with pytest.raises(RuntimeError, match="pdftotext failed for x.pdf"):
             pdf_to_text(Path("x.pdf"))
+
+
+def test_pdf_to_text_converts_missing_executable():
+    with patch("scripts.build_pool_from_pdfs.subprocess.run", side_effect=FileNotFoundError):
+        with pytest.raises(RuntimeError, match="install poppler-utils"):
+            pdf_to_text(Path("x.pdf"))
+
+
+def test_pdf_to_text_converts_timeout():
+    exc = subprocess.TimeoutExpired(cmd="pdftotext", timeout=120)
+    with patch("scripts.build_pool_from_pdfs.subprocess.run", side_effect=exc):
+        with pytest.raises(RuntimeError, match="timed out"):
+            pdf_to_text(Path("x.pdf"))
+
+
+def test_pdf_to_text_passes_timeout():
+    proc = MagicMock(returncode=0, stdout="a", stderr="")
+    with patch("scripts.build_pool_from_pdfs.subprocess.run", return_value=proc) as run:
+        pdf_to_text(Path("x.pdf"))
+    assert run.call_args.kwargs["timeout"] == 120
+
+
+def test_build_pool_skips_empty_text_with_warning(tmp_path, capsys):
+    (tmp_path / "2410.10071.pdf").write_bytes(b"")  # scanned: no text
+    (tmp_path / "2410.10072.pdf").write_bytes(b"")
+    texts = {"2410.10071": "", "2410.10072": "Alpha beta."}
+    with (
+        patch.dict(mod.ARXIV_MAP, {"2410.10072": 2}),
+        patch.object(mod, "pdf_to_text", side_effect=lambda p: texts[p.stem]),
+    ):
+        pool = build_pool(tmp_path, target_words=10)
+    assert {c["arxiv_id"] for c in pool} == {"2410.10072"}
+    assert "no extractable text" in capsys.readouterr().err
+
+
+def test_main_exits_with_error_on_pdf_to_text_failure(monkeypatch, tmp_path):
+    (tmp_path / "2410.10071.pdf").write_bytes(b"")
+    monkeypatch.setattr(
+        sys, "argv", ["build", "--pdf-dir", str(tmp_path), "--out", str(tmp_path / "o.json")]
+    )
+    err = RuntimeError("pdftotext not found (install poppler-utils)")
+    with patch.object(mod, "pdf_to_text", side_effect=err):
+        with pytest.raises(SystemExit) as exc:
+            mod.main()
+    assert str(exc.value.code).startswith("[ERROR]")
+    assert "poppler-utils" in str(exc.value.code)
 
 
 def test_build_pool_shape_and_skips_unregistered(tmp_path):
