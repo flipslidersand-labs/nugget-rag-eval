@@ -52,6 +52,21 @@ def test_collect_texts_matches_what_evaluate_will_request():
     assert len(texts) == len(set(texts))  # unique
 
 
+def test_collect_texts_same_as_default_weight():
+    """#239: collect_texts uses an explicit non-zero weight; texts equal the old default (0.5)."""
+    from eval.evaluate import evaluate
+
+    by = build_chunks_index(CHUNKS)
+    seen: list[str] = []
+
+    def rec(texts):
+        seen.extend(texts)
+        return [[0.0] for _ in texts]
+
+    evaluate(by, GOLD, top_k=5, embed_fn=rec, match="exact")  # default weight 0.5
+    assert sw.collect_texts(by, GOLD, top_k=5, match="exact") == list(dict.fromkeys(seen))
+
+
 def test_each_unique_text_is_embedded_exactly_once_across_all_weights():
     by = build_chunks_index(CHUNKS)
     texts = sw.collect_texts(by, GOLD, top_k=5, match="exact")
