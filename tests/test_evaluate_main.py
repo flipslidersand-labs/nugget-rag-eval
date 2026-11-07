@@ -680,3 +680,17 @@ def test_main_embed_error_exits_with_error(tmp_path, monkeypatch):
     with pytest.raises(SystemExit) as exc_info:
         main()
     assert exc_info.value.code == "[ERROR] embedding service failed: service down"
+
+
+def test_main_dict_gold_exits_with_error(minimal_data, tmp_path, monkeypatch):
+    from eval.evaluate import main
+
+    c_path, _ = minimal_data
+    g_path = tmp_path / "gold_dict.json"
+    _write_json(g_path, {"query": "q", "answer_spans": ["x"]})
+    monkeypatch.setattr(
+        sys, "argv", ["evaluate.py", "--chunks", str(c_path), "--gold", str(g_path)]
+    )
+    with pytest.raises(SystemExit) as exc_info:
+        main()
+    assert "[ERROR]" in str(exc_info.value)
