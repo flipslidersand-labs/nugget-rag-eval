@@ -40,7 +40,8 @@ def collect_texts(chunks_by_paper: dict, gold: list[dict], top_k: int, match: st
         seen.update(dict.fromkeys(texts))
         return [[0.0] for _ in texts]
 
-    evaluate(chunks_by_paper, gold, top_k=top_k, embed_fn=recorder, match=match)
+    # weight must be non-zero: 0 skips embed_fn (#239); the texts do not depend on its value
+    evaluate(chunks_by_paper, gold, top_k=top_k, embed_fn=recorder, embed_weight=1.0, match=match)
     return list(seen)
 
 
