@@ -465,3 +465,36 @@ def test_build_chunks_index_matches_evaluate_key_for_fetch_papers_style_chunks()
 
 def test_build_chunks_index_empty_input_returns_empty_dict():
     assert build_chunks_index([]) == {}
+
+
+# ---- #231: empty span / type validation ----
+
+
+@pytest.mark.parametrize("bad", [{"a": 1}, None, "str"])
+def test_validate_gold_rejects_non_list_top_level(bad):
+    with pytest.raises(ValueError, match="gold must be a JSON array"):
+        validate_gold(bad)
+
+
+@pytest.mark.parametrize("bad", [None, ["x"], 1, "str"])
+def test_validate_gold_rejects_non_dict_element(bad):
+    with pytest.raises(ValueError, match=r"gold\[0\] must be a dict"):
+        validate_gold([bad])
+
+
+@pytest.mark.parametrize("span", ["", "   ", "\n\t"])
+def test_validate_gold_rejects_blank_span(span):
+    with pytest.raises(ValueError, match="empty|blank"):
+        validate_gold([{"arxiv_id": "2401.00001", "query": "q", "answer_spans": ["ok", span]}])
+
+
+@pytest.mark.parametrize("bad", [None, "x", 1, ["x"]])
+def test_validate_chunks_rejects_non_dict_element(bad):
+    with pytest.raises(ValueError, match="dict"):
+        validate_chunks([bad])
+
+
+def test_recall_exact_ignores_empty_span():
+    results = _make_results(["anything"])
+    assert recall_at_k(results, [""], "text", normalize=False) is False
+    assert mrr_at_k(results, [""], "text") == 0.0
