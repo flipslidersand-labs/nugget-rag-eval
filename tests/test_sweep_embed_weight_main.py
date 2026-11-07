@@ -63,6 +63,19 @@ def test_main_writes_summary_and_cache(env, monkeypatch, capsys):
     assert FakeClient.instances[0].url == "http://embed.invalid"
 
 
+def test_main_with_two_gold_files_summarises_both(env, monkeypatch):
+    tmp_path, chunks, gold = env
+    gold2 = tmp_path / "gold_hard.json"
+    gold2.write_text(json.dumps(GOLD), encoding="utf-8")
+    argv = ["sw", "--chunks", str(chunks), "--gold", str(gold), str(gold2)]
+    argv += ["--embedding-url", "http://embed.invalid", "--out-dir", str(tmp_path / "out")]
+    argv += ["--weights", "0.5"]
+    monkeypatch.setattr(sys, "argv", argv)
+    sw.main()
+    summary = json.loads((tmp_path / "out" / "summary.json").read_text(encoding="utf-8"))
+    assert set(summary) == {"gold_w0.5", "gold_hard_w0.5"}
+
+
 def test_main_resumes_from_existing_cache_without_calling_embed(env, monkeypatch):
     tmp_path, chunks, gold = env
     _run(monkeypatch, tmp_path, chunks, gold, "--weights", "0.5")
@@ -105,7 +118,8 @@ def test_main_rejects_bad_arguments(env, monkeypatch, extra, capsys):
     with pytest.raises(SystemExit) as exc:
         _run(monkeypatch, tmp_path, chunks, gold, *extra)
     assert exc.value.code == 2
-    assert "usage:" in capsys.readouterr().err
+    err = capsys.readouterr().err
+    assert "usage:" in err and extra[0] in err
 
 
 def test_main_rejects_missing_input_file(env, monkeypatch, capsys):

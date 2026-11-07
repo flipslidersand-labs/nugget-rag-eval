@@ -89,7 +89,8 @@ def test_main_rejects_bad_arguments(monkeypatch, tmp_path, extra, capsys):
     with pytest.raises(SystemExit) as exc:
         _run(monkeypatch, c, g, *extra)
     assert exc.value.code == 2
-    assert "usage:" in capsys.readouterr().err
+    err = capsys.readouterr().err
+    assert "usage:" in err and extra[0] in err
 
 
 def test_main_rejects_missing_file(monkeypatch, tmp_path, capsys):
@@ -98,3 +99,25 @@ def test_main_rejects_missing_file(monkeypatch, tmp_path, capsys):
         _run(monkeypatch, tmp_path / "nope.json", g)
     assert exc.value.code == 2
     assert "file not found" in capsys.readouterr().err
+
+
+def test_main_nuggets_per_chunk_is_passed_through(monkeypatch, tmp_path, capsys):
+    text = "Alpha beta gamma one. Alpha beta two. Alpha beta three. Alpha beta four. Zeta omega closes."
+    c, g = _files(tmp_path, text=text, span="Zeta omega closes")
+    g.write_text(
+        json.dumps(
+            [
+                {
+                    "arxiv_id": "2410.10071",
+                    "query": "alpha beta",
+                    "answer_spans": ["Zeta omega closes"],
+                }
+            ]
+        )
+    )
+    _run(monkeypatch, c, g, "--nuggets-per-chunk", "1")
+    one = capsys.readouterr().out
+    _run(monkeypatch, c, g, "--nuggets-per-chunk", "5")
+    five = capsys.readouterr().out
+    assert "C 抽出の失敗（チャンクは入ったが根拠文が選ばれない）: 1" in one
+    assert "D 成功: 1" in five
