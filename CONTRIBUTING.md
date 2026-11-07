@@ -16,12 +16,16 @@
 ## Project layout
 
 ```text
-nugget_rag/          # core library — chunker, scorer, retriever, embedder, paper_registry
-eval/                # evaluation scripts — evaluate.py, check_regression.py
-scripts/             # data fetch utilities — fetch_papers.py
+nugget_rag/          # core library (chunker.py, scorer.py, retriever.py, etc.)
+eval/                # evaluation CLIs (evaluate.py, check_regression.py, etc.), gold sets, and
+                     #   shared argparse helpers (cli_helpers.py, also imported by scripts/)
+scripts/             # data fetch / pool build / analysis scripts
 tests/               # pytest suite
 tests/fixtures/      # minimal test data for CI (chunks_test.json, gold_test.json)
+docs/adr/            # architecture decision records
 ```
+
+Run `git ls-files` for the per-file list; it is not enumerated here to avoid drift.
 
 ## Adding a new paper to ARXIV_MAP
 
@@ -29,12 +33,14 @@ Edit `nugget_rag/paper_registry.py` — one source of truth for arxiv_id → pap
 
 ## CI
 
-| Job | Runner | Purpose |
-|-----|--------|---------|
-| `test` | `linux-general` (ARC) | lint + pytest with coverage ≥ 90% |
-| `eval-regression` | `ubuntu-latest` | BM25 recall check against fixture data |
+| Job | Purpose |
+|-----|---------|
+| `markdownlint` | markdownlint-cli with `.markdownlint.json` over all `*.md` |
+| `test` | reusable workflow (`qa-workflows/python-test.yml`); coverage threshold 90% (`coverage-threshold: 90` in ci.yml; `fail_under` in `pyproject.toml` is the same value) |
+| `eval-regression` | after `test`: `check_regression.py` on fixture data, then on `data/chunks_large.json` (BM25-only, threshold 0.95) |
+| `gitleaks` | secret scan (reusable workflow) |
 
-Both must pass before a PR can merge.
+Required check on `main`: `gitleaks`. The other jobs (`markdownlint`, `test`, `eval-regression`) are expected to pass before merging.
 
 ## Commit style
 

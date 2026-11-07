@@ -1,3 +1,5 @@
+import pytest
+
 from nugget_rag.retriever import retrieve_full_chunk, retrieve_nuggets
 
 CHUNKS = [
@@ -213,3 +215,22 @@ def test_retrieve_nuggets_embed_fn_empty_chunks():
     results = retrieve_nuggets([], "KV cache", top_k=5, embed_fn=embed_fn)
     assert results == []
     assert len(calls) == 0
+
+
+# ── #239 embed_weight=0 では埋め込みサービスを呼ばない ─────────────────────
+
+
+@pytest.mark.parametrize("weight", [0, 0.0, -0.0])
+def test_retrieve_nuggets_embed_weight_zero_does_not_call_embed_fn(weight):
+    """#239: 重み 0 は埋め込みがスコアに寄与しないので embed_fn を呼ばない。"""
+    embed_fn, calls = _make_counting_embed_fn()
+    results = retrieve_nuggets(CHUNKS, "KV cache", top_k=3, embed_fn=embed_fn, embed_weight=weight)
+    assert len(calls) == 0
+    assert results == retrieve_nuggets(CHUNKS, "KV cache", top_k=3)
+
+
+def test_retrieve_nuggets_embed_weight_positive_still_calls_embed_fn():
+    """#239: 重み > 0 は従来どおり embed_fn を 1 回呼ぶ。"""
+    embed_fn, calls = _make_counting_embed_fn()
+    retrieve_nuggets(CHUNKS, "KV cache", top_k=3, embed_fn=embed_fn, embed_weight=0.5)
+    assert len(calls) == 1
