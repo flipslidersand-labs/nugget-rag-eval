@@ -41,8 +41,10 @@ def pdf_to_text(pdf: Path) -> str:
         raise RuntimeError(
             f"pdftotext timed out after {PDFTOTEXT_TIMEOUT_SEC}s for {pdf.name}"
         ) from exc
-    except OSError as exc:  # FileNotFoundError when poppler-utils is missing
-        raise RuntimeError(f"pdftotext not found (install poppler-utils): {exc}") from exc
+    except FileNotFoundError as exc:
+        raise RuntimeError("pdftotext not found (install poppler-utils)") from exc
+    except OSError as exc:
+        raise RuntimeError(f"pdftotext could not be run for {pdf.name}: {exc}") from exc
     if proc.returncode != 0:
         raise RuntimeError(f"pdftotext failed for {pdf.name}: {proc.stderr.strip()[:200]}")
     return re.sub(r"\s+", " ", proc.stdout).strip()
@@ -111,7 +113,10 @@ def main() -> None:
     except RuntimeError as exc:
         sys.exit(f"[ERROR] {exc}")
     if not pool:
-        sys.exit(f"[ERROR] no chunks built from {args.pdf_dir}")
+        sys.exit(
+            f"[ERROR] no chunks built from {args.pdf_dir} "
+            "(every PDF was skipped: empty extracted text or not in ARXIV_MAP; see WARNINGs above)"
+        )
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
     tmp = args.out.with_suffix(".tmp")
