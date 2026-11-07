@@ -134,6 +134,7 @@ def top_nuggets(
     Pre-computed vectors can be supplied via ``query_vec`` and ``sent_vecs``
     to avoid redundant HTTP calls when batching across multiple chunks.
     When both are provided, ``embed_fn`` is not called.
+    Providing only one of ``query_vec`` / ``sent_vecs`` raises ValueError.
     """
     if not sentences:
         return []

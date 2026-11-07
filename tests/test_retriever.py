@@ -241,7 +241,7 @@ def test_retrieve_nuggets_embed_fn_one_too_few_vectors_raises():
     def short_embed(texts):
         return [[1.0, 0.0] for _ in texts][:-1]
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="embed_fn returned .* vectors, expected"):
         retrieve_nuggets(CHUNKS, "KV cache", top_k=3, embed_fn=short_embed)
 
 
