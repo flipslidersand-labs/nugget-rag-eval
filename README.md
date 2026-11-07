@@ -31,9 +31,9 @@ nugget が当たる問題は full-chunk も必ず当たる（部分集合）。R
 ## ディレクトリ構成
 
 ```text
-nugget_rag/   # コアライブラリ（chunker / scorer / retriever / embedder / vectors / paper_registry）
-eval/         # 評価 CLI（evaluate.py / compare.py / check_regression.py / cli_helpers.py）と
-              #   ゴールドセット・基準値（gold_set*.json / baseline_hard.json）
+nugget_rag/   # コアライブラリ（chunker.py / scorer.py / retriever.py ほか）
+eval/         # 評価 CLI（evaluate.py / check_regression.py ほか）、ゴールドセット・基準値、
+              #   CLI 共通の argparse 型ヘルパー（cli_helpers.py。scripts/ からも import される）
 scripts/      # データ取得・プール作成・分析用スクリプト（fetch_papers.py / build_pool_from_pdfs.py ほか）
 tests/        # pytest スイート（fixtures/ に評価スクリプト用テストデータ）
 data/         # CI 回帰ゲート用チャンク（chunks_large.json）。PDF 由来のプールは gitignore

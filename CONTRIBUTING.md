@@ -16,8 +16,9 @@
 ## Project layout
 
 ```text
-nugget_rag/          # core library (chunker, scorer, retriever, embedder, vectors, paper_registry)
-eval/                # evaluation CLIs (evaluate, compare, check_regression, cli_helpers) and gold sets
+nugget_rag/          # core library (chunker.py, scorer.py, retriever.py, etc.)
+eval/                # evaluation CLIs (evaluate.py, check_regression.py, etc.), gold sets, and
+                     #   shared argparse helpers (cli_helpers.py, also imported by scripts/)
 scripts/             # data fetch / pool build / analysis scripts
 tests/               # pytest suite
 tests/fixtures/      # minimal test data for CI (chunks_test.json, gold_test.json)
@@ -35,11 +36,11 @@ Edit `nugget_rag/paper_registry.py` — one source of truth for arxiv_id → pap
 | Job | Purpose |
 |-----|---------|
 | `markdownlint` | markdownlint-cli with `.markdownlint.json` over all `*.md` |
-| `test` | reusable workflow (`qa-workflows/python-test.yml`); coverage threshold 90% (`fail_under = 90` in `pyproject.toml`) |
+| `test` | reusable workflow (`qa-workflows/python-test.yml`); coverage threshold 90% (`coverage-threshold: 90` in ci.yml; `fail_under` in `pyproject.toml` is the same value) |
 | `eval-regression` | after `test`: `check_regression.py` on fixture data, then on `data/chunks_large.json` (BM25-only, threshold 0.95) |
 | `gitleaks` | secret scan (reusable workflow) |
 
-All jobs must pass before a PR can merge.
+Required check on `main`: `gitleaks`. The other jobs (`markdownlint`, `test`, `eval-regression`) are expected to pass before merging.
 
 ## Commit style
 
