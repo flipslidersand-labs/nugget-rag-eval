@@ -130,7 +130,10 @@ def main() -> None:
     except ValueError as exc:
         sys.exit(f"[ERROR] {exc}")
 
-    rows = run_matrix(pools, golds, args.windows, tuple(args.scopes))
+    try:
+        rows = run_matrix(pools, golds, args.windows, tuple(args.scopes))
+    except ValueError as exc:
+        sys.exit(f"[ERROR] {exc}")
     print(format_markdown(rows))
     if args.json:
         args.json.write_text(json.dumps(rows, ensure_ascii=False, indent=1), encoding="utf-8")

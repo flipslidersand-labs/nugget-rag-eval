@@ -133,3 +133,12 @@ def test_main_rejects_missing_input_file(env, monkeypatch, capsys):
 def test_load_cache_missing_file_or_none_gives_empty(tmp_path):
     assert sw.load_cache(None) == {}
     assert sw.load_cache(tmp_path / "absent.json") == {}
+
+
+def test_main_exits_when_gold_and_chunks_do_not_match(env, monkeypatch):
+    tmp_path, chunks, gold = env
+    other = [{**CHUNKS[0], "paper_id": ARXIV_MAP["2508.11836"], "arxiv_id": "2508.11836"}]
+    chunks.write_text(json.dumps(other), encoding="utf-8")
+    with pytest.raises(SystemExit) as exc:
+        _run(monkeypatch, tmp_path, chunks, gold, "--weights", "0.0")
+    assert str(exc.value.code).startswith("[ERROR] no gold paper key found in chunks")
