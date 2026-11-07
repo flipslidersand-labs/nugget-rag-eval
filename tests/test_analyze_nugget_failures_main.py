@@ -121,3 +121,18 @@ def test_main_nuggets_per_chunk_is_passed_through(monkeypatch, tmp_path, capsys)
     five = capsys.readouterr().out
     assert "C 抽出の失敗（チャンクは入ったが根拠文が選ばれない）: 1" in one
     assert "D 成功: 1" in five
+
+
+def test_main_exits_when_gold_and_chunks_do_not_match(monkeypatch, tmp_path):
+    c, g = _files(tmp_path)
+    other = [
+        {
+            **json.loads(c.read_text())[0],
+            "paper_id": ARXIV_MAP["2508.11836"],
+            "arxiv_id": "2508.11836",
+        }
+    ]
+    c.write_text(json.dumps(other), encoding="utf-8")
+    with pytest.raises(SystemExit) as exc:
+        _run(monkeypatch, c, g)
+    assert str(exc.value.code).startswith("[ERROR] no gold paper key found in chunks")
