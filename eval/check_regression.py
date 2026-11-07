@@ -23,6 +23,15 @@ from eval.cli_helpers import existing_file, float_between_0_1, load_json, positi
 from eval.evaluate import build_chunks_index, evaluate, mode_label, validate_chunks
 
 
+def raw_recall(result: dict, mode: str) -> float:
+    """Unrounded recall (hits / n_queries); falls back to the displayed value without hit counts."""
+    hits = result.get("hits", {}).get(mode)
+    n = result.get("n_queries")
+    if hits is None or not n:
+        return result[mode]["recall"]
+    return hits / n
+
+
 def check_baseline(result: dict, baseline_path: str, max_drop: float) -> tuple[list[str], str]:
     """Compare recall against a recorded baseline.
 
@@ -44,10 +53,11 @@ def check_baseline(result: dict, baseline_path: str, max_drop: float) -> tuple[l
     failures = []
     for mode in base:  # modes without a recorded baseline are not checked yet
         now = result[mode]["recall"]
-        drop = round(base[mode] - now, 3)
+        # round(..., 9) only absorbs float noise (0.5 - 0.45); it must not hide real drops.
+        drop = round(base[mode] - raw_recall(result, mode), 9)
         if drop > max_drop:
             failures.append(
-                f"{mode} recall {now} dropped {drop} from baseline {base[mode]} (max-drop {max_drop})"
+                f"{mode} recall {now} dropped {round(drop, 3)} from baseline {base[mode]} (max-drop {max_drop})"
             )
     return failures, ""
 
@@ -116,9 +126,10 @@ def main() -> None:
     failed = []
     for name in result["modes"]:
         recall = result[name]["recall"]
+        exact = raw_recall(result, name)
         label = mode_label(name)
         print(f"  {label:<10} : {recall}")
-        if recall < threshold:
+        if exact < threshold:
             failed.append(f"{label:<10} Recall@{args.top_k} {recall} < threshold {threshold}")
 
     drops: list[str] = []
