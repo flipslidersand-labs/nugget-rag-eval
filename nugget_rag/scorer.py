@@ -6,6 +6,7 @@ import math
 import unicodedata
 from collections import Counter
 from collections.abc import Callable
+from functools import cache
 
 from nugget_rag.vectors import embed_scores
 
@@ -20,16 +21,45 @@ def _char_ngrams(text: str, n: int = 2) -> list[str]:
     return [text[i : i + n] for i in range(len(text) - n + 1)] if len(text) >= n else list(text)
 
 
+_BIGRAM_SCRIPTS = (
+    "CJK",
+    "IDEOGRAPHIC",
+    "HIRAGANA",
+    "KATAKANA",
+    "KANA",
+    "HENTAIGANA",
+    "HANGUL",
+    "BOPOMOFO",
+    "HANGZHOU",
+    "MASU",
+)
+
+
+@cache
+def _is_bigram_char(ch: str) -> bool:
+    """True for ideographs/kana/hangul, which have no word spaces and get bigrams.
+
+    Substring match on the Unicode name so that e.g. the prolonged sound mark
+    ("KATAKANA-HIRAGANA PROLONGED SOUND MARK") is included.
+    """
+    if ch.isascii():
+        return False
+    name = unicodedata.name(ch, "")
+    return any(sc in name for sc in _BIGRAM_SCRIPTS)
+
+
 def _tokenize(text: str) -> list[str]:
     """Hybrid tokenizer that handles mixed-language text uniformly.
 
     Strategy (applied to every text regardless of language ratio):
-    - Latin/ASCII tokens are maximal runs of ASCII letters/digits in the
-      lowercased text; punctuation ("accuracy.", "model,") is a separator.
-    - Non-ASCII punctuation/symbols/spaces (Unicode categories P*/S*/Z*/C*,
-      e.g. the apostrophe in "model’s") are separators too.
-    - Consecutive remaining non-ASCII (CJK/Kana/etc.) runs are decomposed into character
-      bigrams so that Japanese/Chinese terms can be matched even when the query
+    - Text is NFKC-normalized and lowercased (full-width "ＧＰＴ" -> "gpt").
+    - Word tokens are maximal runs of letters/digits of any script except
+      CJK/Hiragana/Katakana/Hangul (so "café" and Greek stay whole), with
+      combining marks kept. Everything else (ASCII or Unicode punctuation,
+      symbols, spaces, format chars) is a separator. Hyphens and decimal points
+      split: "gpt-4" -> "gpt", "4" (measured on gold_set_hard: joining them
+      lowered Recall@5, see #262).
+    - CJK/Kana/Hangul runs are decomposed into character bigrams so that Japanese/Chinese terms can be matched even when the query
       is written in a different script.
 
     This ensures that an English query and a Japanese sentence share the same
@@ -37,32 +67,33 @@ def _tokenize(text: str) -> list[str]:
     structural mismatch that caused BM25 to return all-zero scores for
     cross-language pairs.
     """
+    text = unicodedata.normalize("NFKC", text).lower()
     tokens: list[str] = []
-    ascii_buf: list[str] = []
+    word_buf: list[str] = []
     cjk_run: list[str] = []
 
     def _flush() -> None:
-        if ascii_buf:
-            tokens.append("".join(ascii_buf))
-            ascii_buf.clear()
+        if word_buf:
+            tokens.append("".join(word_buf))
+            word_buf.clear()
         if cjk_run:
             tokens.extend(_char_ngrams("".join(cjk_run)))
             cjk_run.clear()
 
-    for ch in text.lower():
-        if ch.isascii():
-            if ch.isalnum():
+    for ch in text:
+        if ch.isalnum():
+            if _is_bigram_char(ch):
+                if word_buf:
+                    _flush()
+                cjk_run.append(ch)
+            else:  # ASCII/Latin/Greek/Cyrillic/... letters and digits: word token
                 if cjk_run:
                     _flush()
-                ascii_buf.append(ch)
-            else:  # whitespace and ASCII punctuation separate tokens
-                _flush()
-        elif ch.isspace() or unicodedata.category(ch)[0] in "PSZC":
-            _flush()  # non-ASCII punctuation/symbols/spaces: separator, not a CJK char
-        else:
-            if ascii_buf:
-                _flush()
-            cjk_run.append(ch)
+                word_buf.append(ch)
+        elif unicodedata.category(ch)[0] == "M" and word_buf:
+            word_buf.append(ch)  # combining mark stays with its base letter
+        else:  # whitespace, punctuation, symbols, format chars: separator
+            _flush()
     _flush()
 
     return tokens
