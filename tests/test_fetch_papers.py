@@ -7,6 +7,7 @@ Covers: _sanitize_query, combine_large_chunks,
 
 from __future__ import annotations
 
+import http.client
 import json
 from unittest.mock import MagicMock, patch
 from urllib.error import HTTPError, URLError
@@ -14,6 +15,7 @@ from urllib.error import HTTPError, URLError
 import pytest
 
 from scripts.fetch_papers import (
+    _MAX_RETRIES,
     ARXIV_TO_PAPER_ID,
     PAPER_ID_TO_ARXIV,
     FetchError,
@@ -642,3 +644,56 @@ def test_fetch_chunks_non_list_results_raises_fetch_error(mock_open, body):
     mock_open.return_value = _cm(body).return_value
     with pytest.raises(FetchError):
         fetch_chunks_for_paper("http://api", paper_id=1, query="test")
+
+
+# ── read() 中のタイムアウト/切断 (#265) ───────────────────────────────────────
+
+
+def _read_raises_cm(exc: BaseException) -> MagicMock:
+    """urlopen() は成功するが read() が exc を投げるレスポンスのモック。"""
+    resp = MagicMock()
+    resp.read.side_effect = exc
+    resp.__enter__.return_value = resp
+    resp.__exit__.return_value = False
+    return resp
+
+
+_READ_ERRORS = [
+    pytest.param(lambda: TimeoutError("timed out"), id="timeout"),
+    pytest.param(lambda: ConnectionResetError("reset"), id="conn-reset"),
+    pytest.param(lambda: http.client.IncompleteRead(b"par", 10), id="incomplete-read"),
+]
+
+
+@pytest.mark.parametrize("make_exc", _READ_ERRORS)
+@patch("scripts.fetch_papers.time.sleep")
+@patch("scripts.fetch_papers.urlopen")
+def test_retry_succeeds_after_read_error(mock_open, mock_sleep, make_exc):
+    """read() 中の例外は再試行され、次の試行で成功すればボディが返る。"""
+    ok = _cm(b"payload").return_value
+    mock_open.side_effect = [_read_raises_cm(make_exc()), ok]
+    assert _urlopen_with_retry("http://api", timeout=5) == b"payload"
+    assert mock_open.call_count == 2
+    assert mock_sleep.call_count == 1
+
+
+@pytest.mark.parametrize("make_exc", _READ_ERRORS)
+@patch("scripts.fetch_papers.time.sleep")
+@patch("scripts.fetch_papers.urlopen")
+def test_fetch_chunks_read_error_exhaustion_raises_fetch_error(mock_open, mock_sleep, make_exc):
+    """再試行を使い切ったら FetchError（traceback で止まらない）。"""
+    mock_open.side_effect = lambda *a, **k: _read_raises_cm(make_exc())
+    with pytest.raises(FetchError, match="Failed to fetch chunks for paper 1"):
+        fetch_chunks_for_paper("http://api", paper_id=1, query="q")
+    assert mock_open.call_count == _MAX_RETRIES + 1
+    assert mock_sleep.call_count == _MAX_RETRIES
+
+
+@pytest.mark.parametrize("make_exc", _READ_ERRORS)
+@patch("scripts.fetch_papers.time.sleep")
+@patch("scripts.fetch_papers.urlopen")
+def test_fetch_papers_read_error_exhaustion_raises_fetch_error(mock_open, mock_sleep, make_exc):
+    mock_open.side_effect = lambda *a, **k: _read_raises_cm(make_exc())
+    with pytest.raises(FetchError, match="Failed to fetch papers"):
+        fetch_papers("http://api")
+    assert mock_open.call_count == _MAX_RETRIES + 1
