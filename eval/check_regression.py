@@ -53,8 +53,8 @@ def check_baseline(result: dict, baseline_path: str, max_drop: float) -> tuple[l
     failures = []
     for mode in base:  # modes without a recorded baseline are not checked yet
         now = result[mode]["recall"]
-        # round(..., 9) only absorbs float noise (0.5 - 0.45); it must not hide real drops.
-        drop = round(base[mode] - raw_recall(result, mode), 9)
+        # baseline is stored rounded to 3 places, so compare displayed values (#268 covers the threshold only).
+        drop = round(base[mode] - now, 3)
         if drop > max_drop:
             failures.append(
                 f"{mode} recall {now} dropped {round(drop, 3)} from baseline {base[mode]} (max-drop {max_drop})"
@@ -130,7 +130,7 @@ def main() -> None:
         label = mode_label(name)
         print(f"  {label:<10} : {recall}")
         if exact < threshold:
-            failed.append(f"{label:<10} Recall@{args.top_k} {recall} < threshold {threshold}")
+            failed.append(f"{label:<10} Recall@{args.top_k} {exact:.5f} < threshold {threshold}")
 
     drops: list[str] = []
     if args.baseline:

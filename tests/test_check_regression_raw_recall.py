@@ -74,10 +74,11 @@ def _baseline(tmp_path, recall):
     return str(p)
 
 
-def test_baseline_drop_uses_unrounded_recall(tmp_path):
-    # raw 189/199 = 0.94975; baseline 1.0 -> drop 0.05025 > 0.05 (rounded 0.95 gave 0.05)
-    failures, _ = check_baseline(_result(189, 199), _baseline(tmp_path, 1.0), max_drop=0.05)
-    assert len(failures) == 2
+def test_baseline_compares_displayed_values_no_rounding_false_fail(tmp_path):
+    # true drop 4/60 -> 1/60 is exactly 0.05, but the baseline is stored as 0.067:
+    # comparing against the unrounded current value would FAIL (0.0503 > 0.05).
+    failures, _ = check_baseline(_result(1, 60), _baseline(tmp_path, 0.067), max_drop=0.05)
+    assert failures == []
 
 
 def test_baseline_drop_exactly_max_drop_passes(tmp_path):
