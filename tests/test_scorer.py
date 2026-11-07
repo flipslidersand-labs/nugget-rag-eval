@@ -425,3 +425,14 @@ def test_tokenize_hyphen_and_decimal_split_policy():
 def test_tokenize_kana_hangul_still_bigram():
     assert _tokenize("カタカナ") == ["カタ", "タカ", "カナ"]
     assert _tokenize("한국어") == ["한국", "국어"]
+
+
+def test_tokenize_prolonged_sound_mark_stays_in_bigrams():
+    assert _tokenize("データ") == ["デー", "ータ"]
+    assert _tokenize("サーバー") == ["サー", "ーバ", "バー"]
+    assert _tokenize("ｶﾞｰﾄﾞ") == ["ガー", "ード"]
+
+
+def test_tokenize_iteration_marks_stay_in_bigrams():
+    assert _tokenize("人々") == ["人々"]
+    assert _tokenize("〇〆") == ["〇〆"]

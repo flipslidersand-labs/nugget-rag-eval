@@ -6,6 +6,7 @@ import math
 import unicodedata
 from collections import Counter
 from collections.abc import Callable
+from functools import cache
 
 from nugget_rag.vectors import embed_scores
 
@@ -20,12 +21,31 @@ def _char_ngrams(text: str, n: int = 2) -> list[str]:
     return [text[i : i + n] for i in range(len(text) - n + 1)] if len(text) >= n else list(text)
 
 
-_BIGRAM_SCRIPTS = ("CJK", "HIRAGANA", "KATAKANA", "HANGUL")
+_BIGRAM_SCRIPTS = (
+    "CJK",
+    "IDEOGRAPHIC",
+    "HIRAGANA",
+    "KATAKANA",
+    "KANA",
+    "HENTAIGANA",
+    "HANGUL",
+    "BOPOMOFO",
+    "HANGZHOU",
+    "MASU",
+)
 
 
+@cache
 def _is_bigram_char(ch: str) -> bool:
-    """True for ideographs/kana/hangul, which have no word spaces and get bigrams."""
-    return any(w in _BIGRAM_SCRIPTS for w in unicodedata.name(ch, "").split())
+    """True for ideographs/kana/hangul, which have no word spaces and get bigrams.
+
+    Substring match on the Unicode name so that e.g. the prolonged sound mark
+    ("KATAKANA-HIRAGANA PROLONGED SOUND MARK") is included.
+    """
+    if ch.isascii():
+        return False
+    name = unicodedata.name(ch, "")
+    return any(sc in name for sc in _BIGRAM_SCRIPTS)
 
 
 def _tokenize(text: str) -> list[str]:
