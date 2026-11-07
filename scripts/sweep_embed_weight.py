@@ -51,6 +51,10 @@ def load_cache(path: Path | None) -> dict[str, list[float]]:
     # Re-embedding is expensive, so a corrupt cache is an error, never silently discarded.
     try:
         cache = json.loads(path.read_text(encoding="utf-8"))
+    except PermissionError:
+        sys.exit(f"[ERROR] permission denied reading cache file: {path}")
+    except OSError as exc:
+        sys.exit(f"[ERROR] cannot read cache file: {path} ({exc})")
     except (json.JSONDecodeError, UnicodeDecodeError) as exc:
         sys.exit(f"[ERROR] cache file is corrupt: {path} ({exc})")
     if not isinstance(cache, dict):
