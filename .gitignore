@@ -13,3 +13,5 @@ data/*
 !tests/fixtures/
 .env
 .env.local
+out/
+*embed_cache*.json
