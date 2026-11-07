@@ -7,6 +7,7 @@ import pytest
 from nugget_rag.embedder import (
     MAX_BATCH_SIZE,
     EmbedClient,
+    EmbedError,
     _is_plain_http_remote,
     _validate_url,
     cosine_similarity,
@@ -445,6 +446,21 @@ def test_non_dict_json_raises_embed_error(mock_open, payload):
     from nugget_rag.embedder import EmbedError
 
     mock_open.return_value = _make_cm_mock(payload).return_value
+    with pytest.raises(EmbedError, match="Unexpected"):
+        EmbedClient("http://localhost:9092").embed(["a"])
+
+
+@patch("nugget_rag.embedder.urlopen")
+def test_invalid_utf8_response_raises_embed_error(mock_open):
+    mock_open.return_value = _make_cm_mock(b'{"vectors": "\xff\xfe"}').return_value
+    with pytest.raises(EmbedError, match="Unexpected"):
+        EmbedClient("http://localhost:9092").embed(["a"])
+
+
+@pytest.mark.parametrize("vecs", [5, "abc", {"a": 1}])
+@patch("nugget_rag.embedder.urlopen")
+def test_non_list_vectors_raises_embed_error(mock_open, vecs):
+    mock_open.return_value = _make_cm_mock(_json.dumps({"vectors": vecs}).encode()).return_value
     with pytest.raises(EmbedError, match="Unexpected"):
         EmbedClient("http://localhost:9092").embed(["a"])
 

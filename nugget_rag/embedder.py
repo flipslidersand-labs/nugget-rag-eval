@@ -146,6 +146,10 @@ class EmbedClient:
                     raise EmbedError(
                         f"Expected 'vectors' or 'embeddings' key in response, got: {list(resp)}"
                     )
+                if not isinstance(vecs, list):
+                    raise EmbedError(
+                        f"Unexpected embedding response format: vectors must be a list, got {type(vecs).__name__}"
+                    )
                 if len(vecs) != len(texts):
                     raise EmbedError(
                         f"Embedding count mismatch: sent {len(texts)} texts, got {len(vecs)} vectors"
@@ -161,7 +165,8 @@ class EmbedClient:
             except (TimeoutError, ConnectionError, http.client.HTTPException) as exc:
                 # read() 中のタイムアウト/切断 (HTTPError/URLError は上で捕捉済み)
                 last_exc = exc
-            except (json.JSONDecodeError, KeyError) as exc:
+            except ValueError as exc:
+                # JSONDecodeError / UnicodeDecodeError (どちらも ValueError 派生)
                 raise EmbedError(f"Unexpected embedding response format: {exc}") from exc
             if attempt < self.max_retries:
                 time.sleep(self.retry_backoff * (2**attempt))
