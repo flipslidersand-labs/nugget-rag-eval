@@ -165,8 +165,8 @@ class EmbedClient:
             except (TimeoutError, ConnectionError, http.client.HTTPException) as exc:
                 # read() 中のタイムアウト/切断 (HTTPError/URLError は上で捕捉済み)
                 last_exc = exc
-            except ValueError as exc:
-                # JSONDecodeError / UnicodeDecodeError (どちらも ValueError 派生)
+            except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+                # 応答側の不正のみ (リクエスト側の ValueError は変換しない)
                 raise EmbedError(f"Unexpected embedding response format: {exc}") from exc
             if attempt < self.max_retries:
                 time.sleep(self.retry_backoff * (2**attempt))
