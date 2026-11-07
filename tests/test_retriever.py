@@ -234,3 +234,20 @@ def test_retrieve_nuggets_embed_weight_positive_still_calls_embed_fn():
     embed_fn, calls = _make_counting_embed_fn()
     retrieve_nuggets(CHUNKS, "KV cache", top_k=3, embed_fn=embed_fn, embed_weight=0.5)
     assert len(calls) == 1
+
+
+# ── #251 ベクトル形状の検証 ───────────────────────────────────────────────
+def test_retrieve_nuggets_embed_fn_one_too_few_vectors_raises():
+    def short_embed(texts):
+        return [[1.0, 0.0] for _ in texts][:-1]
+
+    with pytest.raises(ValueError, match="embed_fn returned .* vectors, expected"):
+        retrieve_nuggets(CHUNKS, "KV cache", top_k=3, embed_fn=short_embed)
+
+
+def test_retrieve_nuggets_embed_fn_dimension_mismatch_raises():
+    def ragged_embed(texts):
+        return [[1.0, 0.0] if i % 2 == 0 else [1.0] for i in range(len(texts))]
+
+    with pytest.raises(ValueError):
+        retrieve_nuggets(CHUNKS, "KV cache", top_k=3, embed_fn=ragged_embed)
