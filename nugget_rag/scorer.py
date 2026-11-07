@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+import unicodedata
 from collections import Counter
 from collections.abc import Callable
 
@@ -23,8 +24,11 @@ def _tokenize(text: str) -> list[str]:
     """Hybrid tokenizer that handles mixed-language text uniformly.
 
     Strategy (applied to every text regardless of language ratio):
-    - Latin/ASCII words are extracted by whitespace-splitting the lowercased text.
-    - Consecutive non-ASCII (CJK/Kana/etc.) runs are decomposed into character
+    - Latin/ASCII tokens are maximal runs of ASCII letters/digits in the
+      lowercased text; punctuation ("accuracy.", "model,") is a separator.
+    - Non-ASCII punctuation/symbols/spaces (Unicode categories P*/S*/Z*/C*,
+      e.g. the apostrophe in "model’s") are separators too.
+    - Consecutive remaining non-ASCII (CJK/Kana/etc.) runs are decomposed into character
       bigrams so that Japanese/Chinese terms can be matched even when the query
       is written in a different script.
 
@@ -34,39 +38,32 @@ def _tokenize(text: str) -> list[str]:
     cross-language pairs.
     """
     tokens: list[str] = []
-    text_lower = text.lower()
-    # Accumulate the current non-ASCII run to bigram-ise later.
+    ascii_buf: list[str] = []
     cjk_run: list[str] = []
 
-    def _flush_cjk() -> None:
-        if not cjk_run:
-            return
-        run = "".join(cjk_run)
-        tokens.extend(_char_ngrams(run))
-        cjk_run.clear()
-
-    for word in text_lower.split():
-        # Split each whitespace-delimited word into ASCII and non-ASCII parts.
-        ascii_buf: list[str] = []
-        for ch in word:
-            if ch.isascii():
-                if cjk_run:
-                    _flush_cjk()
-                ascii_buf.append(ch)
-            else:
-                if ascii_buf:
-                    # Emit the accumulated ASCII fragment as one token.
-                    fragment = "".join(ascii_buf).strip()
-                    if fragment:
-                        tokens.append(fragment)
-                    ascii_buf.clear()
-                cjk_run.append(ch)
+    def _flush() -> None:
         if ascii_buf:
-            fragment = "".join(ascii_buf).strip()
-            if fragment:
-                tokens.append(fragment)
+            tokens.append("".join(ascii_buf))
+            ascii_buf.clear()
         if cjk_run:
-            _flush_cjk()
+            tokens.extend(_char_ngrams("".join(cjk_run)))
+            cjk_run.clear()
+
+    for ch in text.lower():
+        if ch.isascii():
+            if ch.isalnum():
+                if cjk_run:
+                    _flush()
+                ascii_buf.append(ch)
+            else:  # whitespace and ASCII punctuation separate tokens
+                _flush()
+        elif ch.isspace() or unicodedata.category(ch)[0] in "PSZC":
+            _flush()  # non-ASCII punctuation/symbols/spaces: separator, not a CJK char
+        else:
+            if ascii_buf:
+                _flush()
+            cjk_run.append(ch)
+    _flush()
 
     return tokens
 
