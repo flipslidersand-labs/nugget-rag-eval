@@ -213,12 +213,15 @@ def fetch_per_query(
     failure_count = 0
     for item in gold:
         # Resolve paper_id: prefer arxiv_id field, fall back to paper_id int
-        if "arxiv_id" in item:
+        # A null/empty arxiv_id falls back to paper_id (#230).
+        if item.get("arxiv_id"):
             pid = ARXIV_TO_PAPER_ID.get(item["arxiv_id"])
             if pid is None:
                 print(
                     f"  WARNING: unknown arxiv_id '{item['arxiv_id']}', skipping", file=sys.stderr
                 )
+                # Count it so --max-failures gates unregistered ids (#230).
+                failure_count += 1
                 continue
         else:
             pid = item["paper_id"]
