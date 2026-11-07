@@ -170,7 +170,7 @@ def _span_in(text: str, spans: list[str], normalize: bool) -> bool:
         norm_text = _normalize_for_match(text)
         return any(n and n in norm_text for n in map(_normalize_for_match, spans))
     low = text.lower()
-    return any(span and span.lower() in low for span in spans)
+    return any(span.strip() and span.lower() in low for span in spans)
 
 
 def recall_at_k(

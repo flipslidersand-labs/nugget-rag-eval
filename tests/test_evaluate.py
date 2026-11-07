@@ -470,11 +470,15 @@ def test_build_chunks_index_empty_input_returns_empty_dict():
 # ---- #231: empty span / type validation ----
 
 
-@pytest.mark.parametrize("bad", [{"a": 1}, ["x"], None, "str"])
-def test_validate_gold_rejects_non_list_or_non_dict_items(bad):
-    with pytest.raises(ValueError):
-        validate_gold(bad if isinstance(bad, (dict, str)) or bad is None else [bad])
-    with pytest.raises(ValueError):
+@pytest.mark.parametrize("bad", [{"a": 1}, None, "str"])
+def test_validate_gold_rejects_non_list_top_level(bad):
+    with pytest.raises(ValueError, match="gold must be a JSON array"):
+        validate_gold(bad)
+
+
+@pytest.mark.parametrize("bad", [None, ["x"], 1, "str"])
+def test_validate_gold_rejects_non_dict_element(bad):
+    with pytest.raises(ValueError, match=r"gold\[0\] must be a dict"):
         validate_gold([bad])
 
 
