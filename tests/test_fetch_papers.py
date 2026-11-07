@@ -25,6 +25,7 @@ from scripts.fetch_papers import (
     fetch_papers,
     fetch_per_query,
 )
+from scripts.fetch_papers import main as fetch_papers_main
 
 
 def _http_error(code: int) -> HTTPError:
@@ -286,9 +287,38 @@ def test_fetch_per_query_skips_unknown_arxiv_id(mock_fetch, capsys):
     gold = [{"arxiv_id": "9999.99999", "query": "q", "answer_spans": ["t"]}]
     result, failures = fetch_per_query("http://api", gold, chunk_mode="small", target_tokens=512)
     assert result == []
-    assert failures == 0
+    assert failures == 1  # #230: counted so --max-failures can gate it
     mock_fetch.assert_not_called()
     assert "WARNING" in capsys.readouterr().err
+
+
+@patch("scripts.fetch_papers.fetch_chunks_for_paper")
+def test_fetch_per_query_null_arxiv_id_falls_back_to_paper_id(mock_fetch):
+    """arxiv_id が null/空でも有効な paper_id が使われ、失敗に数えない (#230)。"""
+    mock_fetch.return_value = [{"paper_id": 7, "chunk_index": 0, "text": "t", "score": 0.5}]
+    gold = [
+        {"arxiv_id": None, "paper_id": 7, "query": "q", "answer_spans": ["t"]},
+        {"arxiv_id": "", "paper_id": 7, "query": "q2", "answer_spans": ["t"]},
+    ]
+    result, failures = fetch_per_query("http://api", gold, chunk_mode="small", target_tokens=512)
+    assert failures == 0
+    assert [c[0][1] for c in mock_fetch.call_args_list] == [7, 7]
+    assert len(result) == 1
+
+
+def test_main_unregistered_arxiv_id_exits_1_by_default(tmp_path, monkeypatch):
+    """未登録 arxiv_id を含む gold は既定 (--max-failures 未指定=閾値0) で exit 1 (#230)。
+    未登録はネットワーク前にスキップされるため実通信は発生しない。"""
+    gold = tmp_path / "gold.json"
+    gold.write_text(
+        json.dumps([{"arxiv_id": "9999.99999", "query": "q", "answer_spans": ["t"]}]),
+        encoding="utf-8",
+    )
+    out = tmp_path / "chunks.json"
+    monkeypatch.setattr("sys.argv", ["fetch_papers", "--gold-set", str(gold), "--out", str(out)])
+    with pytest.raises(SystemExit) as exc:
+        fetch_papers_main()
+    assert exc.value.code == 1
 
 
 @patch("scripts.fetch_papers.fetch_chunks_for_paper")
