@@ -402,3 +402,47 @@ def test_retry_backoff_called(mock_open, mock_sleep):
     assert mock_sleep.call_count == 2
     mock_sleep.assert_any_call(1.0)  # attempt 0: 1.0 * 2^0
     mock_sleep.assert_any_call(2.0)  # attempt 1: 1.0 * 2^1
+
+
+# --- read() 中の例外 / 非 dict レスポンス (#232) ---
+
+
+def _read_raises_cm(exc: BaseException) -> MagicMock:
+    resp = MagicMock()
+    resp.read.side_effect = exc
+    cm = MagicMock()
+    cm.__enter__ = MagicMock(return_value=resp)
+    cm.__exit__ = MagicMock(return_value=False)
+    return cm
+
+
+@patch("nugget_rag.embedder.time.sleep")
+@patch("nugget_rag.embedder.urlopen")
+def test_read_timeout_exhausted_raises_embed_error(mock_open, mock_sleep):
+    from nugget_rag.embedder import EmbedError
+
+    mock_open.side_effect = lambda *a, **k: _read_raises_cm(TimeoutError("read timed out"))
+    with pytest.raises(EmbedError, match="unreachable"):
+        EmbedClient("http://localhost:9092", max_retries=2).embed(["a"])
+    assert mock_open.call_count == 3
+
+
+@patch("nugget_rag.embedder.time.sleep")
+@patch("nugget_rag.embedder.urlopen")
+def test_read_incomplete_retries_then_succeeds(mock_open, mock_sleep):
+    import http.client
+
+    ok = _make_cm_mock(_json.dumps({"vectors": [[0.1]]}).encode()).return_value
+    mock_open.side_effect = [_read_raises_cm(http.client.IncompleteRead(b"x")), ok]
+    assert EmbedClient("http://localhost:9092").embed(["a"]) == [[0.1]]
+    assert mock_open.call_count == 2
+
+
+@pytest.mark.parametrize("payload", [b"[]", b"null"])
+@patch("nugget_rag.embedder.urlopen")
+def test_non_dict_json_raises_embed_error(mock_open, payload):
+    from nugget_rag.embedder import EmbedError
+
+    mock_open.return_value = _make_cm_mock(payload).return_value
+    with pytest.raises(EmbedError, match="Unexpected"):
+        EmbedClient("http://localhost:9092").embed(["a"])
