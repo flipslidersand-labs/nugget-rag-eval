@@ -134,12 +134,15 @@ def top_nuggets(
     Pre-computed vectors can be supplied via ``query_vec`` and ``sent_vecs``
     to avoid redundant HTTP calls when batching across multiple chunks.
     When both are provided, ``embed_fn`` is not called.
+    Providing only one of ``query_vec`` / ``sent_vecs`` raises ValueError.
     """
     if not sentences:
         return []
 
     bm25 = _normalize(bm25_scores(query, sentences))
 
+    if (query_vec is None) != (sent_vecs is None):
+        raise ValueError("query_vec and sent_vecs must be provided together")
     use_precomputed = query_vec is not None and sent_vecs is not None
     if use_precomputed or embed_fn is not None:
         if use_precomputed:
@@ -147,7 +150,13 @@ def top_nuggets(
             sv = sent_vecs
         else:
             vecs = embed_fn([query] + sentences)  # type: ignore[misc]
+            if len(vecs) != 1 + len(sentences):
+                raise ValueError(
+                    f"embed_fn returned {len(vecs)} vectors, expected {1 + len(sentences)}"
+                )
             qv, sv = vecs[0], vecs[1:]
+        if len(sv) != len(sentences):
+            raise ValueError(f"sent_vecs has {len(sv)} vectors for {len(sentences)} sentences")
         emb = _normalize(embed_scores(qv, sv))
         combined = [(1 - embed_weight) * b + embed_weight * e for b, e in zip(bm25, emb)]
     else:
