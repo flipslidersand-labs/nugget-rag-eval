@@ -84,7 +84,7 @@ def main() -> None:
     parser.add_argument(
         "--advisory",
         action="store_true",
-        help="Report baseline drops but exit 0 (ADR-006: start as advice, tighten later)",
+        help="Report baseline drops but exit 0 (start as advice, tighten later)",
     )
     parser.add_argument(
         "--verbose",

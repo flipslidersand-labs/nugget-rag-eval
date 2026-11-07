@@ -31,40 +31,16 @@ nugget が当たる問題は full-chunk も必ず当たる（部分集合）。R
 ## ディレクトリ構成
 
 ```text
-nugget_rag/
-  chunker.py        # 文単位分割（CJK 対応）
-  scorer.py         # BM25 + 埋め込み類似度でナゲットスコアリング
-  retriever.py      # full-chunk / nugget 両モードのリトリーバー
-  embedder.py       # 外部 embedding サービスクライアント
-  paper_registry.py # arxiv_id ↔ paper_id マッピング（ARXIV_MAP）
-eval/
-  gold_set.json       # クエリ + 正解スパン（既存 19 件。CI 回帰ゲート用）
-  gold_set_hard.json  # 難問 37 件（人の確認後。10 論文）。語彙を共有しない言い換えクエリ
-  baseline_hard.json  # 難問セットの Recall 基準値（低下幅チェック用）
-  evaluate.py         # Recall@k / MRR@k / latency / full-nugget の paired 比較
-  compare.py          # McNemar 正確確率・ブートストラップ区間・効率比
-  check_regression.py # 回帰チェック（Recall 閾値 / 基準値からの低下幅）
-scripts/
-  fetch_papers.py          # academic-paper-system API から論文チャンクを取得
-  build_pool_from_pdfs.py  # ローカル PDF から query 非依存の候補プールを作る
-tests/
-  test_chunker.py
-  test_compare.py
-  test_nugget_window.py
-  test_hard_regression_and_latency.py
-  test_build_pool_from_pdfs.py
-  test_scorer.py
-  test_evaluate.py
-  test_evaluate_main.py
-  test_check_regression.py
-  test_embedder.py
-  test_fetch_papers.py
-  test_no_runtime_deps.py
-  test_paper_registry.py
-  test_retriever.py
-  test_token_estimator.py
-  fixtures/  # 評価スクリプト用テストデータ
+nugget_rag/   # コアライブラリ（chunker / scorer / retriever / embedder / vectors / paper_registry）
+eval/         # 評価 CLI（evaluate.py / compare.py / check_regression.py / cli_helpers.py）と
+              #   ゴールドセット・基準値（gold_set*.json / baseline_hard.json）
+scripts/      # データ取得・プール作成・分析用スクリプト（fetch_papers.py / build_pool_from_pdfs.py ほか）
+tests/        # pytest スイート（fixtures/ に評価スクリプト用テストデータ）
+data/         # CI 回帰ゲート用チャンク（chunks_large.json）。PDF 由来のプールは gitignore
+docs/adr/     # 設計判断の記録（ADR）
 ```
+
+ファイル単位の一覧は `git ls-files` を参照（ずれを避けるためここでは列挙しない）。
 
 ## セットアップ
 
@@ -171,7 +147,7 @@ python eval/check_regression.py \
 ```
 
 - 基準値は `eval/baseline_hard.json`。意図した変更で動かすときだけ更新し、新しい値を PR 本文に書く。
-- `--advisory` は低下を `[WARN]` で出して exit 0（ADR-006: まず助言）。安定したら外して失敗にする。
+- `--advisory` は低下を `[WARN]` で出して exit 0（まず助言）。安定したら外して失敗にする。
 - 基準ファイルが無いと低下チェックはスキップされる。
 
 `evaluate.py` の出力には `latency_ms`（クエリあたりの p50/p95）が含まれる。embedding を使う場合は `nugget_embed_calls` に埋め込み呼び出しの時間を分けて出す。
