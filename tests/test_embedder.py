@@ -7,6 +7,7 @@ import pytest
 from nugget_rag.embedder import (
     MAX_BATCH_SIZE,
     EmbedClient,
+    _is_plain_http_remote,
     _validate_url,
     cosine_similarity,
     embed_scores,
@@ -446,3 +447,82 @@ def test_non_dict_json_raises_embed_error(mock_open, payload):
     mock_open.return_value = _make_cm_mock(payload).return_value
     with pytest.raises(EmbedError, match="Unexpected"):
         EmbedClient("http://localhost:9092").embed(["a"])
+
+
+# --- 平文 http:// + 非ループバックでの X-API-Key 警告 (#245) ---
+
+
+def _embed_with_key(url, key, monkeypatch):
+    if key is None:
+        monkeypatch.delenv("EMBEDDING_API_KEY", raising=False)
+    else:
+        monkeypatch.setenv("EMBEDDING_API_KEY", key)
+    with patch("nugget_rag.embedder.urlopen", _make_cm_mock(b'{"vectors": [[0.1]]}')):
+        EmbedClient(url).embed(["a"])
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "http://embed.example.com:9092",
+        "http://10.0.0.5:9092",
+        "http://localhost.example.com",
+    ],
+)
+def test_plain_http_non_loopback_with_key_warns(url, monkeypatch, capsys):
+    _embed_with_key(url, "dummy-key", monkeypatch)
+    err = capsys.readouterr().err
+    assert "[WARN]" in err
+    assert "X-API-Key" in err
+    assert "dummy-key" not in err
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "http://localhost:9092",
+        "http://LOCALHOST:9092",
+        "http://127.0.0.1:9092",
+        "http://127.1.2.3:9092",
+        "http://[::1]:9092",
+        "https://embed.example.com",
+    ],
+)
+def test_loopback_or_https_with_key_does_not_warn(url, monkeypatch, capsys):
+    _embed_with_key(url, "dummy-key", monkeypatch)
+    assert capsys.readouterr().err == ""
+
+
+def test_plain_http_non_loopback_without_key_does_not_warn(monkeypatch, capsys):
+    _embed_with_key("http://embed.example.com", None, monkeypatch)
+    assert capsys.readouterr().err == ""
+
+
+def test_plain_http_warning_emitted_once_per_client(monkeypatch, capsys):
+    monkeypatch.setenv("EMBEDDING_API_KEY", "dummy-key")
+    client = EmbedClient("http://embed.example.com")
+    with patch("nugget_rag.embedder.urlopen", _make_cm_mock(b'{"vectors": [[0.1]]}')):
+        client.embed(["a"])
+        client.embed(["b"])
+    assert capsys.readouterr().err.count("[WARN]") == 1
+
+
+@pytest.mark.parametrize(
+    ("url", "expected"),
+    [
+        ("http://LOCALHOST", False),
+        ("http://127.1.2.3", False),
+        ("http://[::1]", False),
+        ("http://user:pw@127.0.0.1", False),
+        ("http://[::ffff:127.0.0.1]", False),
+        ("http://localhost.", False),
+        ("http://foo.localhost", False),
+        ("http://127.0.0.1@evil.com", True),
+        ("http://localhost.example.com", True),
+        ("http://10.0.0.5", True),
+        ("https://10.0.0.5", False),
+        ("https://embed.example.com", False),
+    ],
+)
+def test_is_plain_http_remote(url, expected):
+    assert _is_plain_http_remote(url) is expected
