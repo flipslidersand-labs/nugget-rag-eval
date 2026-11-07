@@ -12,8 +12,10 @@ Usage:
 from __future__ import annotations
 
 import http.client
+import ipaddress
 import json
 import os
+import sys
 import time
 from urllib.error import HTTPError, URLError
 from urllib.parse import urljoin, urlparse
@@ -42,6 +44,20 @@ def _validate_url(url: str) -> None:
         )
     if not parsed.netloc:
         raise ValueError(f"URL has no host: {url!r}")
+
+
+def _is_plain_http_remote(url: str) -> bool:
+    """True if url is http:// to a non-loopback host (X-API-Key would travel in cleartext)."""
+    parsed = urlparse(url)
+    if parsed.scheme != "http":
+        return False
+    host = (parsed.hostname or "").lower()
+    if host == "localhost":
+        return False
+    try:
+        return not ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        return True
 
 
 class _NoRedirectHandler(HTTPRedirectHandler):
@@ -87,6 +103,7 @@ class EmbedClient:
         self.timeout = timeout
         self.max_retries = max_retries
         self.retry_backoff = retry_backoff
+        self._warned_plain_http = False
 
     def _call(self, texts: list[str]) -> list[list[float]]:
         """Send a single batch request with exponential-backoff retry.
@@ -100,6 +117,13 @@ class EmbedClient:
             EmbedError: after all retries exhausted, or on non-retryable errors.
         """
         api_key = os.environ.get("EMBEDDING_API_KEY", "")
+        if api_key and not self._warned_plain_http and _is_plain_http_remote(self.base_url):
+            self._warned_plain_http = True
+            print(
+                "[WARN] X-API-Key is sent over plain http:// to a non-loopback host; "
+                "use https:// to avoid exposing the key",
+                file=sys.stderr,
+            )
         body = json.dumps({"texts": texts, "collection": self.collection}).encode()
         req = Request(
             urljoin(self.base_url + "/", "embed/batch"),
