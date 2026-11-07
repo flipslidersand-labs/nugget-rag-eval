@@ -7,6 +7,7 @@ import pytest
 from nugget_rag.embedder import (
     MAX_BATCH_SIZE,
     EmbedClient,
+    _is_plain_http_remote,
     _validate_url,
     cosine_similarity,
     embed_scores,
@@ -504,3 +505,24 @@ def test_plain_http_warning_emitted_once_per_client(monkeypatch, capsys):
         client.embed(["a"])
         client.embed(["b"])
     assert capsys.readouterr().err.count("[WARN]") == 1
+
+
+@pytest.mark.parametrize(
+    ("url", "expected"),
+    [
+        ("http://LOCALHOST", False),
+        ("http://127.1.2.3", False),
+        ("http://[::1]", False),
+        ("http://user:pw@127.0.0.1", False),
+        ("http://[::ffff:127.0.0.1]", False),
+        ("http://localhost.", False),
+        ("http://foo.localhost", False),
+        ("http://127.0.0.1@evil.com", True),
+        ("http://localhost.example.com", True),
+        ("http://10.0.0.5", True),
+        ("https://10.0.0.5", False),
+        ("https://embed.example.com", False),
+    ],
+)
+def test_is_plain_http_remote(url, expected):
+    assert _is_plain_http_remote(url) is expected

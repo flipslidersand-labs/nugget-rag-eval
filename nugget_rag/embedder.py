@@ -51,13 +51,15 @@ def _is_plain_http_remote(url: str) -> bool:
     parsed = urlparse(url)
     if parsed.scheme != "http":
         return False
-    host = (parsed.hostname or "").lower()
-    if host == "localhost":
+    host = (parsed.hostname or "").lower().rstrip(".")
+    if host == "localhost" or host.endswith(".localhost"):  # RFC 6761
         return False
     try:
-        return not ipaddress.ip_address(host).is_loopback
+        ip = ipaddress.ip_address(host)
     except ValueError:
         return True
+    mapped = getattr(ip, "ipv4_mapped", None)
+    return not (ip.is_loopback or (mapped is not None and mapped.is_loopback))
 
 
 class _NoRedirectHandler(HTTPRedirectHandler):
