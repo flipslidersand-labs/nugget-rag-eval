@@ -1,3 +1,5 @@
+import pytest
+
 from nugget_rag.scorer import _char_ngrams, _normalize, _tokenize, bm25_scores, top_nuggets
 
 
@@ -436,3 +438,32 @@ def test_tokenize_prolonged_sound_mark_stays_in_bigrams():
 def test_tokenize_iteration_marks_stay_in_bigrams():
     assert _tokenize("人々") == ["人々"]
     assert _tokenize("〇〆") == ["〇〆"]
+
+
+# ── #251 ベクトル形状の検証 ───────────────────────────────────────────────
+_SENTS = ["KV cache reuse.", "Diffusion models.", "KV cache method."]
+
+
+def test_top_nuggets_embed_fn_returning_one_too_few_vectors_raises():
+    def short_embed(texts):
+        return [[1.0, 0.0] for _ in texts][:-1]
+
+    with pytest.raises(ValueError):
+        top_nuggets("KV cache", _SENTS, embed_fn=short_embed)
+
+
+def test_top_nuggets_sent_vecs_length_mismatch_raises():
+    with pytest.raises(ValueError):
+        top_nuggets("KV cache", _SENTS, query_vec=[1.0, 0.0], sent_vecs=[[1.0, 0.0]] * 2)
+
+
+def test_top_nuggets_dimension_mismatch_raises():
+    vecs = [[1.0, 0.0], [1.0], [0.0, 1.0]]
+    with pytest.raises(ValueError):
+        top_nuggets("KV cache", _SENTS, query_vec=[1.0, 0.0], sent_vecs=vecs)
+
+
+@pytest.mark.parametrize("kwargs", [{"query_vec": [1.0, 0.0]}, {"sent_vecs": [[1.0, 0.0]] * 3}])
+def test_top_nuggets_only_one_of_query_vec_sent_vecs_raises(kwargs):
+    with pytest.raises(ValueError):
+        top_nuggets("KV cache", _SENTS, **kwargs)

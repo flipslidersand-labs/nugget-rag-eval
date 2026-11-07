@@ -456,6 +456,44 @@ def test_fetch_per_query_fail_fast_raises(mock_fetch):
         fetch_per_query("http://api", gold, chunk_mode="small", target_tokens=512, fail_fast=True)
 
 
+_BAD_RESULT_ITEMS = [
+    {"chunk_index": 0, "snippet": None, "score": 0.5},
+    {"chunk_index": [1, 2], "snippet": "t", "score": 0.5},
+    {"chunk_index": True, "snippet": "t", "score": 0.5},
+    {"chunk_index": 0, "snippet": "t", "score": "high"},
+]
+
+
+@pytest.mark.parametrize("item", _BAD_RESULT_ITEMS)
+@patch("scripts.fetch_papers.urlopen")
+def test_fetch_chunks_wrong_value_types_raise_fetch_error(mock_open, item):
+    """値の型が想定外 (null snippet / list chunk_index 等) でも FetchError (#241)。"""
+    mock_open.return_value = _cm(json.dumps({"results": [item]}).encode()).return_value
+    with pytest.raises(FetchError, match="Malformed search response"):
+        fetch_chunks_for_paper("http://api", paper_id=1, query="test")
+
+
+@pytest.mark.parametrize("chunk_mode", ["small", "large"])
+@patch("scripts.fetch_papers.urlopen")
+def test_fetch_per_query_wrong_value_types_counted_and_continues(mock_open, chunk_mode, capsys):
+    """型不正の応答は failure_count に加算され、次の項目の処理が継続する (#241)。"""
+    bad = {"results": [{"chunk_index": [1], "snippet": None, "score": 0.5}]}
+    good = {"results": [{"chunk_index": 0, "snippet": "ok text", "score": 0.7}]}
+    mock_open.side_effect = [
+        _cm(json.dumps(bad).encode()).return_value,
+        _cm(json.dumps(good).encode()).return_value,
+    ]
+    gold = [
+        {"paper_id": 1, "query": "q1", "answer_spans": ["x"]},
+        {"paper_id": 2, "query": "q2", "answer_spans": ["ok"]},
+    ]
+    result, failures = fetch_per_query("http://api", gold, chunk_mode=chunk_mode, target_tokens=512)
+    assert failures == 1
+    assert len(result) == 1
+    assert result[0]["paper_id"] == 2
+    assert "WARNING" in capsys.readouterr().err
+
+
 # ── main() subprocess tests ──────────────────────────────────────────────────
 
 
@@ -587,6 +625,13 @@ def test_fetch_per_query_counts_malformed_body_and_continues(mock_open):
 @patch("scripts.fetch_papers.urlopen")
 def test_fetch_papers_null_or_missing_id_raises_fetch_error(mock_open, body):
     mock_open.return_value = _cm(body).return_value
+    with pytest.raises(FetchError):
+        fetch_papers("http://api")
+
+
+@patch("scripts.fetch_papers.urlopen")
+def test_fetch_papers_list_id_raises_fetch_error(mock_open):
+    mock_open.return_value = _cm(b'{"papers": [{"id": [1]}]}').return_value
     with pytest.raises(FetchError):
         fetch_papers("http://api")
 

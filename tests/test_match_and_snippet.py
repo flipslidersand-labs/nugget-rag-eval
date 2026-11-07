@@ -37,6 +37,19 @@ def test_exact_match_misses_but_normalized_hits_across_extractors():
     assert mrr_at_k(results, [SPAN], "text", normalize=True) == 1.0
 
 
+def test_normalized_match_folds_ligatures_and_fullwidth_nfkc():
+    """pdftotext emits ligatures / full-width forms; spans must still hit (#267)."""
+    assert recall_at_k([{"text": "an eﬃcient model"}], ["efficient"], "text", normalize=True)
+    assert recall_at_k([{"text": "精度は９５％"}], ["95%"], "text", normalize=True)
+    assert _normalize_for_match("eﬃcient") == "efficient"
+    assert _normalize_for_match("９５％") == _normalize_for_match("95%")
+
+
+def test_exact_match_does_not_apply_nfkc():
+    assert recall_at_k([{"text": "an eﬃcient model"}], ["efficient"], "text") is False
+    assert recall_at_k([{"text": "精度は９５％"}], ["95%"], "text") is False
+
+
 def test_normalized_match_ignores_empty_spans():
     """A span made only of punctuation normalizes to '' and must not match everything."""
     assert recall_at_k([{"text": "anything"}], ["...", " "], "text", normalize=True) is False

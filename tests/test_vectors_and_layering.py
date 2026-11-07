@@ -71,3 +71,9 @@ def test_top_nuggets_hybrid_path_still_works_with_precomputed_vectors():
         sent_vecs=[[0.0, 1.0], [1.0, 0.0], [0.0, 1.0]],
     )
     assert out == ["gamma delta."]  # picked by the embedding score alone
+
+
+def test_cosine_similarity_dimension_mismatch_raises():
+    """#251: 次元違いは zip で切り詰めず ValueError。"""
+    with pytest.raises(ValueError):
+        vectors.cosine_similarity([1.0, 0.0, 0.0], [1.0, 0.0])
