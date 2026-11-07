@@ -36,7 +36,8 @@ def retrieve_nuggets(
 
     ``window`` > 0 also returns that many neighbouring sentences around each pick (#201).
 
-    When embed_fn is provided, nugget selection uses BM25 + embedding hybrid scoring.
+    When embed_fn is provided and embed_weight > 0, nugget selection uses BM25 + embedding
+    hybrid scoring. embed_weight == 0 is BM25-only and never calls embed_fn (#239).
 
     Batching optimisation (#150): when embed_fn is provided, all sentences
     from the top-k chunks are collected into a single embed_fn call together
