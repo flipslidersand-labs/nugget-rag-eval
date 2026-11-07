@@ -194,6 +194,8 @@ def fetch_per_query(
     queries is stored only once — the highest-scoring copy wins.
 
     Gold items may use ``arxiv_id`` (preferred) or ``paper_id`` (legacy).
+    Unregistered ``arxiv_id`` values are skipped and also counted in
+    ``failure_count``.
 
     When *fail_fast* is ``False`` (default), individual fetch failures are
     logged as warnings and skipped so partial results are preserved.  When
@@ -213,12 +215,15 @@ def fetch_per_query(
     failure_count = 0
     for item in gold:
         # Resolve paper_id: prefer arxiv_id field, fall back to paper_id int
-        if "arxiv_id" in item:
+        # A null/empty arxiv_id falls back to paper_id (#230).
+        if item.get("arxiv_id"):
             pid = ARXIV_TO_PAPER_ID.get(item["arxiv_id"])
             if pid is None:
                 print(
                     f"  WARNING: unknown arxiv_id '{item['arxiv_id']}', skipping", file=sys.stderr
                 )
+                # Count it so --max-failures gates unregistered ids (#230).
+                failure_count += 1
                 continue
         else:
             pid = item["paper_id"]
@@ -315,8 +320,8 @@ def main():
         "--max-failures",
         type=non_negative_int,
         default=None,
-        help="Exit with code 1 when failure count exceeds this threshold (must be >= 0; "
-        "default: any failure exits 1)",
+        help="Exit with code 1 when failure count (fetch errors + unregistered arxiv_id) "
+        "exceeds this threshold (must be >= 0; default: any failure exits 1)",
     )
     args = parser.parse_args()
 
@@ -385,7 +390,7 @@ def main():
         threshold = args.max_failures if args.max_failures is not None else 0
         if failure_count > threshold:
             print(
-                f"[ERROR] {failure_count} fetch failure(s) exceeded threshold ({threshold})",
+                f"[ERROR] {failure_count} failure(s) (fetch errors + unregistered arxiv_id) exceeded threshold ({threshold})",
                 file=sys.stderr,
             )
             sys.exit(1)
