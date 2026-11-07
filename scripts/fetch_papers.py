@@ -126,6 +126,17 @@ def fetch_chunks_for_paper(
         if not isinstance(results, list):
             raise ValueError("results must be a list")
         for r in results:
+            # Value types are checked here so downstream code (.split(), hashing
+            # as a dedup key, max()) cannot crash outside the FetchError path (#241).
+            idx, snippet, score = r["chunk_index"], r["snippet"], r["score"]
+            if (
+                not isinstance(idx, int)
+                or isinstance(idx, bool)
+                or not isinstance(snippet, str)
+                or not isinstance(score, (int, float))
+                or isinstance(score, bool)
+            ):
+                raise ValueError("chunk_index must be int, snippet str, score number")
             chunk = {
                 "paper_id": paper_id,
                 "chunk_index": r["chunk_index"],
