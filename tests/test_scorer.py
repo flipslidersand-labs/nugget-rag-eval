@@ -396,3 +396,32 @@ def test_tokenize_symbols_and_format_chars_are_separators():
 
 def test_tokenize_cjk_ascii_boundary_has_no_false_bigram():
     assert _tokenize("東京AB大阪") == ["東京", "ab", "大阪"]
+
+
+# ── #262: Latin-extended/full-width are words; bigram only CJK/kana/hangul ──
+
+
+def test_tokenize_accented_latin_is_one_token():
+    assert _tokenize("café") == ["café"]
+    assert _tokenize("naïve résumé") == ["naïve", "résumé"]
+
+
+def test_tokenize_decomposed_accent_stays_with_base():
+    assert _tokenize("cafe\u0301") == ["café"]
+
+
+def test_tokenize_fullwidth_latin_is_normalized_word():
+    assert _tokenize("ＧＰＴ-４") == ["gpt", "4"]
+
+
+def test_tokenize_greek_is_word_not_bigram():
+    assert _tokenize("αβγ δ") == ["αβγ", "δ"]
+
+
+def test_tokenize_hyphen_and_decimal_split_policy():
+    assert _tokenize("kv-cache U.S. 3.14") == ["kv", "cache", "u", "s", "3", "14"]
+
+
+def test_tokenize_kana_hangul_still_bigram():
+    assert _tokenize("カタカナ") == ["カタ", "タカ", "カナ"]
+    assert _tokenize("한국어") == ["한국", "국어"]
