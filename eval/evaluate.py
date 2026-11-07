@@ -51,6 +51,8 @@ def validate_chunks(chunks: list[dict]) -> None:
     if not isinstance(chunks, list):
         raise ValueError(f"chunks must be a JSON array (list), got {type(chunks).__name__!r}")
     for i, chunk in enumerate(chunks):
+        if not isinstance(chunk, dict):
+            raise ValueError(f"chunks[{i}] must be a dict, got {type(chunk).__name__!r}")
         has_id = chunk.get("arxiv_id") or chunk.get("paper_id") is not None
         if not has_id:
             raise ValueError(
@@ -89,7 +91,11 @@ def validate_gold(gold: list[dict]) -> None:
         ValueError: On the first item that fails validation, with a descriptive
             message listing the index and the specific problem.
     """
+    if not isinstance(gold, list):
+        raise ValueError(f"gold must be a JSON array (list), got {type(gold).__name__!r}")
     for i, item in enumerate(gold):
+        if not isinstance(item, dict):
+            raise ValueError(f"gold[{i}] must be a dict, got {type(item).__name__!r}")
         missing = _REQUIRED_FIELDS - item.keys()
         if missing:
             raise ValueError(f"gold[{i}] missing required fields: {sorted(missing)}")
@@ -111,6 +117,11 @@ def validate_gold(gold: list[dict]) -> None:
         if non_str:
             raise ValueError(
                 f"gold[{i}] 'answer_spans' contains non-string elements: {non_str[:3]}"
+            )
+        if any(not s.strip() for s in spans):
+            raise ValueError(
+                f"gold[{i}] 'answer_spans' contains an empty/blank span — "
+                "exact mode would always hit (inflated recall)"
             )
 
 
@@ -159,7 +170,7 @@ def _span_in(text: str, spans: list[str], normalize: bool) -> bool:
         norm_text = _normalize_for_match(text)
         return any(n and n in norm_text for n in map(_normalize_for_match, spans))
     low = text.lower()
-    return any(span.lower() in low for span in spans)
+    return any(span.strip() and span.lower() in low for span in spans)
 
 
 def recall_at_k(
