@@ -68,6 +68,10 @@ def retrieve_nuggets(
 
     if all_sentences:
         all_vecs = embed_fn([query] + all_sentences)
+        if len(all_vecs) != 1 + len(all_sentences):
+            raise ValueError(
+                f"embed_fn returned {len(all_vecs)} vectors, expected {1 + len(all_sentences)}"
+            )
         query_vec: list[float] = all_vecs[0]
         flat_sent_vecs: list[list[float]] = all_vecs[1:]
     else:
