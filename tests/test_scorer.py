@@ -358,3 +358,28 @@ def test_char_ngrams_fullwidth_space_removed():
     assert not any("\n" in t for t in tokens_newline), (
         f"Newline leaked into bigrams: {tokens_newline}"
     )
+
+
+# ── punctuation handling (#252) ─────────────────────────────────────────────
+
+
+def test_tokenize_strips_trailing_ascii_punctuation():
+    assert _tokenize("high accuracy.") == ["high", "accuracy"]
+    assert _tokenize("the model, which") == ["the", "model", "which"]
+
+
+def test_tokenize_splits_non_ascii_apostrophe():
+    assert _tokenize("model’s") == ["model", "s"]
+
+
+def test_tokenize_non_ascii_punct_is_separator_not_cjk():
+    assert _tokenize("“accuracy” – high") == ["accuracy", "high"]
+
+
+def test_tokenize_cjk_bigrams_unaffected_by_punct():
+    assert _tokenize("機械学習。") == ["機械", "械学", "学習"]
+
+
+def test_bm25_matches_query_against_sentence_final_word():
+    scores = bm25_scores("accuracy", ["We report accuracy.", "Nothing here."])
+    assert scores[0] > 0 and scores[1] == 0
