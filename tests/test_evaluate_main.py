@@ -649,3 +649,34 @@ def test_main_evaluate_value_error_exits_with_error(tmp_path, monkeypatch):
         main()
     msg = str(exc_info.value.code)
     assert msg.startswith("[ERROR] no gold paper key found in chunks")
+
+
+def test_main_embed_error_exits_with_error(tmp_path, monkeypatch):
+    """埋め込みサービス失敗(EmbedError)は traceback ではなく [ERROR] + 終了コード 1 になる。"""
+    from eval.evaluate import main
+    from nugget_rag.embedder import EmbedClient, EmbedError
+
+    def _boom(self, texts):
+        raise EmbedError("service down")
+
+    monkeypatch.setattr(EmbedClient, "embed", _boom)
+    c_path = tmp_path / "chunks.json"
+    _write_json(c_path, [{"paper_id": 1, "text": "target answer text."}])
+    g_path = tmp_path / "gold.json"
+    _write_json(g_path, [{"paper_id": 1, "query": "q", "answer_spans": ["target answer"]}])
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "evaluate.py",
+            "--chunks",
+            str(c_path),
+            "--gold",
+            str(g_path),
+            "--embedding-url",
+            "http://127.0.0.1:1",
+        ],
+    )
+    with pytest.raises(SystemExit) as exc_info:
+        main()
+    assert exc_info.value.code == "[ERROR] embedding service failed: service down"
