@@ -30,6 +30,7 @@ from eval.cli_helpers import load_json as _load_json
 from eval.cli_helpers import non_negative_int as _non_negative_int
 from eval.cli_helpers import positive_int as _positive_int
 from eval.compare import compare
+from nugget_rag.embedder import EmbedError
 from nugget_rag.paper_registry import resolve_paper_key
 from nugget_rag.retriever import retrieve_full_chunk, retrieve_nuggets
 
@@ -443,6 +444,8 @@ def main():
         )
     except ValueError as exc:
         sys.exit(f"[ERROR] {exc}")
+    except EmbedError as exc:
+        sys.exit(f"[ERROR] embedding service failed: {exc}")
 
     if args.pool_label:
         result["pool"] = args.pool_label
