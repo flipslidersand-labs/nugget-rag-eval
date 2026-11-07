@@ -132,7 +132,7 @@ class EmbedClient:
                 last_exc = exc
             except URLError as exc:
                 last_exc = exc
-            except (OSError, http.client.HTTPException) as exc:
+            except (TimeoutError, ConnectionError, http.client.HTTPException) as exc:
                 # read() 中のタイムアウト/切断 (HTTPError/URLError は上で捕捉済み)
                 last_exc = exc
             except (json.JSONDecodeError, KeyError) as exc:
@@ -140,7 +140,7 @@ class EmbedClient:
             if attempt < self.max_retries:
                 time.sleep(self.retry_backoff * (2**attempt))
         raise EmbedError(
-            f"Embedding service unreachable after {self.max_retries} retries: {last_exc}"
+            f"Embedding service failed after {self.max_retries} retries: {last_exc}"
         ) from last_exc
 
     def embed(self, texts: list[str]) -> list[list[float]]:

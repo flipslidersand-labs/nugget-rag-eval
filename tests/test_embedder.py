@@ -129,7 +129,7 @@ def test_embed_url_error_raises(mock_sleep):
     from nugget_rag.embedder import EmbedError
 
     with patch("nugget_rag.embedder.urlopen", side_effect=URLError("refused")):
-        with pytest.raises(EmbedError, match="unreachable"):
+        with pytest.raises(EmbedError, match="failed after"):
             _client().embed(["hello"])
 
 
@@ -422,7 +422,7 @@ def test_read_timeout_exhausted_raises_embed_error(mock_open, mock_sleep):
     from nugget_rag.embedder import EmbedError
 
     mock_open.side_effect = lambda *a, **k: _read_raises_cm(TimeoutError("read timed out"))
-    with pytest.raises(EmbedError, match="unreachable"):
+    with pytest.raises(EmbedError, match="failed after"):
         EmbedClient("http://localhost:9092", max_retries=2).embed(["a"])
     assert mock_open.call_count == 3
 
