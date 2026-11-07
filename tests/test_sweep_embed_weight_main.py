@@ -133,3 +133,31 @@ def test_main_rejects_missing_input_file(env, monkeypatch, capsys):
 def test_load_cache_missing_file_or_none_gives_empty(tmp_path):
     assert sw.load_cache(None) == {}
     assert sw.load_cache(tmp_path / "absent.json") == {}
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        "{not json",
+        "[]",
+        "null",
+        '"text"',
+        '{"a": "not a vector"}',
+        '{"a": null}',
+        '{"a": [1.0, "x"]}',
+        '{"a": [true]}',
+        '{"a": []}',
+    ],
+)
+def test_main_exits_on_corrupt_cache(env, monkeypatch, content):
+    tmp_path, chunks, gold = env
+    out = tmp_path / "out"
+    out.mkdir()
+    cache = out / "embed_cache.json"
+    cache.write_text(content, encoding="utf-8")
+    with pytest.raises(SystemExit) as exc:
+        _run(monkeypatch, tmp_path, chunks, gold)
+    msg = str(exc.value)
+    assert msg.startswith("[ERROR] cache file is corrupt") and str(cache) in msg
+    assert not FakeClient.instances
+    assert cache.read_text(encoding="utf-8") == content  # not discarded or overwritten
