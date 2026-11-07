@@ -11,6 +11,7 @@ Usage:
 
 from __future__ import annotations
 
+import http.client
 import json
 import os
 import time
@@ -92,7 +93,7 @@ class EmbedClient:
 
         Accepts responses with either a ``"vectors"`` or ``"embeddings"`` key so
         that the client tolerates both the current and legacy service schema.
-        Retries up to max_retries times on URLError or 5xx HTTPError.
+        Retries up to max_retries times on URLError, 5xx HTTPError, or OSError/HTTPException raised while reading.
         4xx errors are raised immediately without retrying.
 
         Raises:
@@ -110,6 +111,10 @@ class EmbedClient:
             try:
                 with urlopen(req, timeout=self.timeout) as http_resp:
                     resp = json.loads(http_resp.read())
+                if not isinstance(resp, dict):
+                    raise EmbedError(
+                        f"Unexpected embedding response format: expected object, got {type(resp).__name__}"
+                    )
                 vecs = resp.get("vectors") or resp.get("embeddings")
                 if vecs is None:
                     raise EmbedError(
@@ -127,12 +132,15 @@ class EmbedClient:
                 last_exc = exc
             except URLError as exc:
                 last_exc = exc
+            except (TimeoutError, ConnectionError, http.client.HTTPException) as exc:
+                # read() 中のタイムアウト/切断 (HTTPError/URLError は上で捕捉済み)
+                last_exc = exc
             except (json.JSONDecodeError, KeyError) as exc:
                 raise EmbedError(f"Unexpected embedding response format: {exc}") from exc
             if attempt < self.max_retries:
                 time.sleep(self.retry_backoff * (2**attempt))
         raise EmbedError(
-            f"Embedding service unreachable after {self.max_retries} retries: {last_exc}"
+            f"Embedding service failed after {self.max_retries} retries: {last_exc}"
         ) from last_exc
 
     def embed(self, texts: list[str]) -> list[list[float]]:
