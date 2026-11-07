@@ -166,13 +166,16 @@ def main() -> None:
         sys.exit(f"[ERROR] {exc}")
     by_paper = build_chunks_index(chunks)
 
-    texts = list(
-        dict.fromkeys(
-            t
-            for gold in golds.values()
-            for t in collect_texts(by_paper, gold, args.top_k, args.match)
+    try:
+        texts = list(
+            dict.fromkeys(
+                t
+                for gold in golds.values()
+                for t in collect_texts(by_paper, gold, args.top_k, args.match)
+            )
         )
-    )
+    except ValueError as exc:
+        sys.exit(f"[ERROR] {exc}")
     cache_path = args.out_dir / "embed_cache.json"
     cache = load_cache(cache_path)
 
@@ -181,7 +184,12 @@ def main() -> None:
     client = EmbedClient(args.embedding_url)
     warm_cache(texts, client.embed, cache, cache_path)
 
-    results = sweep(by_paper, golds, args.weights, cached_embed_fn(cache), args.top_k, args.match)
+    try:
+        results = sweep(
+            by_paper, golds, args.weights, cached_embed_fn(cache), args.top_k, args.match
+        )
+    except ValueError as exc:
+        sys.exit(f"[ERROR] {exc}")
     (args.out_dir / "summary.json").write_text(
         json.dumps(results, ensure_ascii=False, indent=1), encoding="utf-8"
     )

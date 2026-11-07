@@ -26,6 +26,7 @@ from eval.evaluate import (
     _span_in,
     avg_tokens,
     build_chunks_index,
+    check_gold_chunk_coverage,
     recall_at_k,
     validate_chunks,
     validate_gold,
@@ -144,6 +145,10 @@ def main() -> None:
     except ValueError as exc:
         sys.exit(f"[ERROR] {exc}")
     by_paper, normalize = build_chunks_index(chunks), args.match == "normalized"
+    try:
+        check_gold_chunk_coverage(by_paper, gold)
+    except ValueError as exc:
+        sys.exit(f"[ERROR] {exc}")
 
     classes, c_rank = classify_all(by_paper, gold, args.top_k, args.nuggets_per_chunk, normalize)
     print(format_report(classes, c_rank, len(gold)))
