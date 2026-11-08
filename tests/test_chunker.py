@@ -63,3 +63,39 @@ def test_split_japanese_with_decimal():
     """CJK terminators still split without whitespace; decimals inside are kept."""
     sentences = split_sentences("精度は0.95です。次の文です。")
     assert sentences == ["精度は0.95です。", "次の文です。"]
+
+
+def test_split_keeps_abbreviations_intact():
+    """#283: abbreviations / figure refs followed by a space must not end a sentence."""
+    cases = [
+        "Smith et al. 2020 showed gains.",
+        "Dense retrievers, e.g. BM25 variants, are strong.",
+        "Fig. 3 shows the latency.",
+        "The bound follows from Eq. (2) directly.",
+        "Ours beats dense vs. sparse baselines.",
+        "That is, i.e. the same thing.",
+        "See Sec. 4 and cf. Table 2.",
+        "Results are in Table No. 5 below.",
+    ]
+    for case in cases:
+        assert split_sentences(case) == [case]
+
+
+def test_split_abbreviation_is_case_insensitive():
+    assert split_sentences("fig. 3 shows it. FIG. 4 too.") == ["fig. 3 shows it.", "FIG. 4 too."]
+
+
+def test_split_after_abbreviation_still_splits_real_boundary():
+    text = "Smith et al. 2020 showed gains. Fig. 3 shows it. Done."
+    assert split_sentences(text) == ["Smith et al. 2020 showed gains.", "Fig. 3 shows it.", "Done."]
+
+
+def test_split_sentence_ending_in_non_abbreviation_word_splits():
+    assert split_sentences("We evaluate on Fig data. Then we stop.") == [
+        "We evaluate on Fig data.",
+        "Then we stop.",
+    ]
+
+
+def test_split_no_as_answer_word_splits():
+    assert split_sentences("The answer is no. Next we go.") == ["The answer is no.", "Next we go."]
