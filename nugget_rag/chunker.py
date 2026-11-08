@@ -15,8 +15,8 @@ _NUMBER_ABBREVIATIONS = frozenset({"no"})
 def _ends_with_abbreviation(segment: str, following: str) -> bool:
     if not segment.endswith("."):
         return False
-    words = segment[:-1].split()
-    last = words[-1].lower() if words else ""
+    words = segment[:-1].rsplit(None, 1)  # last word only: keeps long merged runs linear
+    last = words[-1].lstrip("([").lower() if words else ""  # "(e.g." / "[Fig."
     if last in _ABBREVIATIONS:
         return True
     return last in _NUMBER_ABBREVIATIONS and following[:1].isdigit()

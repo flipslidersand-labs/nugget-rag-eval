@@ -99,3 +99,10 @@ def test_split_sentence_ending_in_non_abbreviation_word_splits():
 
 def test_split_no_as_answer_word_splits():
     assert split_sentences("The answer is no. Next we go.") == ["The answer is no.", "Next we go."]
+
+
+def test_split_keeps_parenthesized_abbreviations_intact():
+    assert split_sentences("Scores (e.g. BM25) vary. See [Fig. 3] for details.") == [
+        "Scores (e.g. BM25) vary.",
+        "See [Fig. 3] for details.",
+    ]
