@@ -94,10 +94,9 @@ def _tokenize(text: str) -> list[str]:
                 if cjk_run:
                     _flush()
                 word_buf.append(ch)
-        elif unicodedata.category(ch)[0] == "M" and word_buf:
-            word_buf.append(ch)  # combining mark stays with its base letter
-        elif unicodedata.category(ch)[0] == "M" and cjk_run:
-            cjk_run.append(ch)  # e.g. U+3099/309A that NFKC cannot compose
+        elif unicodedata.category(ch)[0] == "M" and (word_buf or cjk_run):
+            # combining mark stays with its base: letter, or e.g. U+3099/309A that NFKC cannot compose
+            (word_buf or cjk_run).append(ch)
         else:  # whitespace, punctuation, symbols, format chars: separator
             _flush()
     _flush()
