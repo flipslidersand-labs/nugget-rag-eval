@@ -343,6 +343,8 @@ def evaluate(
         "n_queries": n,
         "n_queries_without_chunks": n_queries_without_chunks,
         "modes": [m.name for m in MODES],
+        # Unrounded hit counts per mode: gates compare hits / n_queries, not the rounded recall.
+        "hits": {m.name: hits[m.name] for m in MODES},
     }
     for m in MODES:
         result[m.name] = {
