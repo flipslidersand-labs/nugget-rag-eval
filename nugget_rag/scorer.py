@@ -41,6 +41,10 @@ def _is_bigram_char(ch: str) -> bool:
 
     Substring match on the Unicode name so that e.g. the prolonged sound mark
     ("KATAKANA-HIRAGANA PROLONGED SOUND MARK") is included.
+
+    Known limits of the name match: "KANA" also hits U+16D2 (runic BERKANAN) and
+    U+10094 (Linear B KANAKO), which get bigrams needlessly; unspaced scripts such
+    as Yi, Tangut, Nushu and Khitan are not matched and stay whole word tokens.
     """
     if ch.isascii():
         return False
@@ -92,6 +96,8 @@ def _tokenize(text: str) -> list[str]:
                 word_buf.append(ch)
         elif unicodedata.category(ch)[0] == "M" and word_buf:
             word_buf.append(ch)  # combining mark stays with its base letter
+        elif unicodedata.category(ch)[0] == "M" and cjk_run:
+            cjk_run.append(ch)  # e.g. U+3099/309A that NFKC cannot compose
         else:  # whitespace, punctuation, symbols, format chars: separator
             _flush()
     _flush()
