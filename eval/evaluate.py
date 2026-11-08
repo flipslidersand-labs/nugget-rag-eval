@@ -61,9 +61,10 @@ def validate_chunks(chunks: list[dict]) -> None:
                 f"chunks[{i}] must have 'arxiv_id' or 'paper_id' (both absent or falsy)"
             )
         text = chunk.get("text")
-        if not text:
+        if not isinstance(text, str) or not text.strip():
             raise ValueError(
-                f"chunks[{i}] missing or empty 'text' field — recall would silently drop to 0"
+                f"chunks[{i}] missing or empty 'text' field (must be a non-blank string) "
+                "— recall would silently drop to 0"
             )
 
 
@@ -105,6 +106,12 @@ def validate_gold(gold: list[dict]) -> None:
         has_id = item.get("arxiv_id") or ("paper_id" in item)
         if not has_id:
             raise ValueError(f"gold[{i}] must have 'arxiv_id' or 'paper_id' (both absent or falsy)")
+
+        query = item["query"]
+        if not isinstance(query, str) or not query.strip():
+            raise ValueError(
+                f"gold[{i}] 'query' must be a non-empty string, got {type(query).__name__!r}"
+            )
 
         spans = item["answer_spans"]
         if not isinstance(spans, list):
@@ -336,6 +343,8 @@ def evaluate(
         "n_queries": n,
         "n_queries_without_chunks": n_queries_without_chunks,
         "modes": [m.name for m in MODES],
+        # Unrounded hit counts per mode: gates compare hits / n_queries, not the rounded recall.
+        "hits": {m.name: hits[m.name] for m in MODES},
     }
     for m in MODES:
         result[m.name] = {

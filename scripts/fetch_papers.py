@@ -404,6 +404,14 @@ def main():
             all_chunks.extend(chunks)
 
     out = Path(args.out)
+    if not all_chunks:
+        print(
+            f"[ERROR] no chunks fetched (failures: {failure_count}); "
+            f"not overwriting existing {out}",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
     out.parent.mkdir(parents=True, exist_ok=True)
     tmp = out.with_suffix(".tmp")
     tmp.write_text(json.dumps(all_chunks, ensure_ascii=False, indent=2), encoding="utf-8")
