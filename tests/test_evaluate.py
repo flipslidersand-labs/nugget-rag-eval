@@ -498,3 +498,18 @@ def test_recall_exact_ignores_empty_span():
     results = _make_results(["anything"])
     assert recall_at_k(results, [""], "text", normalize=False) is False
     assert mrr_at_k(results, [""], "text") == 0.0
+
+
+# ── #269: non-string text / query must raise ValueError ──────────────────────
+
+
+@pytest.mark.parametrize("text", [123, ["a"], None, "   "])
+def test_validate_chunks_non_string_or_blank_text_raises(text):
+    with pytest.raises(ValueError, match="'text'"):
+        validate_chunks([{"paper_id": 1, "text": text}])
+
+
+@pytest.mark.parametrize("query", [123, ["q"], None])
+def test_validate_gold_non_string_query_raises(query):
+    with pytest.raises(ValueError, match="'query'"):
+        validate_gold([_valid_item(query=query)])
