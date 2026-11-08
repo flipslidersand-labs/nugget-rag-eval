@@ -117,3 +117,35 @@ def test_main_error_exits_without_writing(monkeypatch, tmp_path):
     with pytest.raises(SystemExit) as exc:
         ar.main()
     assert "out of sync" in str(exc.value.code) and g.read_text() == before
+
+
+LEGACY_GOLD = [
+    {"paper_id": "legacy-1", "query": "q one", "answer_spans": ["a"]},
+    {"arxiv_id": "2508.11836", "query": "q two", "answer_spans": ["b"]},
+]
+LEGACY_SHEET = "1. 2410.10071 ○\n2. 2508.11836 ○\n"
+
+
+def test_apply_reports_missing_arxiv_id_as_review_error():
+    with pytest.raises(ar.ReviewError, match="item 1 has no arxiv_id"):
+        ar.apply_review(LEGACY_GOLD, ar.parse_review(LEGACY_SHEET))
+
+
+def test_main_missing_arxiv_id_exits_with_error_not_traceback(monkeypatch, tmp_path):
+    g, r = tmp_path / "gold.json", tmp_path / "review.txt"
+    g.write_text(json.dumps(LEGACY_GOLD))
+    r.write_text(LEGACY_SHEET, encoding="utf-8")
+    monkeypatch.setattr(sys, "argv", ["apply", str(r), "--gold", str(g)])
+    with pytest.raises(SystemExit) as exc:
+        ar.main()
+    assert str(exc.value.code).startswith("[ERROR]") and "no arxiv_id" in str(exc.value.code)
+
+
+def test_main_invalid_gold_schema_exits_with_error(monkeypatch, tmp_path):
+    g, r = tmp_path / "gold.json", tmp_path / "review.txt"
+    g.write_text(json.dumps([{"arxiv_id": "2410.10071", "query": "q", "answer_spans": []}]))
+    r.write_text("1. 2410.10071 ○\n", encoding="utf-8")
+    monkeypatch.setattr(sys, "argv", ["apply", str(r), "--gold", str(g)])
+    with pytest.raises(SystemExit) as exc:
+        ar.main()
+    assert str(exc.value.code).startswith("[ERROR]") and "answer_spans" in str(exc.value.code)
