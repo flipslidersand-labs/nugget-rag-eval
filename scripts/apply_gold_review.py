@@ -98,7 +98,7 @@ def summarize(report: dict[str, list[tuple[int, dict, str]]], total: int, kept: 
             lines.append(f"\n{title}:")
             for n, item, note in report[key]:
                 lines.append(
-                    f"  {n}. {item['arxiv_id']}  {item['query'][:70]}"
+                    f"  {n}. {item.get('arxiv_id') or item.get('paper_id')}  {item['query'][:70]}"
                     + (f"  — {note}" if note else "")
                 )
     return "\n".join(lines)
@@ -115,8 +115,12 @@ def main() -> None:
 
     gold = load_json(args.gold, "--gold")
     try:
+        review_text = Path(args.review).read_text(encoding="utf-8")
+    except UnicodeDecodeError as exc:
+        sys.exit(f"[ERROR] review file is not valid UTF-8: {args.review} ({exc})")
+    try:
         validate_gold(gold)
-        review = parse_review(Path(args.review).read_text(encoding="utf-8"))
+        review = parse_review(review_text)
         kept, report = apply_review(gold, review, args.allow_unjudged)
     except ValueError as exc:  # ReviewError and validate_gold errors
         sys.exit(f"[ERROR] {exc}")
