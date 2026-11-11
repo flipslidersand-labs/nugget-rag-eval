@@ -26,6 +26,7 @@ import sys
 from pathlib import Path
 
 from eval.cli_helpers import existing_file, load_json
+from eval.evaluate import validate_gold
 
 VERDICTS = {"○": "ok", "△": "fix", "×": "ng", "未判定": "none"}
 LINE = re.compile(r"^\s*(\d+)\.\s+(\S+)\s+(○|△|×|未判定)\s*(.*?)\s*$")
@@ -65,9 +66,12 @@ def apply_review(
     report: dict[str, list[tuple[int, dict, str]]] = {"ok": [], "fix": [], "ng": [], "none": []}
     for n, item in enumerate(gold, 1):
         arxiv, verdict, note = review[n]
-        if arxiv != item["arxiv_id"]:
+        gold_id = item.get("arxiv_id")
+        if not gold_id:
+            raise ReviewError(f"item {n} has no arxiv_id; review sheet requires it")
+        if arxiv != gold_id:
             raise ReviewError(
-                f"item {n}: review says {arxiv} but gold[{n - 1}] is {item['arxiv_id']}; "
+                f"item {n}: review says {arxiv} but gold[{n - 1}] is {gold_id}; "
                 "the sheet and the gold file are out of sync"
             )
         report[verdict].append((n, item, note))
@@ -94,7 +98,7 @@ def summarize(report: dict[str, list[tuple[int, dict, str]]], total: int, kept: 
             lines.append(f"\n{title}:")
             for n, item, note in report[key]:
                 lines.append(
-                    f"  {n}. {item['arxiv_id']}  {item['query'][:70]}"
+                    f"  {n}. {item.get('arxiv_id') or item.get('paper_id')}  {item['query'][:70]}"
                     + (f"  — {note}" if note else "")
                 )
     return "\n".join(lines)
@@ -111,9 +115,14 @@ def main() -> None:
 
     gold = load_json(args.gold, "--gold")
     try:
-        review = parse_review(Path(args.review).read_text(encoding="utf-8"))
+        review_text = Path(args.review).read_text(encoding="utf-8")
+    except UnicodeDecodeError as exc:
+        sys.exit(f"[ERROR] review file is not valid UTF-8: {args.review} ({exc})")
+    try:
+        validate_gold(gold)
+        review = parse_review(review_text)
         kept, report = apply_review(gold, review, args.allow_unjudged)
-    except ReviewError as exc:
+    except ValueError as exc:  # ReviewError and validate_gold errors
         sys.exit(f"[ERROR] {exc}")
 
     print(summarize(report, len(gold), len(kept)))

@@ -329,3 +329,27 @@ def test_real_data_gate_passes_threshold():
     )
     assert result.returncode == 0, result.stdout + result.stderr
     assert "[PASS]" in result.stdout
+
+
+# ── #269: non-string text / query exit 1 with [ERROR], no traceback ──────────
+
+
+def test_chunks_non_string_text_exits_with_error(tmp_path):
+    c_path = tmp_path / "chunks.json"
+    _write_json(c_path, [{"paper_id": 1, "text": 123}])
+    g_path = tmp_path / "gold.json"
+    _write_json(g_path, [])
+    result = _run_main(["--chunks", str(c_path), "--gold", str(g_path)])
+    assert result.returncode == 1
+    assert "[ERROR]" in result.stderr
+    assert "Traceback" not in result.stderr
+
+
+def test_gold_non_string_query_exits_with_error(tmp_path):
+    c_path, _ = _passing_data(tmp_path)
+    g_path = tmp_path / "bad_gold.json"
+    _write_json(g_path, [{"arxiv_id": "2410.10071", "query": 123, "answer_spans": ["x"]}])
+    result = _run_main(["--chunks", str(c_path), "--gold", str(g_path)])
+    assert result.returncode == 1
+    assert "[ERROR]" in result.stderr
+    assert "Traceback" not in result.stderr
