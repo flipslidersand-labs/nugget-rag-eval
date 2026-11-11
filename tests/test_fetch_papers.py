@@ -323,6 +323,40 @@ def test_main_unregistered_arxiv_id_exits_1_by_default(tmp_path, monkeypatch):
     assert exc.value.code == 1
 
 
+def test_main_empty_result_keeps_existing_out_gold_mode(tmp_path, monkeypatch, capsys):
+    """全件スキップで chunks が 0 件なら exit 1 し、既存 out を上書きしない (#249)。"""
+    gold = tmp_path / "gold.json"
+    gold.write_text(
+        json.dumps([{"arxiv_id": "9999.99999", "query": "q", "answer_spans": ["t"]}]),
+        encoding="utf-8",
+    )
+    out = tmp_path / "chunks.json"
+    out.write_text('[{"keep": true}]', encoding="utf-8")
+    monkeypatch.setattr(
+        "sys.argv",
+        ["fetch_papers", "--gold-set", str(gold), "--out", str(out), "--max-failures", "10"],
+    )
+    with pytest.raises(SystemExit) as exc:
+        fetch_papers_main()
+    assert exc.value.code == 1
+    assert "[ERROR]" in capsys.readouterr().err
+    assert out.read_text(encoding="utf-8") == '[{"keep": true}]'
+    assert not out.with_suffix(".tmp").exists()
+
+
+@patch("scripts.fetch_papers.fetch_papers", return_value=[])
+def test_main_empty_result_keeps_existing_out_papers_mode(_mock, tmp_path, monkeypatch, capsys):
+    """/papers が空でも exit 1 し、既存 out を保持する (#249)。"""
+    out = tmp_path / "chunks.json"
+    out.write_text('[{"keep": true}]', encoding="utf-8")
+    monkeypatch.setattr("sys.argv", ["fetch_papers", "--out", str(out)])
+    with pytest.raises(SystemExit) as exc:
+        fetch_papers_main()
+    assert exc.value.code == 1
+    assert "[ERROR]" in capsys.readouterr().err
+    assert out.read_text(encoding="utf-8") == '[{"keep": true}]'
+
+
 @patch("scripts.fetch_papers.fetch_chunks_for_paper")
 def test_fetch_per_query_returns_all_unique_chunks(mock_fetch):
     """複数論文の gold をまとめると全チャンクが返る。"""
