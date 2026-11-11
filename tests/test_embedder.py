@@ -542,3 +542,48 @@ def test_plain_http_warning_emitted_once_per_client(monkeypatch, capsys):
 )
 def test_is_plain_http_remote(url, expected):
     assert _is_plain_http_remote(url) is expected
+
+
+# --- 408/429 の再試行と Retry-After (#284) ---
+
+
+def _http_err(code, retry_after=None):
+    from email.message import Message
+
+    hdrs = Message()
+    if retry_after is not None:
+        hdrs["Retry-After"] = retry_after
+    return HTTPError(url=None, code=code, msg="err", hdrs=hdrs, fp=None)  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize("code", [408, 429])
+@patch("nugget_rag.embedder.time.sleep")
+@patch("nugget_rag.embedder.urlopen")
+def test_retry_408_429_then_success(mock_open, mock_sleep, code):
+    mock_open.side_effect = [_http_err(code), _ok_response()]
+    assert _retry_client(max_retries=3).embed(["t"]) == [[0.1]]
+    assert mock_open.call_count == 2
+
+
+@patch("nugget_rag.embedder.time.sleep")
+@patch("nugget_rag.embedder.urlopen")
+def test_retry_404_fails_immediately(mock_open, mock_sleep):
+    from nugget_rag.embedder import EmbedError
+
+    mock_open.side_effect = _http_err(404)
+    with pytest.raises(EmbedError, match="404"):
+        _retry_client(max_retries=3).embed(["t"])
+    assert mock_open.call_count == 1
+    mock_sleep.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("header", "expected"),
+    [("7", 7), ("999", 30), ("abc", 0.5), ("-3", 0.5), ("1.5", 0.5), (None, 0.5)],
+)
+@patch("nugget_rag.embedder.time.sleep")
+@patch("nugget_rag.embedder.urlopen")
+def test_retry_after_is_capped_and_invalid_ignored(mock_open, mock_sleep, header, expected):
+    mock_open.side_effect = [_http_err(429, header), _ok_response()]
+    _retry_client(max_retries=3, backoff=0.5).embed(["t"])
+    assert [c.args[0] for c in mock_sleep.call_args_list] == [expected]

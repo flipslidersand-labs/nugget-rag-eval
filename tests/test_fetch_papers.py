@@ -731,3 +731,38 @@ def test_fetch_papers_read_error_exhaustion_raises_fetch_error(mock_open, mock_s
     with pytest.raises(FetchError, match="Failed to fetch papers"):
         fetch_papers("http://api")
     assert mock_open.call_count == _MAX_RETRIES + 1
+
+
+# ── 408/429 の再試行と Retry-After (#284) ────────────────────────────────────
+
+
+def _http_error_ra(code: int, retry_after: str | None) -> HTTPError:
+    from email.message import Message
+
+    hdrs = Message()
+    if retry_after is not None:
+        hdrs["Retry-After"] = retry_after
+    return HTTPError(url="http://api", code=code, msg="err", hdrs=hdrs, fp=None)
+
+
+@pytest.mark.parametrize("code", [408, 429])
+@patch("scripts.fetch_papers.time.sleep")
+@patch("scripts.fetch_papers.urlopen")
+def test_retry_408_429_then_success(mock_open, mock_sleep, code):
+    ok = _cm(b"payload").return_value
+    mock_open.side_effect = [_http_error(code), ok]
+    assert _urlopen_with_retry("http://api", timeout=5) == b"payload"
+    assert mock_open.call_count == 2
+
+
+@pytest.mark.parametrize(
+    ("header", "expected"),
+    [("7", 7), ("999", 30), ("abc", 1.0), ("-3", 1.0), ("1.5", 1.0), (None, 1.0)],
+)
+@patch("scripts.fetch_papers.time.sleep")
+@patch("scripts.fetch_papers.urlopen")
+def test_retry_after_is_capped_and_invalid_ignored(mock_open, mock_sleep, header, expected):
+    ok = _cm(b"payload").return_value
+    mock_open.side_effect = [_http_error_ra(429, header), ok]
+    _urlopen_with_retry("http://api", timeout=5)
+    assert [c.args[0] for c in mock_sleep.call_args_list] == [expected]
