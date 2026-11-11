@@ -757,7 +757,15 @@ def test_retry_408_429_then_success(mock_open, mock_sleep, code):
 
 @pytest.mark.parametrize(
     ("header", "expected"),
-    [("7", 7), ("999", 30), ("abc", 1.0), ("-3", 1.0), ("1.5", 1.0), (None, 1.0), ("9" * 5000, 1.0)],
+    [
+        ("7", 7),
+        ("999", 30),
+        ("abc", 1.0),
+        ("-3", 1.0),
+        ("1.5", 1.0),
+        (None, 1.0),
+        ("9" * 5000, 1.0),
+    ],
 )
 @patch("scripts.fetch_papers.time.sleep")
 @patch("scripts.fetch_papers.urlopen")
