@@ -579,7 +579,7 @@ def test_retry_404_fails_immediately(mock_open, mock_sleep):
 
 @pytest.mark.parametrize(
     ("header", "expected"),
-    [("7", 7), ("999", 30), ("abc", 0.5), ("-3", 0.5), ("1.5", 0.5), (None, 0.5)],
+    [("7", 7), ("999", 30), ("abc", 0.5), ("-3", 0.5), ("1.5", 0.5), (None, 0.5), ("9" * 5000, 0.5)],
 )
 @patch("nugget_rag.embedder.time.sleep")
 @patch("nugget_rag.embedder.urlopen")

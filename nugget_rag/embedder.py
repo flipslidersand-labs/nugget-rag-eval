@@ -102,8 +102,10 @@ def _retry_delay(exc: HTTPError, backoff_delay: float) -> float:
     """
     hdrs = getattr(exc, "headers", None)
     raw = hdrs.get("Retry-After") if hdrs is not None else None
-    if isinstance(raw, str) and raw.strip().isascii() and raw.strip().isdigit():
-        return max(backoff_delay, min(int(raw.strip()), _RETRY_AFTER_MAX))
+    value = raw.strip() if isinstance(raw, str) else ""
+    # len <= 4 guards int() against huge digit strings (ValueError escapes the except clause)
+    if value.isascii() and value.isdigit() and len(value) <= 4:
+        return max(backoff_delay, min(int(value), _RETRY_AFTER_MAX))
     return backoff_delay
 
 
