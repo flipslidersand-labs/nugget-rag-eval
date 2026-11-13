@@ -108,6 +108,7 @@ nugget             0.216        0.128        78.7
   "n_queries": 37,
   "full_chunk": {"recall": 0.514, "mrr": 0.373, "avg_tokens": 281.4},
   "nugget":     {"recall": 0.216,   "mrr": 0.128, "avg_tokens": 78.7},
+  "hits": {"full_chunk": 19, "nugget": 8},
   "latency_ms": {"full_chunk": {"p50": ..., "p95": ...}, "nugget": {"p50": ..., "p95": ...}},
   "comparison": {
     "counts": {"both": 8, "full_only": 11, "nugget_only": 0, "neither": 18},
@@ -117,7 +118,8 @@ nugget             0.216        0.128        78.7
 }
 ```
 
-（例は難問セット・PDF プール・BM25 のみ。`comparison` の判別条件は `mcnemar_p < 0.05` かつ
+（`hits` はモードごとの正解クエリ数（丸め前）。`recall` は `hits / n_queries` を 3 桁に丸めた値。
+例は難問セット・PDF プール・BM25 のみ。`comparison` の判別条件は `mcnemar_p < 0.05` かつ
 `recall_diff_ci95` が 0 を含まないこと。`nugget_only` は構造上常に 0。）
 
 ## CI 回帰チェック
