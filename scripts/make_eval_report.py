@@ -53,7 +53,10 @@ def run_matrix(
                     pooled = [c for cs in by_paper.values() for c in cs]
                     chunks = {k: pooled for k in by_paper}
                 for w in windows:
-                    res = evaluate(chunks, gold, match=match, nugget_window=w)
+                    try:
+                        res = evaluate(chunks, gold, match=match, nugget_window=w)
+                    except ValueError as exc:
+                        raise ValueError(f"pool={pname} gold={gname}: {exc}") from exc
                     rows.append(
                         {
                             "pool": pname,

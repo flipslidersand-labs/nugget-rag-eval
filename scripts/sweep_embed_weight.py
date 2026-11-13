@@ -155,7 +155,6 @@ def main() -> None:
     ap.add_argument("--out-dir", type=Path, required=True)
     args = ap.parse_args()
 
-    args.out_dir.mkdir(parents=True, exist_ok=True)
     chunks = load_json(args.chunks, "--chunks")
     try:
         validate_chunks(chunks)
@@ -166,24 +165,29 @@ def main() -> None:
         sys.exit(f"[ERROR] {exc}")
     by_paper = build_chunks_index(chunks)
 
-    try:
-        texts = list(
-            dict.fromkeys(
-                t
-                for gold in golds.values()
-                for t in collect_texts(by_paper, gold, args.top_k, args.match)
-            )
-        )
-    except ValueError as exc:
-        sys.exit(f"[ERROR] {exc}")
+    texts: dict[str, None] = {}
+    for gname, gold in golds.items():
+        try:
+            texts.update(dict.fromkeys(collect_texts(by_paper, gold, args.top_k, args.match)))
+        except ValueError as exc:
+            sys.exit(f"[ERROR] gold={gname}: {exc}")
+
+    from nugget_rag.embedder import EmbedClient, EmbedError
+
     cache_path = args.out_dir / "embed_cache.json"
     cache = load_cache(cache_path)
+    try:
+        client = EmbedClient(args.embedding_url)
+    except ValueError as exc:
+        sys.exit(f"[ERROR] --embedding-url: {exc}")
+    args.out_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        warm_cache(list(texts), client.embed, cache, cache_path)
+    except EmbedError as exc:
+        sys.exit(f"[ERROR] embedding service failed: {exc}")
 
-    from nugget_rag.embedder import EmbedClient
-
-    client = EmbedClient(args.embedding_url)
-    warm_cache(texts, client.embed, cache, cache_path)
-
+    # collect_texts embeds with dummy 1-dim vectors, so a real dimension mismatch
+    # (mixed-model cache, inconsistent service) only surfaces in sweep().
     try:
         results = sweep(
             by_paper, golds, args.weights, cached_embed_fn(cache), args.top_k, args.match

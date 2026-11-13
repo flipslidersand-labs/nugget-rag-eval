@@ -136,3 +136,13 @@ def test_main_exits_when_gold_and_chunks_do_not_match(monkeypatch, tmp_path):
     with pytest.raises(SystemExit) as exc:
         _run(monkeypatch, c, g)
     assert str(exc.value.code).startswith("[ERROR] no gold paper key found in chunks")
+
+
+def test_main_reports_queries_without_chunks(monkeypatch, tmp_path, capsys):
+    c, g = _files(tmp_path)
+    gold = json.loads(g.read_text(encoding="utf-8"))
+    gold.append({"arxiv_id": "2508.11836", "query": "other", "answer_spans": ["x"]})
+    g.write_text(json.dumps(gold), encoding="utf-8")
+    _run(monkeypatch, c, g)
+    out = capsys.readouterr().out
+    assert "chunks なし" in out and ": 1" in out.split("chunks なし")[1].splitlines()[0]
