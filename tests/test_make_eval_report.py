@@ -120,4 +120,14 @@ def test_main_exits_when_gold_and_chunks_do_not_match(monkeypatch, tmp_path):
     monkeypatch.setattr(sys, "argv", ["rep", "--pool", f"P={c}", "--gold", f"G={g}"])
     with pytest.raises(SystemExit) as exc:
         mr.main()
-    assert str(exc.value.code).startswith("[ERROR] no gold paper key found in chunks")
+    assert "no gold paper key found in chunks" in str(exc.value.code)
+
+
+def test_main_error_names_the_failing_pool_and_gold(monkeypatch, tmp_path):
+    c, g = tmp_path / "c.json", tmp_path / "g.json"
+    c.write_text(json.dumps([CHUNKS[1]]))
+    g.write_text(json.dumps(GOLD))
+    monkeypatch.setattr(sys, "argv", ["rep", "--pool", f"P={c}", "--gold", f"G={g}"])
+    with pytest.raises(SystemExit) as exc:
+        mr.main()
+    assert str(exc.value.code).startswith("[ERROR] pool=P gold=G: no gold paper key found")

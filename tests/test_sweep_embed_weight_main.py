@@ -141,7 +141,7 @@ def test_main_exits_when_gold_and_chunks_do_not_match(env, monkeypatch):
     chunks.write_text(json.dumps(other), encoding="utf-8")
     with pytest.raises(SystemExit) as exc:
         _run(monkeypatch, tmp_path, chunks, gold, "--weights", "0.0")
-    assert str(exc.value.code).startswith("[ERROR] no gold paper key found in chunks")
+    assert "no gold paper key found in chunks" in str(exc.value.code)
 
 
 @pytest.mark.parametrize(
@@ -194,3 +194,42 @@ def test_load_cache_exits_on_unreadable_file(tmp_path, monkeypatch):
         sw.load_cache(path)
     assert str(exc.value).startswith("[ERROR] permission denied reading cache file")
     assert str(path) in str(exc.value)
+
+
+def test_main_error_names_the_failing_gold(env, monkeypatch):
+    tmp_path, chunks, gold = env
+    other = [{**CHUNKS[0], "paper_id": ARXIV_MAP["2508.11836"], "arxiv_id": "2508.11836"}]
+    chunks.write_text(json.dumps(other), encoding="utf-8")
+    with pytest.raises(SystemExit) as exc:
+        _run(monkeypatch, tmp_path, chunks, gold, "--weights", "0.0")
+    assert str(exc.value.code).startswith("[ERROR] gold=gold: no gold paper key found")
+
+
+def test_main_bad_embedding_url_exits_without_traceback_or_out_dir(env, monkeypatch):
+    tmp_path, chunks, gold = env
+    monkeypatch.undo()  # use the real EmbedClient, which validates the URL
+    with pytest.raises(SystemExit) as exc:
+        _run(monkeypatch, tmp_path, chunks, gold, "--embedding-url", "ftp://x")
+    assert str(exc.value.code).startswith("[ERROR]")
+    assert not (tmp_path / "out").exists()
+
+
+def test_main_embed_error_exits_with_error_line(env, monkeypatch):
+    tmp_path, chunks, gold = env
+
+    class Failing(FakeClient):
+        def embed(self, texts):
+            raise embedder.EmbedError("service down")
+
+    monkeypatch.setattr(embedder, "EmbedClient", Failing)
+    with pytest.raises(SystemExit) as exc:
+        _run(monkeypatch, tmp_path, chunks, gold)
+    assert str(exc.value.code).startswith("[ERROR]") and "service down" in str(exc.value.code)
+
+
+def test_main_validation_error_leaves_no_out_dir(env, monkeypatch):
+    tmp_path, chunks, gold = env
+    chunks.write_text("[]", encoding="utf-8")
+    with pytest.raises(SystemExit):
+        _run(monkeypatch, tmp_path, chunks, gold)
+    assert not (tmp_path / "out").exists()

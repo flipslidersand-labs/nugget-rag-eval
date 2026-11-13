@@ -110,8 +110,10 @@ def sweep(
     return rows
 
 
-def format_report(classes: Counter, c_rank: Counter, n: int) -> str:
+def format_report(classes: Counter, c_rank: Counter, n: int, n_no_chunks: int = 0) -> str:
     lines = [f"n={n}"]
+    if n_no_chunks:
+        lines.append(f"  うち chunks なし（A に含まれる）: {n_no_chunks}")
     for key in "ABCD":
         lines.append(f"  {LABELS[key]}: {classes.get(key, 0)}")
         if key == "C" and classes.get("C"):
@@ -146,12 +148,12 @@ def main() -> None:
         sys.exit(f"[ERROR] {exc}")
     by_paper, normalize = build_chunks_index(chunks), args.match == "normalized"
     try:
-        check_gold_chunk_coverage(by_paper, gold)
+        n_no_chunks = check_gold_chunk_coverage(by_paper, gold)
     except ValueError as exc:
         sys.exit(f"[ERROR] {exc}")
 
     classes, c_rank = classify_all(by_paper, gold, args.top_k, args.nuggets_per_chunk, normalize)
-    print(format_report(classes, c_rank, len(gold)))
+    print(format_report(classes, c_rank, len(gold), n_no_chunks))
     if args.sweep:
         print("\n" + format_sweep(sweep(by_paper, gold, top_k=args.top_k, normalize=normalize)))
 
