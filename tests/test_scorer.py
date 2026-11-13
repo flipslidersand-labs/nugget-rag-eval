@@ -467,3 +467,10 @@ def test_top_nuggets_dimension_mismatch_raises():
 def test_top_nuggets_only_one_of_query_vec_sent_vecs_raises(kwargs):
     with pytest.raises(ValueError):
         top_nuggets("KV cache", _SENTS, **kwargs)
+
+
+@pytest.mark.parametrize("text", ["あか゚さ", "けゲ゙ん", "か゚か゚"])
+def test_tokenize_combining_voiced_mark_keeps_bigram_run(text):
+    # NFKC cannot compose these; the mark must stay in the run, not split it.
+    run = "".join(text.split())
+    assert _tokenize(text) == _char_ngrams(run)

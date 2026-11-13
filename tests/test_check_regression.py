@@ -353,3 +353,38 @@ def test_gold_non_string_query_exits_with_error(tmp_path):
     assert result.returncode == 1
     assert "[ERROR]" in result.stderr
     assert "Traceback" not in result.stderr
+
+
+def _result(hits, n=37, shown=0.5):
+    return {"n_queries": n, "full_chunk": {"recall": shown}, "hits": hits}
+
+
+def test_raw_recall_uses_hits_over_n():
+    from eval.check_regression import raw_recall
+
+    assert raw_recall(_result({"full_chunk": 3}, n=4), "full_chunk") == 0.75
+
+
+def test_raw_recall_falls_back_to_displayed_value_on_invalid_hits():
+    from eval.check_regression import raw_recall
+
+    invalid = [
+        None,  # hits itself is None
+        "full_chunk",  # hits is a string
+        [1, 2],  # hits is a list
+        {"full_chunk": None},
+        {"full_chunk": "3"},
+        {"full_chunk": True},
+        {"full_chunk": 3.5},
+        {"full_chunk": -1},
+        {"full_chunk": 99},  # more hits than queries
+    ]
+    for hits in invalid:
+        assert raw_recall(_result(hits), "full_chunk") == 0.5, hits
+
+
+def test_raw_recall_falls_back_on_invalid_n_queries():
+    from eval.check_regression import raw_recall
+
+    for n in (None, 0, "37", -5):
+        assert raw_recall(_result({"full_chunk": 3}, n=n), "full_chunk") == 0.5, n

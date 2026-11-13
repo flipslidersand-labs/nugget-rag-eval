@@ -24,10 +24,19 @@ from eval.evaluate import build_chunks_index, evaluate, mode_label, validate_chu
 
 
 def raw_recall(result: dict, mode: str) -> float:
-    """Unrounded recall (hits / n_queries); falls back to the displayed value without hit counts."""
-    hits = result.get("hits", {}).get(mode)
+    """Unrounded recall (hits / n_queries); falls back to the displayed value without valid hit counts."""
+    all_hits = result.get("hits")
+    hits = all_hits.get(mode) if isinstance(all_hits, dict) else None
     n = result.get("n_queries")
-    if hits is None or not n:
+    valid = (
+        isinstance(hits, int)
+        and isinstance(n, int)
+        and not isinstance(hits, bool)
+        and not isinstance(n, bool)
+        and 0 <= hits <= n
+        and n > 0
+    )
+    if not valid:
         return result[mode]["recall"]
     return hits / n
 
