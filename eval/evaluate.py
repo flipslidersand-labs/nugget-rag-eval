@@ -38,6 +38,16 @@ from nugget_rag.retriever import retrieve_full_chunk, retrieve_nuggets
 _REQUIRED_FIELDS = frozenset({"query", "answer_spans"})
 
 
+def has_paper_id(item: dict) -> bool:
+    """Return True if *item* carries a usable identifier.
+
+    A truthy ``arxiv_id`` or a non-None ``paper_id`` counts. ``arxiv_id: ""``
+    and ``paper_id: null`` do not (they would resolve to no key and silently
+    give recall 0). ``paper_id: 0`` is a valid id.
+    """
+    return bool(item.get("arxiv_id")) or item.get("paper_id") is not None
+
+
 def validate_chunks(chunks: list[dict]) -> None:
     """Validate chunks list, raising ValueError on schema violations.
 
@@ -55,8 +65,7 @@ def validate_chunks(chunks: list[dict]) -> None:
     for i, chunk in enumerate(chunks):
         if not isinstance(chunk, dict):
             raise ValueError(f"chunks[{i}] must be a dict, got {type(chunk).__name__!r}")
-        has_id = chunk.get("arxiv_id") or chunk.get("paper_id") is not None
-        if not has_id:
+        if not has_paper_id(chunk):
             raise ValueError(
                 f"chunks[{i}] must have 'arxiv_id' or 'paper_id' (both absent or falsy)"
             )
@@ -103,8 +112,7 @@ def validate_gold(gold: list[dict]) -> None:
         if missing:
             raise ValueError(f"gold[{i}] missing required fields: {sorted(missing)}")
 
-        has_id = item.get("arxiv_id") or ("paper_id" in item)
-        if not has_id:
+        if not has_paper_id(item):
             raise ValueError(f"gold[{i}] must have 'arxiv_id' or 'paper_id' (both absent or falsy)")
 
         query = item["query"]

@@ -262,6 +262,28 @@ def test_validate_gold_missing_both_id_fields_raises():
         validate_gold([item])
 
 
+def test_validate_gold_paper_id_null_raises():
+    item = {"paper_id": None, "query": "q", "answer_spans": ["span"]}
+    with pytest.raises(ValueError, match="'arxiv_id' or 'paper_id'"):
+        validate_gold([item])
+
+
+def test_validate_gold_empty_arxiv_id_without_paper_id_raises():
+    item = {"arxiv_id": "", "query": "q", "answer_spans": ["span"]}
+    with pytest.raises(ValueError, match="'arxiv_id' or 'paper_id'"):
+        validate_gold([item])
+
+
+def test_validate_gold_empty_arxiv_id_and_null_paper_id_raises():
+    item = {"arxiv_id": "", "paper_id": None, "query": "q", "answer_spans": ["span"]}
+    with pytest.raises(ValueError, match="'arxiv_id' or 'paper_id'"):
+        validate_gold([item])
+
+
+def test_validate_gold_paper_id_zero_is_valid():
+    validate_gold([_valid_item(paper_id=0)])  # 0 is a real id, not "missing"
+
+
 def test_validate_gold_empty_answer_spans_raises():
     item = _valid_item(answer_spans=[])
     with pytest.raises(ValueError, match="'answer_spans' is empty"):
