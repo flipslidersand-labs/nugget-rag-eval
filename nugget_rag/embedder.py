@@ -86,6 +86,29 @@ class _NoRedirectHandler(HTTPRedirectHandler):
 urlopen = build_opener(_NoRedirectHandler).open
 
 
+_RETRY_AFTER_MAX = 30  # seconds; upper bound honoured from a Retry-After header
+_RETRYABLE_4XX = frozenset({408, 429})
+
+
+def _is_retryable_http(code: int | None) -> bool:
+    """True for 5xx and the transient 4xx codes 408/429 (#284). Shared with fetch_papers."""
+    return code is None or code >= 500 or code in _RETRYABLE_4XX
+
+
+def _retry_delay(exc: HTTPError, backoff_delay: float) -> float:
+    """Backoff delay, raised to Retry-After (integer seconds only, capped) if present.
+
+    Non-integer / negative values (e.g. HTTP-date) are ignored.
+    """
+    hdrs = getattr(exc, "headers", None)
+    raw = hdrs.get("Retry-After") if hdrs is not None else None
+    value = raw.strip() if isinstance(raw, str) else ""
+    # len <= 4 guards int() against huge digit strings (ValueError escapes the except clause)
+    if value.isascii() and value.isdigit() and len(value) <= 4:
+        return max(backoff_delay, min(int(value), _RETRY_AFTER_MAX))
+    return backoff_delay
+
+
 class EmbedError(RuntimeError):
     """Raised when the embedding service call fails."""
 
@@ -134,6 +157,7 @@ class EmbedClient:
         )
         last_exc: Exception | None = None
         for attempt in range(self.max_retries + 1):
+            delay = self.retry_backoff * (2**attempt)
             try:
                 with urlopen(req, timeout=self.timeout) as http_resp:
                     resp = json.loads(http_resp.read())
@@ -156,8 +180,9 @@ class EmbedClient:
                     )
                 return vecs
             except HTTPError as exc:
-                if exc.code is not None and exc.code < 500:
+                if not _is_retryable_http(exc.code):
                     raise EmbedError(f"Embedding service error {exc.code}: {exc}") from exc
+                delay = _retry_delay(exc, delay)
                 exc.close()  # release the response socket before retrying (#141)
                 last_exc = exc
             except URLError as exc:
@@ -169,7 +194,7 @@ class EmbedClient:
                 # 応答側の不正のみ (リクエスト側の ValueError は変換しない)
                 raise EmbedError(f"Unexpected embedding response format: {exc}") from exc
             if attempt < self.max_retries:
-                time.sleep(self.retry_backoff * (2**attempt))
+                time.sleep(delay)
         raise EmbedError(
             f"Embedding service failed after {self.max_retries} retries: {last_exc}"
         ) from last_exc
