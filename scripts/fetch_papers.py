@@ -22,7 +22,7 @@ from urllib.parse import urlencode
 # redirect-refusing urlopen (see #147 — redirects would forward headers
 # to arbitrary hosts).
 from eval.cli_helpers import load_json, non_negative_int, positive_int
-from nugget_rag.embedder import _validate_url, urlopen
+from nugget_rag.embedder import _is_retryable_http, _retry_delay, _validate_url, urlopen
 from nugget_rag.paper_registry import ARXIV_MAP as ARXIV_TO_PAPER_ID
 from nugget_rag.paper_registry import PAPER_ID_TO_ARXIV
 
@@ -55,9 +55,9 @@ def _urlopen_with_retry(
 ) -> bytes:
     """Fetch *url* with exponential-backoff retry, returning the response body.
 
-    Retries up to *max_retries* times on URLError, 5xx HTTPError, or errors raised
+    Retries up to *max_retries* times on URLError, 5xx/408/429 HTTPError, or errors raised
     while reading the body (timeout, connection reset, IncompleteRead) so a single
-    transient error does not silently drop a paper. 4xx errors are re-raised
+    transient error does not silently drop a paper. Other 4xx errors are re-raised
     immediately without retrying (permanent failures).
 
     Raises:
@@ -65,19 +65,21 @@ def _urlopen_with_retry(
     """
     last_exc: Exception | None = None
     for attempt in range(max_retries + 1):
+        delay = retry_backoff * (2**attempt)
         try:
             with urlopen(url, timeout=timeout) as http_resp:
                 return http_resp.read()
         except HTTPError as exc:
-            if exc.code is not None and exc.code < 500:
+            if not _is_retryable_http(exc.code):
                 raise
             last_exc = exc
+            delay = _retry_delay(exc, delay)
         except URLError as exc:
             last_exc = exc
         except _READ_ERRORS as exc:
             last_exc = exc
         if attempt < max_retries:
-            time.sleep(retry_backoff * (2**attempt))
+            time.sleep(delay)
     assert last_exc is not None  # loop always runs at least once
     raise last_exc
 
