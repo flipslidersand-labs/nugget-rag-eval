@@ -186,9 +186,14 @@ def main() -> None:
     except EmbedError as exc:
         sys.exit(f"[ERROR] embedding service failed: {exc}")
 
-    # collect_texts already ran evaluate() with the same chunks/gold/top_k/match,
-    # so sweep() cannot raise ValueError here.
-    results = sweep(by_paper, golds, args.weights, cached_embed_fn(cache), args.top_k, args.match)
+    # collect_texts embeds with dummy 1-dim vectors, so a real dimension mismatch
+    # (mixed-model cache, inconsistent service) only surfaces in sweep().
+    try:
+        results = sweep(
+            by_paper, golds, args.weights, cached_embed_fn(cache), args.top_k, args.match
+        )
+    except ValueError as exc:
+        sys.exit(f"[ERROR] {exc}")
     (args.out_dir / "summary.json").write_text(
         json.dumps(results, ensure_ascii=False, indent=1), encoding="utf-8"
     )

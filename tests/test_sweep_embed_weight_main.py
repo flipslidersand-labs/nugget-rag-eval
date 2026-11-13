@@ -233,3 +233,16 @@ def test_main_validation_error_leaves_no_out_dir(env, monkeypatch):
     with pytest.raises(SystemExit):
         _run(monkeypatch, tmp_path, chunks, gold)
     assert not (tmp_path / "out").exists()
+
+
+def test_main_exits_on_mixed_dimension_vectors(env, monkeypatch):
+    tmp_path, chunks, gold = env
+
+    class MixedDim(FakeClient):
+        def embed(self, texts):
+            return [[1.0] * (1 + len(t) % 2 + (i % 2)) for i, t in enumerate(texts)]
+
+    monkeypatch.setattr(embedder, "EmbedClient", MixedDim)
+    with pytest.raises(SystemExit) as exc:
+        _run(monkeypatch, tmp_path, chunks, gold, "--weights", "0.5")
+    assert exc.value.code != 0 and str(exc.value.code).startswith("[ERROR]")
