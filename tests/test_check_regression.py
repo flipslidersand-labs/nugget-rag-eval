@@ -431,7 +431,7 @@ def test_baseline_n_mismatch_fails(tmp_path):
     base = {"n": 37, "full_chunk": {"recall": 1.0}, "nugget": {"recall": 1.0}}
     result, _ = _run_with_baseline(tmp_path, base)
     assert result.returncode == 1, result.stdout
-    assert "n " in result.stdout or "n=" in result.stdout
+    assert "baseline n 37 != current n 1" in result.stdout
 
 
 def test_baseline_gold_mismatch_fails(tmp_path):
@@ -482,3 +482,36 @@ def test_real_baseline_hard_matches_current_run_settings():
         gold_path="eval/gold_set_hard.json",
     )
     assert failures == [] and note == ""
+
+
+def _gold_check(baseline_gold, gold_path, tmp_path):
+    from eval.check_regression import check_baseline
+
+    b = tmp_path / "b.json"
+    _write_json(b, {"gold": baseline_gold, "full_chunk": {"recall": 0.5}})
+    result = {"modes": ["full_chunk"], "n_queries": 1, "full_chunk": {"recall": 0.5}}
+    return check_baseline(result, str(b), 0.05, top_k=5, gold_path=gold_path)[0]
+
+
+def test_baseline_gold_is_cwd_independent(tmp_path, monkeypatch):
+    import pathlib
+
+    repo_root = pathlib.Path(__file__).parent.parent
+    abs_gold = str(repo_root / "eval" / "gold_set_hard.json")
+    monkeypatch.chdir(tmp_path)  # outside the repository
+    assert _gold_check("eval/gold_set_hard.json", abs_gold, tmp_path) == []
+    monkeypatch.chdir(repo_root / "eval")
+    assert _gold_check("eval/gold_set_hard.json", "gold_set_hard.json", tmp_path) == []
+    assert _gold_check("eval/gold_set_hard.json", "./gold_set_hard.json", tmp_path) == []
+    monkeypatch.chdir(repo_root)
+    assert _gold_check("eval/gold_set_hard.json", "./eval/gold_set_hard.json", tmp_path) == []
+
+
+def test_baseline_gold_different_file_fails_from_any_cwd(tmp_path, monkeypatch):
+    import pathlib
+
+    repo_root = pathlib.Path(__file__).parent.parent
+    monkeypatch.chdir(tmp_path)
+    other = str(repo_root / "eval" / "gold_set.json")
+    failures = _gold_check("eval/gold_set_hard.json", other, tmp_path)
+    assert len(failures) == 1 and "gold" in failures[0]

@@ -41,12 +41,16 @@ def raw_recall(result: dict, mode: str) -> float:
     return hits / n
 
 
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+
+
 def _same_int(a: object, b: int) -> bool:
     return isinstance(a, int) and not isinstance(a, bool) and a == b
 
 
 def _same_path(a: object, b: str) -> bool:
-    return isinstance(a, str) and Path(a).resolve() == Path(b).resolve()
+    # baseline paths are repo-root relative; --gold is relative to the cwd. Independent of the cwd for the baseline.
+    return isinstance(a, str) and (_REPO_ROOT / a).resolve() == Path(b).resolve()
 
 
 def check_baseline(
