@@ -595,3 +595,35 @@ def test_retry_after_is_capped_and_invalid_ignored(mock_open, mock_sleep, header
     mock_open.side_effect = [_http_err(429, header), _ok_response()]
     _retry_client(max_retries=3, backoff=0.5).embed(["t"])
     assert [c.args[0] for c in mock_sleep.call_args_list] == [expected]
+
+
+# --- API キーの制御文字/非 ASCII はキー値を含まない EmbedError で止める (#303) ---
+
+
+@pytest.mark.parametrize(
+    "key",
+    [
+        "dummy-key-1234\r",
+        "dummy-key-1234\r\n",
+        "dummy-key-1234\n",
+        "dummy-\tkey-1234",
+        "dummy-key-1234\x7f",
+        "dummy-key-1234é",
+        "dummy-key-1234あ",
+    ],
+)
+def test_api_key_with_control_or_non_ascii_chars_raises_without_leaking_key(key, monkeypatch):
+    monkeypatch.setenv("EMBEDDING_API_KEY", key)
+    with patch("nugget_rag.embedder.urlopen") as mock_open:
+        with pytest.raises(EmbedError) as excinfo:
+            EmbedClient("http://127.0.0.1:9").embed(["a"])
+    mock_open.assert_not_called()
+    msg = str(excinfo.value)
+    assert "dummy-key-1234" not in msg
+    assert "dummy" not in msg
+    assert "API key" in msg
+    assert excinfo.value.__cause__ is None
+
+
+def test_api_key_clean_value_still_accepted(monkeypatch):
+    _embed_with_key("http://127.0.0.1:9", "dummy-key-1234", monkeypatch)
