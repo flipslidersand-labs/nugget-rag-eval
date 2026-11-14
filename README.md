@@ -151,6 +151,7 @@ python eval/check_regression.py \
 - 基準値は `eval/baseline_hard.json`。意図した変更で動かすときだけ更新し、新しい値を PR 本文に書く。
 - `--advisory` は低下を `[WARN]` で出して exit 0（まず助言）。安定したら外して失敗にする。
 - 基準ファイルが無いと低下チェックはスキップされる。
+- 基準にモード名が 1 つも一致しない、または基準の `top_k`・`gold`・`n` が今回の実行と違うときは FAIL（キーが無い古い形式は照合しない）。
 
 `evaluate.py` の出力には `latency_ms`（クエリあたりの p50/p95）が含まれる。embedding を使う場合は `nugget_embed_calls` に埋め込み呼び出しの時間を分けて出す。
 
