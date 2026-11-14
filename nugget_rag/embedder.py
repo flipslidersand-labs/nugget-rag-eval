@@ -113,6 +113,18 @@ class EmbedError(RuntimeError):
     """Raised when the embedding service call fails."""
 
 
+def _check_api_key(api_key: str) -> None:
+    """Reject keys with control or non-ASCII chars, without echoing the key (#303).
+
+    http.client's own errors embed the whole header value, so a key read from a
+    CRLF file would otherwise be printed to stderr / CI logs.
+    """
+    if any(not (0x20 <= ord(c) < 0x7F) for c in api_key):
+        raise EmbedError(
+            "API key contains control or non-ASCII characters (check line endings of the key file)"
+        )
+
+
 class EmbedClient:
     def __init__(
         self,
@@ -142,6 +154,7 @@ class EmbedClient:
             EmbedError: after all retries exhausted, or on non-retryable errors.
         """
         api_key = os.environ.get("EMBEDDING_API_KEY", "")
+        _check_api_key(api_key)
         if api_key and not self._warned_plain_http and _is_plain_http_remote(self.base_url):
             self._warned_plain_http = True
             print(
