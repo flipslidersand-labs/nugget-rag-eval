@@ -74,6 +74,7 @@ def _urlopen_with_retry(
                 raise
             last_exc = exc
             delay = _retry_delay(exc, delay)
+            exc.close()  # release the response socket before retrying / final raise (#280)
         except URLError as exc:
             last_exc = exc
         except _READ_ERRORS as exc:
