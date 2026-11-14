@@ -462,13 +462,15 @@ def test_baseline_matching_metadata_passes(tmp_path):
     assert result.returncode == 0, result.stdout + result.stderr
 
 
-def test_real_baseline_hard_matches_current_run_settings():
+def test_real_baseline_hard_matches_current_run_settings(monkeypatch):
     """eval/baseline_hard.json (README の呼び出し形式) が照合で FAIL にならない。"""
     import pathlib
 
     from eval.check_regression import check_baseline
 
     repo_root = pathlib.Path(__file__).parent.parent
+    # README の呼び出しはリポジトリルートからの相対指定。cwd に依存しないよう固定する。
+    monkeypatch.chdir(repo_root)
     gold = json.loads((repo_root / "eval" / "gold_set_hard.json").read_text(encoding="utf-8"))
     baseline = json.loads((repo_root / "eval" / "baseline_hard.json").read_text(encoding="utf-8"))
     result = {"modes": ["full_chunk", "nugget"], "n_queries": len(gold)}
