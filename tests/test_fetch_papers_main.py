@@ -130,3 +130,46 @@ def test_per_query_path_honours_failure_gate(monkeypatch, tmp_path):
         ["fetch_papers.py", "--gold-set", str(gold), "--out", str(out), "--max-failures", "2"],
     )
     fp.main()  # 2 failures == threshold 2 -> allowed
+
+
+def _run_with_read_timeout(monkeypatch, tmp_path, *extra):
+    """main() through the real fetch path; paper 2's search read() times out."""
+    from unittest.mock import MagicMock
+
+    out = tmp_path / "out" / "chunks.json"
+    monkeypatch.setattr(fp, "fetch_papers", lambda api: [{"id": 1}, {"id": 2}])
+    monkeypatch.setattr(fp.time, "sleep", lambda s: None)
+    body = json.dumps({"results": [{"chunk_index": 0, "snippet": "t", "score": 1.0}]}).encode()
+
+    def fake_urlopen(url, timeout):
+        resp = MagicMock()
+        if "paper_id=2" in url:
+            resp.read.side_effect = TimeoutError("read timed out")
+        else:
+            resp.read.return_value = body
+        cm = MagicMock()
+        cm.__enter__.return_value = resp
+        cm.__exit__.return_value = False
+        return cm
+
+    monkeypatch.setattr(fp, "urlopen", fake_urlopen)
+    monkeypatch.setattr(sys, "argv", ["fetch_papers.py", "--out", str(out), *extra])
+    return out
+
+
+def test_read_timeout_without_fail_fast_writes_fetched_papers(monkeypatch, tmp_path, capsys):
+    out = _run_with_read_timeout(monkeypatch, tmp_path)
+    with pytest.raises(SystemExit) as exc:
+        fp.main()
+    assert exc.value.code == 1  # failure gate still trips, but partial data is written
+    assert {c["paper_id"] for c in json.loads(out.read_text(encoding="utf-8"))} == {1}
+    assert "skipping paper 2" in capsys.readouterr().err
+
+
+def test_read_timeout_with_fail_fast_errors_and_writes_nothing(monkeypatch, tmp_path, capsys):
+    out = _run_with_read_timeout(monkeypatch, tmp_path, "--fail-fast")
+    with pytest.raises(SystemExit) as exc:
+        fp.main()
+    assert exc.value.code == 1
+    assert "[ERROR]" in capsys.readouterr().err
+    assert not out.exists()
