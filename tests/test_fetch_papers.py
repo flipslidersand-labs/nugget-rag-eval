@@ -774,3 +774,16 @@ def test_retry_after_is_capped_and_invalid_ignored(mock_open, mock_sleep, header
     mock_open.side_effect = [_http_error_ra(429, header), ok]
     _urlopen_with_retry("http://api", timeout=5)
     assert [c.args[0] for c in mock_sleep.call_args_list] == [expected]
+
+
+@patch("scripts.fetch_papers.time.sleep")
+@patch("scripts.fetch_papers.urlopen")
+def test_retry_5xx_closes_http_error_before_retry_and_on_exhaustion(mock_open, mock_sleep):
+    """5xx の HTTPError は再試行前・最終 raise 前に close される（FD リーク防止, #280）。"""
+    errors = [_http_error(503) for _ in range(3)]
+    for e in errors:
+        e.close = MagicMock()
+    mock_open.side_effect = errors
+    with pytest.raises(HTTPError):
+        _urlopen_with_retry("http://api", timeout=5, max_retries=2)
+    assert all(e.close.call_count >= 1 for e in errors)
