@@ -41,18 +41,37 @@ def raw_recall(result: dict, mode: str) -> float:
     return hits / n
 
 
-def check_baseline(result: dict, baseline_path: str, max_drop: float) -> tuple[list[str], str]:
+def _same_int(a: object, b: int) -> bool:
+    return isinstance(a, int) and not isinstance(a, bool) and a == b
+
+
+def _same_path(a: object, b: str) -> bool:
+    return isinstance(a, str) and Path(a).resolve() == Path(b).resolve()
+
+
+def check_baseline(
+    result: dict,
+    baseline_path: str,
+    max_drop: float,
+    top_k: int | None = None,
+    gold_path: str | None = None,
+) -> tuple[list[str], str]:
     """Compare recall against a recorded baseline.
 
     Returns (failures, note). A missing baseline file is not a failure: the
     note says the drop check was skipped. Failures list modes whose recall
-    fell by more than *max_drop* below the baseline.
+    fell by more than *max_drop* below the baseline, a baseline sharing no
+    mode with this run, and a baseline whose recorded top_k / gold / n differ
+    from this run. Metadata keys absent from the baseline (old format) are
+    not checked.
     """
     path = Path(baseline_path)
     if not path.is_file():
         return [], f"baseline not found ({baseline_path}); drop check skipped"
     try:
         baseline = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(baseline, dict | list):
+            raise TypeError(f"baseline must be a JSON object, got {type(baseline).__name__}")
         base = {
             mode: float(baseline[mode]["recall"]) for mode in result["modes"] if mode in baseline
         }
@@ -60,6 +79,25 @@ def check_baseline(result: dict, baseline_path: str, max_drop: float) -> tuple[l
         sys.exit(f"[ERROR] invalid baseline file {baseline_path}: {exc!r}")
 
     failures = []
+    if not base:
+        recorded = sorted(baseline) if isinstance(baseline, dict) else []
+        failures.append(
+            f"baseline shares no mode with this run (baseline modes {recorded}, "
+            f"current modes {list(result['modes'])}); recall was not compared"
+        )
+    if isinstance(baseline, dict):
+        # A recorded value that differs (or cannot be compared) means the numbers are not comparable.
+        if "top_k" in baseline and top_k is not None and not _same_int(baseline["top_k"], top_k):
+            failures.append(f"baseline top_k {baseline['top_k']!r} != current top_k {top_k}")
+        if "n" in baseline and not _same_int(baseline["n"], result.get("n_queries")):
+            failures.append(f"baseline n {baseline['n']!r} != current n {result.get('n_queries')}")
+        if (
+            "gold" in baseline
+            and gold_path is not None
+            and not _same_path(baseline["gold"], gold_path)
+        ):
+            failures.append(f"baseline gold {baseline['gold']!r} != current gold {gold_path}")
+
     for mode in base:  # modes without a recorded baseline are not checked yet
         now = result[mode]["recall"]
         # baseline is stored rounded to 3 places, so compare displayed values (#268 covers the threshold only).
@@ -143,7 +181,9 @@ def main() -> None:
 
     drops: list[str] = []
     if args.baseline:
-        drops, note = check_baseline(result, args.baseline, args.max_drop)
+        drops, note = check_baseline(
+            result, args.baseline, args.max_drop, top_k=args.top_k, gold_path=args.gold
+        )
         if note:
             print(f"  [NOTE] {note}")
 
@@ -155,7 +195,7 @@ def main() -> None:
 
     if drops:
         label = "[WARN]" if args.advisory else "[FAIL]"
-        print(f"\n{label} Recall dropped below baseline:")
+        print(f"\n{label} Baseline check failed:")
         for msg in drops:
             print(f"  - {msg}")
         if not args.advisory:

@@ -388,3 +388,97 @@ def test_raw_recall_falls_back_on_invalid_n_queries():
 
     for n in (None, 0, "37", -5):
         assert raw_recall(_result({"full_chunk": 3}, n=n), "full_chunk") == 0.5, n
+
+
+# ── #302: baseline のモード・top_k・gold・n の照合 ─────────────────────────────
+
+
+def _run_with_baseline(tmp_path, baseline, extra=()):
+    c_path, g_path = _passing_data(tmp_path)
+    b_path = tmp_path / "baseline.json"
+    _write_json(b_path, baseline)
+    args = ["--chunks", str(c_path), "--gold", str(g_path), "--baseline", str(b_path), *extra]
+    return _run_main(args), g_path
+
+
+def test_baseline_empty_list_fails_with_mode_names(tmp_path):
+    result, _ = _run_with_baseline(tmp_path, [])
+    assert result.returncode == 1, result.stdout
+    assert "[FAIL]" in result.stdout
+    assert "full_chunk" in result.stdout and "nugget" in result.stdout
+
+
+def test_baseline_unknown_mode_name_fails_and_shows_both_mode_sets(tmp_path):
+    result, _ = _run_with_baseline(tmp_path, {"full": {"recall": 0.9}})
+    assert result.returncode == 1, result.stdout
+    assert "full" in result.stdout and "nugget" in result.stdout
+
+
+def test_baseline_mode_mismatch_is_warn_under_advisory(tmp_path):
+    result, _ = _run_with_baseline(tmp_path, {"full": {"recall": 0.9}}, ["--advisory"])
+    assert result.returncode == 0
+    assert "[WARN]" in result.stdout
+
+
+def test_baseline_top_k_mismatch_fails(tmp_path):
+    base = {"top_k": 5, "full_chunk": {"recall": 1.0}, "nugget": {"recall": 1.0}}
+    result, _ = _run_with_baseline(tmp_path, base, ["--top-k", "10"])
+    assert result.returncode == 1, result.stdout
+    assert "top_k" in result.stdout
+
+
+def test_baseline_n_mismatch_fails(tmp_path):
+    base = {"n": 37, "full_chunk": {"recall": 1.0}, "nugget": {"recall": 1.0}}
+    result, _ = _run_with_baseline(tmp_path, base)
+    assert result.returncode == 1, result.stdout
+    assert "n " in result.stdout or "n=" in result.stdout
+
+
+def test_baseline_gold_mismatch_fails(tmp_path):
+    base = {"gold": "eval/gold_set_hard.json", "full_chunk": {"recall": 1.0}}
+    result, _ = _run_with_baseline(tmp_path, base)
+    assert result.returncode == 1, result.stdout
+    assert "gold" in result.stdout
+
+
+def test_baseline_without_metadata_keys_still_passes(tmp_path):
+    base = {"full_chunk": {"recall": 1.0}, "nugget": {"recall": 1.0}}
+    result, _ = _run_with_baseline(tmp_path, base)
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_baseline_matching_metadata_passes(tmp_path):
+    c_path, g_path = _passing_data(tmp_path)
+    base = {
+        "gold": str(g_path),
+        "top_k": 5,
+        "n": 1,
+        "full_chunk": {"recall": 1.0},
+        "nugget": {"recall": 1.0},
+    }
+    b_path = tmp_path / "baseline.json"
+    _write_json(b_path, base)
+    result = _run_main(["--chunks", str(c_path), "--gold", str(g_path), "--baseline", str(b_path)])
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_real_baseline_hard_matches_current_run_settings():
+    """eval/baseline_hard.json (README の呼び出し形式) が照合で FAIL にならない。"""
+    import pathlib
+
+    from eval.check_regression import check_baseline
+
+    repo_root = pathlib.Path(__file__).parent.parent
+    gold = json.loads((repo_root / "eval" / "gold_set_hard.json").read_text(encoding="utf-8"))
+    baseline = json.loads((repo_root / "eval" / "baseline_hard.json").read_text(encoding="utf-8"))
+    result = {"modes": ["full_chunk", "nugget"], "n_queries": len(gold)}
+    for mode in result["modes"]:
+        result[mode] = {"recall": baseline[mode]["recall"]}
+    failures, note = check_baseline(
+        result,
+        str(repo_root / "eval" / "baseline_hard.json"),
+        0.05,
+        top_k=5,
+        gold_path="eval/gold_set_hard.json",
+    )
+    assert failures == [] and note == ""
