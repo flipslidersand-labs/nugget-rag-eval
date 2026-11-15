@@ -79,7 +79,9 @@ def compare(
         "recall_diff_ci95": [round(ci[0], 3), round(ci[1], 3)] if ci else None,
         "mcnemar_p": round(p, 4),
         "token_ratio": round(nugget_tokens / full_tokens, 3) if full_tokens else None,
-        "recall_retained": round(nugget_recall / full_recall, 3) if full_recall else None,
+        "recall_retained": (
+            round(nugget_recall / full_recall, 3) if full_recall else None
+        ),
         "distinguishable": distinguishable,
         "criterion": CRITERION,
     }

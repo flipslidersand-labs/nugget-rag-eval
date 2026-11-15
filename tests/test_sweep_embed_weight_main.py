@@ -21,7 +21,13 @@ CHUNKS = [
         "score": 1.0,
     }
 ]
-GOLD = [{"arxiv_id": "2410.10071", "query": "alpha one", "answer_spans": ["Gamma three follows"]}]
+GOLD = [
+    {
+        "arxiv_id": "2410.10071",
+        "query": "alpha one",
+        "answer_spans": ["Gamma three follows"],
+    }
+]
 
 
 class FakeClient:
@@ -48,7 +54,13 @@ def env(tmp_path, monkeypatch):
 
 def _run(monkeypatch, tmp_path, chunks, gold, *extra):
     argv = ["sw", "--chunks", str(chunks), "--gold", str(gold)]
-    argv += ["--embedding-url", "http://embed.invalid", "--out-dir", str(tmp_path / "out"), *extra]
+    argv += [
+        "--embedding-url",
+        "http://embed.invalid",
+        "--out-dir",
+        str(tmp_path / "out"),
+        *extra,
+    ]
     monkeypatch.setattr(sys, "argv", argv)
     sw.main()
 
@@ -56,9 +68,13 @@ def _run(monkeypatch, tmp_path, chunks, gold, *extra):
 def test_main_writes_summary_and_cache(env, monkeypatch, capsys):
     tmp_path, chunks, gold = env
     _run(monkeypatch, tmp_path, chunks, gold, "--weights", "0.0", "0.5")
-    summary = json.loads((tmp_path / "out" / "summary.json").read_text(encoding="utf-8"))
+    summary = json.loads(
+        (tmp_path / "out" / "summary.json").read_text(encoding="utf-8")
+    )
     assert set(summary) == {"gold_w0.0", "gold_w0.5"}
-    assert json.loads((tmp_path / "out" / "embed_cache.json").read_text(encoding="utf-8"))
+    assert json.loads(
+        (tmp_path / "out" / "embed_cache.json").read_text(encoding="utf-8")
+    )
     assert "gold | w |" in capsys.readouterr().out
     assert FakeClient.instances[0].url == "http://embed.invalid"
 
@@ -68,11 +84,18 @@ def test_main_with_two_gold_files_summarises_both(env, monkeypatch):
     gold2 = tmp_path / "gold_hard.json"
     gold2.write_text(json.dumps(GOLD), encoding="utf-8")
     argv = ["sw", "--chunks", str(chunks), "--gold", str(gold), str(gold2)]
-    argv += ["--embedding-url", "http://embed.invalid", "--out-dir", str(tmp_path / "out")]
+    argv += [
+        "--embedding-url",
+        "http://embed.invalid",
+        "--out-dir",
+        str(tmp_path / "out"),
+    ]
     argv += ["--weights", "0.5"]
     monkeypatch.setattr(sys, "argv", argv)
     sw.main()
-    summary = json.loads((tmp_path / "out" / "summary.json").read_text(encoding="utf-8"))
+    summary = json.loads(
+        (tmp_path / "out" / "summary.json").read_text(encoding="utf-8")
+    )
     assert set(summary) == {"gold_w0.5", "gold_hard_w0.5"}
 
 
@@ -104,14 +127,22 @@ def test_main_exits_on_schema_error_in_chunks(env, monkeypatch):
 
 def test_main_exits_on_schema_error_in_gold(env, monkeypatch):
     tmp_path, chunks, gold = env
-    gold.write_text(json.dumps([{"arxiv_id": "2410.10071", "query": "q"}]), encoding="utf-8")
+    gold.write_text(
+        json.dumps([{"arxiv_id": "2410.10071", "query": "q"}]), encoding="utf-8"
+    )
     with pytest.raises(SystemExit) as exc:
         _run(monkeypatch, tmp_path, chunks, gold)
     assert str(exc.value).startswith("[ERROR] gold[0] missing required fields")
 
 
 @pytest.mark.parametrize(
-    "extra", [["--weights", "1.5"], ["--weights", "-0.1"], ["--top-k", "0"], ["--match", "fuzzy"]]
+    "extra",
+    [
+        ["--weights", "1.5"],
+        ["--weights", "-0.1"],
+        ["--top-k", "0"],
+        ["--match", "fuzzy"],
+    ],
 )
 def test_main_rejects_bad_arguments(env, monkeypatch, extra, capsys):
     tmp_path, chunks, gold = env
@@ -137,7 +168,9 @@ def test_load_cache_missing_file_or_none_gives_empty(tmp_path):
 
 def test_main_exits_when_gold_and_chunks_do_not_match(env, monkeypatch):
     tmp_path, chunks, gold = env
-    other = [{**CHUNKS[0], "paper_id": ARXIV_MAP["2508.11836"], "arxiv_id": "2508.11836"}]
+    other = [
+        {**CHUNKS[0], "paper_id": ARXIV_MAP["2508.11836"], "arxiv_id": "2508.11836"}
+    ]
     chunks.write_text(json.dumps(other), encoding="utf-8")
     with pytest.raises(SystemExit) as exc:
         _run(monkeypatch, tmp_path, chunks, gold, "--weights", "0.0")
@@ -198,7 +231,9 @@ def test_load_cache_exits_on_unreadable_file(tmp_path, monkeypatch):
 
 def test_main_error_names_the_failing_gold(env, monkeypatch):
     tmp_path, chunks, gold = env
-    other = [{**CHUNKS[0], "paper_id": ARXIV_MAP["2508.11836"], "arxiv_id": "2508.11836"}]
+    other = [
+        {**CHUNKS[0], "paper_id": ARXIV_MAP["2508.11836"], "arxiv_id": "2508.11836"}
+    ]
     chunks.write_text(json.dumps(other), encoding="utf-8")
     with pytest.raises(SystemExit) as exc:
         _run(monkeypatch, tmp_path, chunks, gold, "--weights", "0.0")
@@ -224,7 +259,9 @@ def test_main_embed_error_exits_with_error_line(env, monkeypatch):
     monkeypatch.setattr(embedder, "EmbedClient", Failing)
     with pytest.raises(SystemExit) as exc:
         _run(monkeypatch, tmp_path, chunks, gold)
-    assert str(exc.value.code).startswith("[ERROR]") and "service down" in str(exc.value.code)
+    assert str(exc.value.code).startswith("[ERROR]") and "service down" in str(
+        exc.value.code
+    )
 
 
 def test_main_validation_error_leaves_no_out_dir(env, monkeypatch):

@@ -48,12 +48,16 @@ def parse_review(text: str) -> dict[int, tuple[str, str, str]]:
             raise ReviewError(f"item {n} appears more than once")
         out[n] = (m[2], VERDICTS[m[3]], m[4])
     if not out:
-        raise ReviewError("no verdict lines found (expected lines like '3. 2508.11845 ○')")
+        raise ReviewError(
+            "no verdict lines found (expected lines like '3. 2508.11845 ○')"
+        )
     return out
 
 
 def apply_review(
-    gold: list[dict], review: dict[int, tuple[str, str, str]], allow_unjudged: bool = False
+    gold: list[dict],
+    review: dict[int, tuple[str, str, str]],
+    allow_unjudged: bool = False,
 ) -> tuple[list[dict], dict[str, list[tuple[int, dict, str]]]]:
     """Return (new_gold, report). Raises ReviewError on any mismatch."""
     if set(review) != set(range(1, len(gold) + 1)):
@@ -63,7 +67,12 @@ def apply_review(
             f"review covers {len(review)} items but gold has {len(gold)} "
             f"(missing {missing[:8]}, unexpected {extra[:8]}); was the sheet built from this gold file?"
         )
-    report: dict[str, list[tuple[int, dict, str]]] = {"ok": [], "fix": [], "ng": [], "none": []}
+    report: dict[str, list[tuple[int, dict, str]]] = {
+        "ok": [],
+        "fix": [],
+        "ng": [],
+        "none": [],
+    }
     for n, item in enumerate(gold, 1):
         arxiv, verdict, note = review[n]
         gold_id = item.get("arxiv_id")
@@ -83,11 +92,15 @@ def apply_review(
     dropped = {n for n, _, _ in report["ng"]}
     kept = [item for n, item in enumerate(gold, 1) if n not in dropped]
     if not kept:
-        raise ReviewError("every item would be dropped; refusing to write an empty gold set")
+        raise ReviewError(
+            "every item would be dropped; refusing to write an empty gold set"
+        )
     return kept, report
 
 
-def summarize(report: dict[str, list[tuple[int, dict, str]]], total: int, kept: int) -> str:
+def summarize(
+    report: dict[str, list[tuple[int, dict, str]]], total: int, kept: int
+) -> str:
     lines = [f"gold {total} items -> {kept} kept ({len(report['ng'])} dropped)"]
     for key, title in (
         ("ng", "dropped (×)"),
@@ -105,10 +118,16 @@ def summarize(report: dict[str, list[tuple[int, dict, str]]], total: int, kept: 
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
-    ap.add_argument("review", type=existing_file, help="text copied from the review sheet")
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawTextHelpFormatter
+    )
+    ap.add_argument(
+        "review", type=existing_file, help="text copied from the review sheet"
+    )
     ap.add_argument("--gold", default="eval/gold_set_hard.json", type=existing_file)
-    ap.add_argument("--out", type=Path, help="write the reviewed gold here instead of in place")
+    ap.add_argument(
+        "--out", type=Path, help="write the reviewed gold here instead of in place"
+    )
     ap.add_argument("--write", action="store_true", help="rewrite --gold in place")
     ap.add_argument("--allow-unjudged", action="store_true")
     args = ap.parse_args()
@@ -131,7 +150,9 @@ def main() -> None:
         print("\n(dry run: pass --write or --out to save)")
         return
     tmp = target.with_suffix(".tmp")
-    tmp.write_text(json.dumps(kept, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    tmp.write_text(
+        json.dumps(kept, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    )
     tmp.replace(target)
     print(f"\nwrote {len(kept)} items to {target}")
 

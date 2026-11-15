@@ -75,9 +75,13 @@ def check_baseline(
     try:
         baseline = json.loads(path.read_text(encoding="utf-8"))
         if not isinstance(baseline, dict | list):
-            raise TypeError(f"baseline must be a JSON object, got {type(baseline).__name__}")
+            raise TypeError(
+                f"baseline must be a JSON object, got {type(baseline).__name__}"
+            )
         base = {
-            mode: float(baseline[mode]["recall"]) for mode in result["modes"] if mode in baseline
+            mode: float(baseline[mode]["recall"])
+            for mode in result["modes"]
+            if mode in baseline
         }
     except (OSError, ValueError, KeyError, TypeError) as exc:
         sys.exit(f"[ERROR] invalid baseline file {baseline_path}: {exc!r}")
@@ -91,16 +95,26 @@ def check_baseline(
         )
     if isinstance(baseline, dict):
         # A recorded value that differs (or cannot be compared) means the numbers are not comparable.
-        if "top_k" in baseline and top_k is not None and not _same_int(baseline["top_k"], top_k):
-            failures.append(f"baseline top_k {baseline['top_k']!r} != current top_k {top_k}")
+        if (
+            "top_k" in baseline
+            and top_k is not None
+            and not _same_int(baseline["top_k"], top_k)
+        ):
+            failures.append(
+                f"baseline top_k {baseline['top_k']!r} != current top_k {top_k}"
+            )
         if "n" in baseline and not _same_int(baseline["n"], result.get("n_queries")):
-            failures.append(f"baseline n {baseline['n']!r} != current n {result.get('n_queries')}")
+            failures.append(
+                f"baseline n {baseline['n']!r} != current n {result.get('n_queries')}"
+            )
         if (
             "gold" in baseline
             and gold_path is not None
             and not _same_path(baseline["gold"], gold_path)
         ):
-            failures.append(f"baseline gold {baseline['gold']!r} != current gold {gold_path}")
+            failures.append(
+                f"baseline gold {baseline['gold']!r} != current gold {gold_path}"
+            )
 
     for mode in base:  # modes without a recorded baseline are not checked yet
         now = result[mode]["recall"]
@@ -181,7 +195,9 @@ def main() -> None:
         label = mode_label(name)
         print(f"  {label:<10} : {recall}")
         if exact < threshold:
-            failed.append(f"{label:<10} Recall@{args.top_k} {exact:.5f} < threshold {threshold}")
+            failed.append(
+                f"{label:<10} Recall@{args.top_k} {exact:.5f} < threshold {threshold}"
+            )
 
     drops: list[str] = []
     if args.baseline:

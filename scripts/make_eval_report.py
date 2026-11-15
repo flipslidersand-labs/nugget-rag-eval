@@ -109,11 +109,17 @@ def format_markdown(rows: list[dict]) -> str:
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
-    ap.add_argument("--pool", action="append", required=True, help="NAME=PATH[:exact|normalized]")
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawTextHelpFormatter
+    )
+    ap.add_argument(
+        "--pool", action="append", required=True, help="NAME=PATH[:exact|normalized]"
+    )
     ap.add_argument("--gold", action="append", required=True, help="NAME=PATH")
     ap.add_argument("--windows", nargs="+", type=non_negative_int, default=[0, 1])
-    ap.add_argument("--scopes", nargs="+", choices=["paper", "all"], default=["paper", "all"])
+    ap.add_argument(
+        "--scopes", nargs="+", choices=["paper", "all"], default=["paper", "all"]
+    )
     ap.add_argument("--json", type=Path, help="also write the raw rows here")
     args = ap.parse_args()
 
@@ -139,7 +145,9 @@ def main() -> None:
         sys.exit(f"[ERROR] {exc}")
     print(format_markdown(rows))
     if args.json:
-        args.json.write_text(json.dumps(rows, ensure_ascii=False, indent=1), encoding="utf-8")
+        args.json.write_text(
+            json.dumps(rows, ensure_ascii=False, indent=1), encoding="utf-8"
+        )
 
 
 if __name__ == "__main__":

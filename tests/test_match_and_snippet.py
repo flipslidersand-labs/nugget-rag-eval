@@ -39,7 +39,9 @@ def test_exact_match_misses_but_normalized_hits_across_extractors():
 
 def test_normalized_match_folds_ligatures_and_fullwidth_nfkc():
     """pdftotext emits ligatures / full-width forms; spans must still hit (#267)."""
-    assert recall_at_k([{"text": "an eﬃcient model"}], ["efficient"], "text", normalize=True)
+    assert recall_at_k(
+        [{"text": "an eﬃcient model"}], ["efficient"], "text", normalize=True
+    )
     assert recall_at_k([{"text": "精度は９５％"}], ["95%"], "text", normalize=True)
     assert _normalize_for_match("eﬃcient") == "efficient"
     assert _normalize_for_match("９５％") == _normalize_for_match("95%")
@@ -52,7 +54,10 @@ def test_exact_match_does_not_apply_nfkc():
 
 def test_normalized_match_ignores_empty_spans():
     """A span made only of punctuation normalizes to '' and must not match everything."""
-    assert recall_at_k([{"text": "anything"}], ["...", " "], "text", normalize=True) is False
+    assert (
+        recall_at_k([{"text": "anything"}], ["...", " "], "text", normalize=True)
+        is False
+    )
 
 
 def test_exact_default_is_unchanged():
@@ -87,7 +92,9 @@ def test_main_match_flag(monkeypatch, tmp_path, capsys):
     c.write_text(json.dumps(_chunks()[PID]))
     g.write_text(json.dumps(_gold()))
     monkeypatch.setattr(
-        sys, "argv", ["evaluate.py", "--chunks", str(c), "--gold", str(g), "--match", "normalized"]
+        sys,
+        "argv",
+        ["evaluate.py", "--chunks", str(c), "--gold", str(g), "--match", "normalized"],
     )
     main()
     assert '"match": "normalized"' in capsys.readouterr().out
@@ -117,7 +124,9 @@ def test_fetch_chunks_default_snippet_length_is_the_api_default(monkeypatch):
     monkeypatch.setattr(fp, "_urlopen_with_retry", body)
     fp.fetch_chunks_for_paper("http://localhost:8020", 1, "q")
     assert f"snippet_length={fp.DEFAULT_SNIPPET_LENGTH}" in body.url
-    assert fp.DEFAULT_SNIPPET_LENGTH == 200  # unchanged so earlier results stay comparable
+    assert (
+        fp.DEFAULT_SNIPPET_LENGTH == 200
+    )  # unchanged so earlier results stay comparable
 
 
 def test_fetch_per_query_passes_snippet_length_through(monkeypatch):
@@ -149,7 +158,15 @@ def test_main_pool_label_is_echoed(monkeypatch, tmp_path, capsys):
     monkeypatch.setattr(
         sys,
         "argv",
-        ["evaluate.py", "--chunks", str(c), "--gold", str(g), "--pool-label", "unit-test pool"],
+        [
+            "evaluate.py",
+            "--chunks",
+            str(c),
+            "--gold",
+            str(g),
+            "--pool-label",
+            "unit-test pool",
+        ],
     )
     main()
     out = capsys.readouterr().out
@@ -162,6 +179,8 @@ def test_main_without_pool_label_has_no_pool_key(monkeypatch, tmp_path, capsys):
     c, g = tmp_path / "c.json", tmp_path / "g.json"
     c.write_text(json.dumps(_chunks()[PID]))
     g.write_text(json.dumps(_gold()))
-    monkeypatch.setattr(sys, "argv", ["evaluate.py", "--chunks", str(c), "--gold", str(g)])
+    monkeypatch.setattr(
+        sys, "argv", ["evaluate.py", "--chunks", str(c), "--gold", str(g)]
+    )
     main()
     assert '"pool"' not in capsys.readouterr().out

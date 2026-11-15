@@ -1,15 +1,28 @@
 import pytest
 
-from nugget_rag.scorer import _char_ngrams, _normalize, _tokenize, bm25_scores, top_nuggets
+from nugget_rag.scorer import (
+    _char_ngrams,
+    _normalize,
+    _tokenize,
+    bm25_scores,
+    top_nuggets,
+)
 
 
 def test_bm25_returns_correct_length():
-    sentences = ["KV cache reuse in RAG", "Diffusion model training", "KV cache optimization"]
+    sentences = [
+        "KV cache reuse in RAG",
+        "Diffusion model training",
+        "KV cache optimization",
+    ]
     assert len(bm25_scores("KV cache", sentences)) == 3
 
 
 def test_bm25_relevant_scores_higher():
-    sentences = ["KV cache reuse is the core method", "This paper uses diffusion models"]
+    sentences = [
+        "KV cache reuse is the core method",
+        "This paper uses diffusion models",
+    ]
     scores = bm25_scores("KV cache method", sentences)
     assert scores[0] > scores[1]
 
@@ -74,7 +87,10 @@ def test_bm25_japanese_relevant_higher():
 
 
 def test_bm25_english_unchanged():
-    sentences = ["KV cache reuse is the core method", "This paper uses diffusion models"]
+    sentences = [
+        "KV cache reuse is the core method",
+        "This paper uses diffusion models",
+    ]
     scores = bm25_scores("KV cache method", sentences)
     assert scores[0] > scores[1]
 
@@ -183,7 +199,9 @@ def test_top_nuggets_embed_weight_zero_equals_bm25_only():
         # embedding で diffusion を高スコアに設定（BM25 と逆順）
         return [[0.0, 1.0]] + [[0.0, 1.0], [1.0, 0.0]]
 
-    result_w0 = top_nuggets("KV", sentences, top_k=1, embed_fn=mock_embed, embed_weight=0.0)
+    result_w0 = top_nuggets(
+        "KV", sentences, top_k=1, embed_fn=mock_embed, embed_weight=0.0
+    )
     result_bm25 = top_nuggets("KV", sentences, top_k=1)
     assert result_w0 == result_bm25
 
@@ -196,7 +214,9 @@ def test_top_nuggets_embed_weight_one_uses_only_embedding():
         # query と sentences[0]（diffusion）が近い
         return [[1.0, 0.0]] + [[0.9, 0.1], [0.1, 0.9]]
 
-    result = top_nuggets("query", sentences, top_k=1, embed_fn=mock_embed, embed_weight=1.0)
+    result = top_nuggets(
+        "query", sentences, top_k=1, embed_fn=mock_embed, embed_weight=1.0
+    )
     assert result == ["diffusion model"]
 
 
@@ -216,9 +236,9 @@ def test_bm25_high_tf_doc_ranks_above_unrelated():
     ]
     scores = bm25_scores("cache", sentences)
     # High-TF match must beat the unrelated sentence (score must be positive)
-    assert scores[0] > scores[1], (
-        f"High-TF doc ({scores[0]:.3f}) must rank above unrelated doc ({scores[1]:.3f})"
-    )
+    assert (
+        scores[0] > scores[1]
+    ), f"High-TF doc ({scores[0]:.3f}) must rank above unrelated doc ({scores[1]:.3f})"
     assert scores[0] >= 0.0, f"High-TF score must not be negative, got {scores[0]:.3f}"
 
 
@@ -237,11 +257,13 @@ def test_bm25_ubiquitous_term_has_low_idf_contribution():
     scores = bm25_scores("the", sentences)
     # All scores should be very small (near 0) because IDF ≈ log(1 + 0.5/3.5) ≈ 0.13
     # and definitely no score should dominate due to "the" alone
-    assert all(s >= 0.0 for s in scores), "Scores for ubiquitous term must not be negative"
+    assert all(
+        s >= 0.0 for s in scores
+    ), "Scores for ubiquitous term must not be negative"
     # The spread should be small — no sentence should have score > 0.5
-    assert max(scores) < 0.5, (
-        f"Ubiquitous term should have low IDF contribution, max score={max(scores):.3f}"
-    )
+    assert (
+        max(scores) < 0.5
+    ), f"Ubiquitous term should have low IDF contribution, max score={max(scores):.3f}"
 
 
 # ── #150 precomputed query_vec / sent_vecs ───────────────────────────────
@@ -254,7 +276,9 @@ def test_top_nuggets_precomputed_vecs_match_embed_fn():
     def mock_embed(texts):
         return [[1.0, 0.0]] + [[0.9, 0.1], [0.1, 0.9]]
 
-    result_fn = top_nuggets("query", sentences, top_k=1, embed_fn=mock_embed, embed_weight=1.0)
+    result_fn = top_nuggets(
+        "query", sentences, top_k=1, embed_fn=mock_embed, embed_weight=1.0
+    )
 
     # Provide the same vectors directly (bypassing embed_fn)
     result_pre = top_nuggets(
@@ -286,7 +310,9 @@ def test_top_nuggets_precomputed_does_not_call_embed_fn():
         query_vec=[1.0, 0.0],
         sent_vecs=[[0.9, 0.1], [0.1, 0.9]],
     )
-    assert calls == [], "embed_fn should not be called when precomputed vecs are provided"
+    assert (
+        calls == []
+    ), "embed_fn should not be called when precomputed vecs are provided"
 
 
 # ── 混在言語 BM25 (#152) ──────────────────────────────────────────────────
@@ -347,19 +373,21 @@ def test_char_ngrams_fullwidth_space_removed():
     # 全角スペース含みテキスト
     tokens_fullwidth = _char_ngrams("東京　大阪")
     # 全角スペース自体がバイグラムの一部にならない
-    assert not any("　" in t for t in tokens_fullwidth), (
-        f"Full-width space leaked into bigrams: {tokens_fullwidth}"
-    )
+    assert not any(
+        "　" in t for t in tokens_fullwidth
+    ), f"Full-width space leaked into bigrams: {tokens_fullwidth}"
 
     # タブ含みテキスト
     tokens_tab = _char_ngrams("機械\t学習")
-    assert not any("\t" in t for t in tokens_tab), f"Tab leaked into bigrams: {tokens_tab}"
+    assert not any(
+        "\t" in t for t in tokens_tab
+    ), f"Tab leaked into bigrams: {tokens_tab}"
 
     # 改行含みテキスト
     tokens_newline = _char_ngrams("研究\n手法")
-    assert not any("\n" in t for t in tokens_newline), (
-        f"Newline leaked into bigrams: {tokens_newline}"
-    )
+    assert not any(
+        "\n" in t for t in tokens_newline
+    ), f"Newline leaked into bigrams: {tokens_newline}"
 
 
 # ── punctuation handling (#252) ─────────────────────────────────────────────
@@ -454,7 +482,9 @@ def test_top_nuggets_embed_fn_returning_one_too_few_vectors_raises():
 
 def test_top_nuggets_sent_vecs_length_mismatch_raises():
     with pytest.raises(ValueError):
-        top_nuggets("KV cache", _SENTS, query_vec=[1.0, 0.0], sent_vecs=[[1.0, 0.0]] * 2)
+        top_nuggets(
+            "KV cache", _SENTS, query_vec=[1.0, 0.0], sent_vecs=[[1.0, 0.0]] * 2
+        )
 
 
 def test_top_nuggets_dimension_mismatch_raises():
@@ -463,7 +493,9 @@ def test_top_nuggets_dimension_mismatch_raises():
         top_nuggets("KV cache", _SENTS, query_vec=[1.0, 0.0], sent_vecs=vecs)
 
 
-@pytest.mark.parametrize("kwargs", [{"query_vec": [1.0, 0.0]}, {"sent_vecs": [[1.0, 0.0]] * 3}])
+@pytest.mark.parametrize(
+    "kwargs", [{"query_vec": [1.0, 0.0]}, {"sent_vecs": [[1.0, 0.0]] * 3}]
+)
 def test_top_nuggets_only_one_of_query_vec_sent_vecs_raises(kwargs):
     with pytest.raises(ValueError):
         top_nuggets("KV cache", _SENTS, **kwargs)

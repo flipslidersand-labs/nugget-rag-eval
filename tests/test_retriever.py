@@ -155,7 +155,9 @@ def _make_counting_embed_fn(dim: int = 4):
     def embed_fn(texts):
         calls.append(len(texts))
         # Return deterministic unit vectors so scores are reproducible
-        return [[float(i % dim == j % dim) for j in range(dim)] for i in range(len(texts))]
+        return [
+            [float(i % dim == j % dim) for j in range(dim)] for i in range(len(texts))
+        ]
 
     return embed_fn, calls
 
@@ -224,7 +226,9 @@ def test_retrieve_nuggets_embed_fn_empty_chunks():
 def test_retrieve_nuggets_embed_weight_zero_does_not_call_embed_fn(weight):
     """#239: 重み 0 は埋め込みがスコアに寄与しないので embed_fn を呼ばない。"""
     embed_fn, calls = _make_counting_embed_fn()
-    results = retrieve_nuggets(CHUNKS, "KV cache", top_k=3, embed_fn=embed_fn, embed_weight=weight)
+    results = retrieve_nuggets(
+        CHUNKS, "KV cache", top_k=3, embed_fn=embed_fn, embed_weight=weight
+    )
     assert len(calls) == 0
     assert results == retrieve_nuggets(CHUNKS, "KV cache", top_k=3)
 

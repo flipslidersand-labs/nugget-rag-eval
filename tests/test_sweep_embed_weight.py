@@ -28,8 +28,16 @@ CHUNKS = [
     },
 ]
 GOLD = [
-    {"arxiv_id": "2410.10071", "query": "alpha one", "answer_spans": ["Gamma three follows"]},
-    {"arxiv_id": "2410.10071", "query": "epsilon five", "answer_spans": ["Zeta six closes"]},
+    {
+        "arxiv_id": "2410.10071",
+        "query": "alpha one",
+        "answer_spans": ["Gamma three follows"],
+    },
+    {
+        "arxiv_id": "2410.10071",
+        "query": "epsilon five",
+        "answer_spans": ["Zeta six closes"],
+    },
 ]
 
 
@@ -64,7 +72,9 @@ def test_collect_texts_same_as_default_weight():
         return [[0.0] for _ in texts]
 
     evaluate(by, GOLD, top_k=5, embed_fn=rec, match="exact")  # default weight 0.5
-    assert sw.collect_texts(by, GOLD, top_k=5, match="exact") == list(dict.fromkeys(seen))
+    assert sw.collect_texts(by, GOLD, top_k=5, match="exact") == list(
+        dict.fromkeys(seen)
+    )
 
 
 def test_each_unique_text_is_embedded_exactly_once_across_all_weights():
@@ -123,7 +133,8 @@ def test_cached_embed_fn_fails_loudly_on_a_missing_text():
 
 def test_embed_weight_actually_changes_the_nugget_that_is_chosen():
     """The answer sentence shares no words with the query: BM25 (w=0) cannot find it among
-    the 3 kept sentences, the embedding (w=1) can. The sweep must show that difference."""
+    the 3 kept sentences, the embedding (w=1) can. The sweep must show that difference.
+    """
     chunk = {
         "paper_id": PID,
         "arxiv_id": "2410.10071",
@@ -131,21 +142,36 @@ def test_embed_weight_actually_changes_the_nugget_that_is_chosen():
         "text": "Alpha one is here. Bb cc. Dd ee. Ff gg. Hh ii. Zeta six closes.",
         "score": 1.0,
     }
-    gold = [{"arxiv_id": "2410.10071", "query": "alpha one", "answer_spans": ["Zeta six closes"]}]
+    gold = [
+        {
+            "arxiv_id": "2410.10071",
+            "query": "alpha one",
+            "answer_spans": ["Zeta six closes"],
+        }
+    ]
     by = build_chunks_index([chunk])
     texts = sw.collect_texts(by, gold, top_k=5, match="exact")
     # query and the answer sentence point the same way; every other sentence is orthogonal
-    cache = {t: [1.0, 0.0] if t in ("alpha one", "Zeta six closes.") else [0.0, 1.0] for t in texts}
-    res = sw.sweep(by, {"g": gold}, [0.0, 1.0], sw.cached_embed_fn(cache), match="exact")
+    cache = {
+        t: [1.0, 0.0] if t in ("alpha one", "Zeta six closes.") else [0.0, 1.0]
+        for t in texts
+    }
+    res = sw.sweep(
+        by, {"g": gold}, [0.0, 1.0], sw.cached_embed_fn(cache), match="exact"
+    )
     assert res["g_w0.0"]["nugget"]["recall"] == 0.0
     assert res["g_w1.0"]["nugget"]["recall"] == 1.0
-    assert res["g_w0.0"]["full_chunk"] == res["g_w1.0"]["full_chunk"]  # full-chunk ignores w
+    assert (
+        res["g_w0.0"]["full_chunk"] == res["g_w1.0"]["full_chunk"]
+    )  # full-chunk ignores w
 
 
 def test_format_table_lists_every_run():
     by = build_chunks_index(CHUNKS)
     texts = sw.collect_texts(by, GOLD, top_k=5, match="exact")
     cache = {t: [1.0, 0.5] for t in texts}
-    res = sw.sweep(by, {"g": GOLD}, [0.0, 0.5], sw.cached_embed_fn(cache), match="exact")
+    res = sw.sweep(
+        by, {"g": GOLD}, [0.0, 0.5], sw.cached_embed_fn(cache), match="exact"
+    )
     table = sw.format_table(res)
     assert "g | 0.0 |" in table and "g | 0.5 |" in table

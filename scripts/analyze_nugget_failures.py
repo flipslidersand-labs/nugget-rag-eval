@@ -45,7 +45,12 @@ LABELS = {
 
 
 def classify(
-    chunks: list[dict], query: str, spans: list[str], top_k: int, per_chunk: int, normalize: bool
+    chunks: list[dict],
+    query: str,
+    spans: list[str],
+    top_k: int,
+    per_chunk: int,
+    normalize: bool,
 ) -> tuple[str, int | None]:
     """Return (class, rank of the best sentence holding the span among its chunk's sentences)."""
     top = retrieve_full_chunk(chunks, query, top_k)
@@ -65,7 +70,11 @@ def classify(
 
 
 def classify_all(
-    by_paper: dict, gold: list[dict], top_k: int = 5, per_chunk: int = 3, normalize: bool = False
+    by_paper: dict,
+    gold: list[dict],
+    top_k: int = 5,
+    per_chunk: int = 3,
+    normalize: bool = False,
 ) -> tuple[Counter, Counter]:
     """Counts per class, and for class C a count per rank bucket (<=5, <=8, >8)."""
     classes: Counter = Counter()
@@ -95,7 +104,9 @@ def sweep(
             hits, toks = 0, 0.0
             for item in gold:
                 chunks = by_paper.get(resolve_paper_key(item), [])
-                res = retrieve_nuggets(chunks, item["query"], top_k, nuggets_per_chunk=k, window=w)
+                res = retrieve_nuggets(
+                    chunks, item["query"], top_k, nuggets_per_chunk=k, window=w
+                )
                 hits += recall_at_k(res, item["answer_spans"], "nugget", normalize)
                 toks += avg_tokens(res, "nugget")
             n = max(len(gold), 1)
@@ -110,7 +121,9 @@ def sweep(
     return rows
 
 
-def format_report(classes: Counter, c_rank: Counter, n: int, n_no_chunks: int = 0) -> str:
+def format_report(
+    classes: Counter, c_rank: Counter, n: int, n_no_chunks: int = 0
+) -> str:
     lines = [f"n={n}"]
     if n_no_chunks:
         lines.append(f"  うち chunks なし（A に含まれる）: {n_no_chunks}")
@@ -126,18 +139,24 @@ def format_report(classes: Counter, c_rank: Counter, n: int, n_no_chunks: int = 
 
 def format_sweep(rows: list[dict]) -> str:
     out = ["k  window  Recall  avg_tokens/chunk"]
-    out += [f"{r['k']:<3}{r['window']:<8}{r['recall']:<8}{r['avg_tokens']}" for r in rows]
+    out += [
+        f"{r['k']:<3}{r['window']:<8}{r['recall']:<8}{r['avg_tokens']}" for r in rows
+    ]
     return "\n".join(out)
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawTextHelpFormatter
+    )
     ap.add_argument("--chunks", required=True, type=existing_file)
     ap.add_argument("--gold", required=True, type=existing_file)
     ap.add_argument("--top-k", type=positive_int, default=5)
     ap.add_argument("--nuggets-per-chunk", type=positive_int, default=3)
     ap.add_argument("--match", choices=["exact", "normalized"], default="exact")
-    ap.add_argument("--sweep", action="store_true", help="also sweep nuggets_per_chunk x window")
+    ap.add_argument(
+        "--sweep", action="store_true", help="also sweep nuggets_per_chunk x window"
+    )
     args = ap.parse_args()
 
     chunks, gold = load_json(args.chunks, "--chunks"), load_json(args.gold, "--gold")
@@ -152,10 +171,15 @@ def main() -> None:
     except ValueError as exc:
         sys.exit(f"[ERROR] {exc}")
 
-    classes, c_rank = classify_all(by_paper, gold, args.top_k, args.nuggets_per_chunk, normalize)
+    classes, c_rank = classify_all(
+        by_paper, gold, args.top_k, args.nuggets_per_chunk, normalize
+    )
     print(format_report(classes, c_rank, len(gold), n_no_chunks))
     if args.sweep:
-        print("\n" + format_sweep(sweep(by_paper, gold, top_k=args.top_k, normalize=normalize)))
+        print(
+            "\n"
+            + format_sweep(sweep(by_paper, gold, top_k=args.top_k, normalize=normalize))
+        )
 
 
 if __name__ == "__main__":

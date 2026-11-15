@@ -29,9 +29,9 @@ def test_japanese_chars_greater_than_words():
     results = make_results([japanese])
     words_val = avg_tokens(results, field="text", estimator="words")
     chars_val = avg_tokens(results, field="text", estimator="chars")
-    assert chars_val > words_val, (
-        f"Expected chars ({chars_val}) > words ({words_val}) for Japanese text"
-    )
+    assert (
+        chars_val > words_val
+    ), f"Expected chars ({chars_val}) > words ({words_val}) for Japanese text"
 
 
 def test_empty_results():

@@ -28,12 +28,22 @@ CHUNKS = [
         "score": 1.0,
     },
 ]
-GOLD = [{"arxiv_id": "2410.10071", "query": "alpha one", "answer_spans": ["Gamma three follows"]}]
+GOLD = [
+    {
+        "arxiv_id": "2410.10071",
+        "query": "alpha one",
+        "answer_spans": ["Gamma three follows"],
+    }
+]
 
 
 def test_parse_named_variants():
     assert mr.parse_named("B=data/x.json", "p") == ("B", "data/x.json", None)
-    assert mr.parse_named("C=data/x.json:normalized", "p") == ("C", "data/x.json", "normalized")
+    assert mr.parse_named("C=data/x.json:normalized", "p") == (
+        "C",
+        "data/x.json",
+        "normalized",
+    )
     # a colon that is not a match suffix stays part of the path
     assert mr.parse_named("D=C:/tmp/x.json", "p") == ("D", "C:/tmp/x.json", None)
     for bad in ("nopath", "=x.json", "N="):
@@ -57,14 +67,20 @@ def test_run_matrix_has_one_row_per_combination():
 def test_all_papers_scope_really_widens_the_search_range():
     """The answer lives only in another paper's chunk: invisible in 'paper' scope, found in 'all'."""
     gold = [
-        {"arxiv_id": "2410.10071", "query": "delta four", "answer_spans": ["Delta four ends it"]}
+        {
+            "arxiv_id": "2410.10071",
+            "query": "delta four",
+            "answer_spans": ["Delta four ends it"],
+        }
     ]
     pools = {"P": (build_chunks_index(CHUNKS), "exact")}
     paper = mr.run_matrix(pools, {"G": gold}, [0], scopes=("paper",))[0]
     allp = mr.run_matrix(pools, {"G": gold}, [0], scopes=("all",))[0]
     assert paper["full_chunk"]["recall"] == 0.0
     assert allp["full_chunk"]["recall"] == 1.0
-    assert allp["n_queries"] == paper["n_queries"] == 1  # same gold, only the range differs
+    assert (
+        allp["n_queries"] == paper["n_queries"] == 1
+    )  # same gold, only the range differs
 
 
 def test_markdown_has_both_tables_and_every_row():
@@ -74,7 +90,9 @@ def test_markdown_has_both_tables_and_every_row():
     assert md.count("| P | G |") == 2 * len(rows)  # once per row in each table
     assert "正解論文のみ" in md and "全論文" in md
     assert "McNemar p" in md
-    assert ("できる" in md) or ("できない" in md)  # every comparison row states a verdict
+    assert ("できる" in md) or (
+        "できない" in md
+    )  # every comparison row states a verdict
 
 
 def test_main_writes_markdown_and_json(monkeypatch, tmp_path, capsys):
@@ -130,4 +148,6 @@ def test_main_error_names_the_failing_pool_and_gold(monkeypatch, tmp_path):
     monkeypatch.setattr(sys, "argv", ["rep", "--pool", f"P={c}", "--gold", f"G={g}"])
     with pytest.raises(SystemExit) as exc:
         mr.main()
-    assert str(exc.value.code).startswith("[ERROR] pool=P gold=G: no gold paper key found")
+    assert str(exc.value.code).startswith(
+        "[ERROR] pool=P gold=G: no gold paper key found"
+    )

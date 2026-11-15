@@ -25,7 +25,13 @@ def _files(tmp_path, text=GLUED, span="The Zebra Crossing Rule is key"):
             "score": 1.0,
         }
     ]
-    gold = [{"arxiv_id": "2410.10071", "query": "zebra crossing rule", "answer_spans": [span]}]
+    gold = [
+        {
+            "arxiv_id": "2410.10071",
+            "query": "zebra crossing rule",
+            "answer_spans": [span],
+        }
+    ]
     c, g = tmp_path / "c.json", tmp_path / "g.json"
     c.write_text(json.dumps(chunks), encoding="utf-8")
     g.write_text(json.dumps(gold), encoding="utf-8")
@@ -33,7 +39,9 @@ def _files(tmp_path, text=GLUED, span="The Zebra Crossing Rule is key"):
 
 
 def _run(monkeypatch, c, g, *extra):
-    monkeypatch.setattr(sys, "argv", ["af", "--chunks", str(c), "--gold", str(g), *extra])
+    monkeypatch.setattr(
+        sys, "argv", ["af", "--chunks", str(c), "--gold", str(g), *extra]
+    )
     af.main()
 
 
@@ -43,7 +51,9 @@ def test_main_match_normalized_hits_glued_text(monkeypatch, tmp_path, capsys):
     assert "D 成功: 1" in capsys.readouterr().out
 
 
-def test_main_match_exact_is_the_default_and_misses_glued_text(monkeypatch, tmp_path, capsys):
+def test_main_match_exact_is_the_default_and_misses_glued_text(
+    monkeypatch, tmp_path, capsys
+):
     c, g = _files(tmp_path)
     _run(monkeypatch, c, g)
     assert "A 検索の失敗（根拠チャンクが上位に入らない）: 1" in capsys.readouterr().out
@@ -75,7 +85,9 @@ def test_main_exits_on_chunks_schema_error(monkeypatch, tmp_path):
 
 def test_main_exits_on_gold_schema_error(monkeypatch, tmp_path):
     c, g = _files(tmp_path)
-    g.write_text(json.dumps([{"arxiv_id": "2410.10071", "query": "q", "answer_spans": []}]))
+    g.write_text(
+        json.dumps([{"arxiv_id": "2410.10071", "query": "q", "answer_spans": []}])
+    )
     with pytest.raises(SystemExit) as exc:
         _run(monkeypatch, c, g)
     assert str(exc.value).startswith("[ERROR] gold[0]")

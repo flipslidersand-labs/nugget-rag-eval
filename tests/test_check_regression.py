@@ -17,9 +17,19 @@ def _passing_data(tmp_path):
     """Chunks and gold where both full-chunk and nugget recall = 1.0."""
     paper_id = ARXIV_MAP["2410.10071"]  # == 1
     chunks = [
-        {"paper_id": paper_id, "text": "correct answer here", "nugget": "correct answer here"}
+        {
+            "paper_id": paper_id,
+            "text": "correct answer here",
+            "nugget": "correct answer here",
+        }
     ]
-    gold = [{"arxiv_id": "2410.10071", "query": "q", "answer_spans": ["correct answer here"]}]
+    gold = [
+        {
+            "arxiv_id": "2410.10071",
+            "query": "q",
+            "answer_spans": ["correct answer here"],
+        }
+    ]
     c_path, g_path = tmp_path / "chunks.json", tmp_path / "gold.json"
     _write_json(c_path, chunks)
     _write_json(g_path, gold)
@@ -28,7 +38,13 @@ def _passing_data(tmp_path):
 
 def _failing_data(tmp_path):
     """Chunks and gold where recall = 0 (no answer match)."""
-    chunks = [{"paper_id": 1, "text": "totally unrelated content", "nugget": "totally unrelated"}]
+    chunks = [
+        {
+            "paper_id": 1,
+            "text": "totally unrelated content",
+            "nugget": "totally unrelated",
+        }
+    ]
     gold = [{"paper_id": 1, "query": "q", "answer_spans": ["missing answer"]}]
     c_path, g_path = tmp_path / "chunks.json", tmp_path / "gold.json"
     _write_json(c_path, chunks)
@@ -61,14 +77,18 @@ def _run_main(args: list[str]) -> subprocess.CompletedProcess:
 
 def test_main_pass_exits_zero(tmp_path):
     c_path, g_path = _passing_data(tmp_path)
-    result = _run_main(["--chunks", str(c_path), "--gold", str(g_path), "--threshold", "0.5"])
+    result = _run_main(
+        ["--chunks", str(c_path), "--gold", str(g_path), "--threshold", "0.5"]
+    )
     assert result.returncode == 0
     assert "[PASS]" in result.stdout
 
 
 def test_main_pass_prints_recall_values(tmp_path):
     c_path, g_path = _passing_data(tmp_path)
-    result = _run_main(["--chunks", str(c_path), "--gold", str(g_path), "--threshold", "0.5"])
+    result = _run_main(
+        ["--chunks", str(c_path), "--gold", str(g_path), "--threshold", "0.5"]
+    )
     assert "full-chunk" in result.stdout
     assert "nugget" in result.stdout
     assert "threshold" in result.stdout
@@ -76,7 +96,9 @@ def test_main_pass_prints_recall_values(tmp_path):
 
 def test_main_pass_custom_threshold(tmp_path):
     c_path, g_path = _passing_data(tmp_path)
-    result = _run_main(["--chunks", str(c_path), "--gold", str(g_path), "--threshold", "0.1"])
+    result = _run_main(
+        ["--chunks", str(c_path), "--gold", str(g_path), "--threshold", "0.1"]
+    )
     assert "[PASS]" in result.stdout
     assert "0.1" in result.stdout
 
@@ -84,7 +106,16 @@ def test_main_pass_custom_threshold(tmp_path):
 def test_main_pass_custom_top_k(tmp_path):
     c_path, g_path = _passing_data(tmp_path)
     result = _run_main(
-        ["--chunks", str(c_path), "--gold", str(g_path), "--threshold", "0.5", "--top-k", "3"]
+        [
+            "--chunks",
+            str(c_path),
+            "--gold",
+            str(g_path),
+            "--threshold",
+            "0.5",
+            "--top-k",
+            "3",
+        ]
     )
     assert "[PASS]" in result.stdout
     assert "Recall@3" in result.stdout
@@ -95,20 +126,26 @@ def test_main_pass_custom_top_k(tmp_path):
 
 def test_main_fail_exits_one_on_low_recall(tmp_path):
     c_path, g_path = _failing_data(tmp_path)
-    result = _run_main(["--chunks", str(c_path), "--gold", str(g_path), "--threshold", "0.95"])
+    result = _run_main(
+        ["--chunks", str(c_path), "--gold", str(g_path), "--threshold", "0.95"]
+    )
     assert result.returncode == 1
 
 
 def test_main_fail_prints_fail_message(tmp_path):
     c_path, g_path = _failing_data(tmp_path)
-    result = _run_main(["--chunks", str(c_path), "--gold", str(g_path), "--threshold", "0.95"])
+    result = _run_main(
+        ["--chunks", str(c_path), "--gold", str(g_path), "--threshold", "0.95"]
+    )
     assert "[FAIL]" in result.stdout
     assert "Recall regression" in result.stdout
 
 
 def test_main_fail_mentions_both_failing_modes(tmp_path):
     c_path, g_path = _failing_data(tmp_path)
-    result = _run_main(["--chunks", str(c_path), "--gold", str(g_path), "--threshold", "0.95"])
+    result = _run_main(
+        ["--chunks", str(c_path), "--gold", str(g_path), "--threshold", "0.95"]
+    )
     assert "full-chunk" in result.stdout
     assert "nugget" in result.stdout
 
@@ -116,7 +153,9 @@ def test_main_fail_mentions_both_failing_modes(tmp_path):
 def test_main_fail_threshold_zero_still_passes(tmp_path):
     """threshold=0.0 means any recall (even 0.0) passes."""
     c_path, g_path = _failing_data(tmp_path)
-    result = _run_main(["--chunks", str(c_path), "--gold", str(g_path), "--threshold", "0.0"])
+    result = _run_main(
+        ["--chunks", str(c_path), "--gold", str(g_path), "--threshold", "0.0"]
+    )
     assert "[PASS]" in result.stdout
 
 
@@ -132,12 +171,16 @@ def test_main_default_threshold_is_0_95(tmp_path):
 
 def test_arxiv_id_only_chunks_do_not_raise_key_error(tmp_path):
     """arxiv_id のみを持つチャンク（paper_id なし）でも KeyError が出ない。"""
-    chunks = [{"arxiv_id": "2410.10071", "text": "answer text", "nugget": "answer text"}]
+    chunks = [
+        {"arxiv_id": "2410.10071", "text": "answer text", "nugget": "answer text"}
+    ]
     gold = [{"arxiv_id": "2410.10071", "query": "q", "answer_spans": ["answer"]}]
     c_path, g_path = tmp_path / "c.json", tmp_path / "g.json"
     _write_json(c_path, chunks)
     _write_json(g_path, gold)
-    result = _run_main(["--chunks", str(c_path), "--gold", str(g_path), "--threshold", "0.0"])
+    result = _run_main(
+        ["--chunks", str(c_path), "--gold", str(g_path), "--threshold", "0.0"]
+    )
     assert "KeyError" not in result.stderr, "KeyError が発生した"
 
 
@@ -147,8 +190,12 @@ def test_arxiv_id_only_chunks_do_not_raise_key_error(tmp_path):
 def test_verbose_on_fail_prints_nugget_miss_to_stderr(tmp_path):
     """--verbose + FAIL: 失敗クエリの情報が stderr に出力される。"""
     paper_id = ARXIV_MAP["2410.10071"]
-    chunks = [{"paper_id": paper_id, "text": "unrelated content here", "nugget": "unrelated"}]
-    gold = [{"arxiv_id": "2410.10071", "query": "KV cache", "answer_spans": ["KV cache"]}]
+    chunks = [
+        {"paper_id": paper_id, "text": "unrelated content here", "nugget": "unrelated"}
+    ]
+    gold = [
+        {"arxiv_id": "2410.10071", "query": "KV cache", "answer_spans": ["KV cache"]}
+    ]
     c_path, g_path = tmp_path / "c.json", tmp_path / "g.json"
     _write_json(c_path, chunks)
     _write_json(g_path, gold)
@@ -171,7 +218,9 @@ def test_verbose_not_set_no_miss_output(tmp_path):
     """--verbose なし: stderr に Nugget Recall Misses が出ない。"""
     paper_id = ARXIV_MAP["2410.10071"]
     chunks = [{"paper_id": paper_id, "text": "unrelated", "nugget": "unrelated"}]
-    gold = [{"arxiv_id": "2410.10071", "query": "KV cache", "answer_spans": ["KV cache"]}]
+    gold = [
+        {"arxiv_id": "2410.10071", "query": "KV cache", "answer_spans": ["KV cache"]}
+    ]
     c_path, g_path = tmp_path / "c.json", tmp_path / "g.json"
     _write_json(c_path, chunks)
     _write_json(g_path, gold)
@@ -196,7 +245,9 @@ def test_missing_chunks_file_exits_with_message(tmp_path):
     """--chunks に存在しないファイルを渡すと argparse 段階でエラーメッセージが出る。"""
     g_path = tmp_path / "gold.json"
     _write_json(g_path, [])
-    result = _run_main(["--chunks", str(tmp_path / "no_such.json"), "--gold", str(g_path)])
+    result = _run_main(
+        ["--chunks", str(tmp_path / "no_such.json"), "--gold", str(g_path)]
+    )
     assert result.returncode != 0
     assert "file not found" in result.stderr
 
@@ -205,7 +256,9 @@ def test_missing_gold_file_exits_with_message(tmp_path):
     """--gold に存在しないファイルを渡すと argparse 段階でエラーメッセージが出る。"""
     c_path = tmp_path / "chunks.json"
     _write_json(c_path, [])
-    result = _run_main(["--chunks", str(c_path), "--gold", str(tmp_path / "no_such.json")])
+    result = _run_main(
+        ["--chunks", str(c_path), "--gold", str(tmp_path / "no_such.json")]
+    )
     assert result.returncode != 0
     assert "file not found" in result.stderr
 
@@ -213,7 +266,9 @@ def test_missing_gold_file_exits_with_message(tmp_path):
 def test_negative_threshold_rejected_at_argparse(tmp_path):
     """負の --threshold は argparse エラー (exit 2)。CI 常時 PASS を防ぐ。"""
     c_path, g_path = _passing_data(tmp_path)
-    result = _run_main(["--chunks", str(c_path), "--gold", str(g_path), "--threshold", "-0.1"])
+    result = _run_main(
+        ["--chunks", str(c_path), "--gold", str(g_path), "--threshold", "-0.1"]
+    )
     assert result.returncode == 2
     assert "must be in [0, 1]" in result.stderr
 
@@ -221,7 +276,9 @@ def test_negative_threshold_rejected_at_argparse(tmp_path):
 def test_threshold_above_one_rejected_at_argparse(tmp_path):
     """1 超の --threshold は argparse エラー (exit 2)。常時 FAIL を防ぐ。"""
     c_path, g_path = _passing_data(tmp_path)
-    result = _run_main(["--chunks", str(c_path), "--gold", str(g_path), "--threshold", "1.1"])
+    result = _run_main(
+        ["--chunks", str(c_path), "--gold", str(g_path), "--threshold", "1.1"]
+    )
     assert result.returncode == 2
     assert "must be in [0, 1]" in result.stderr
 
@@ -348,7 +405,9 @@ def test_chunks_non_string_text_exits_with_error(tmp_path):
 def test_gold_non_string_query_exits_with_error(tmp_path):
     c_path, _ = _passing_data(tmp_path)
     g_path = tmp_path / "bad_gold.json"
-    _write_json(g_path, [{"arxiv_id": "2410.10071", "query": 123, "answer_spans": ["x"]}])
+    _write_json(
+        g_path, [{"arxiv_id": "2410.10071", "query": 123, "answer_spans": ["x"]}]
+    )
     result = _run_main(["--chunks", str(c_path), "--gold", str(g_path)])
     assert result.returncode == 1
     assert "[ERROR]" in result.stderr
@@ -397,7 +456,15 @@ def _run_with_baseline(tmp_path, baseline, extra=()):
     c_path, g_path = _passing_data(tmp_path)
     b_path = tmp_path / "baseline.json"
     _write_json(b_path, baseline)
-    args = ["--chunks", str(c_path), "--gold", str(g_path), "--baseline", str(b_path), *extra]
+    args = [
+        "--chunks",
+        str(c_path),
+        "--gold",
+        str(g_path),
+        "--baseline",
+        str(b_path),
+        *extra,
+    ]
     return _run_main(args), g_path
 
 
@@ -458,7 +525,9 @@ def test_baseline_matching_metadata_passes(tmp_path):
     }
     b_path = tmp_path / "baseline.json"
     _write_json(b_path, base)
-    result = _run_main(["--chunks", str(c_path), "--gold", str(g_path), "--baseline", str(b_path)])
+    result = _run_main(
+        ["--chunks", str(c_path), "--gold", str(g_path), "--baseline", str(b_path)]
+    )
     assert result.returncode == 0, result.stdout + result.stderr
 
 
@@ -471,8 +540,12 @@ def test_real_baseline_hard_matches_current_run_settings(monkeypatch):
     repo_root = pathlib.Path(__file__).parent.parent
     # README の呼び出しはリポジトリルートからの相対指定。cwd に依存しないよう固定する。
     monkeypatch.chdir(repo_root)
-    gold = json.loads((repo_root / "eval" / "gold_set_hard.json").read_text(encoding="utf-8"))
-    baseline = json.loads((repo_root / "eval" / "baseline_hard.json").read_text(encoding="utf-8"))
+    gold = json.loads(
+        (repo_root / "eval" / "gold_set_hard.json").read_text(encoding="utf-8")
+    )
+    baseline = json.loads(
+        (repo_root / "eval" / "baseline_hard.json").read_text(encoding="utf-8")
+    )
     result = {"modes": ["full_chunk", "nugget"], "n_queries": len(gold)}
     for mode in result["modes"]:
         result[mode] = {"recall": baseline[mode]["recall"]}
@@ -504,9 +577,14 @@ def test_baseline_gold_is_cwd_independent(tmp_path, monkeypatch):
     assert _gold_check("eval/gold_set_hard.json", abs_gold, tmp_path) == []
     monkeypatch.chdir(repo_root / "eval")
     assert _gold_check("eval/gold_set_hard.json", "gold_set_hard.json", tmp_path) == []
-    assert _gold_check("eval/gold_set_hard.json", "./gold_set_hard.json", tmp_path) == []
+    assert (
+        _gold_check("eval/gold_set_hard.json", "./gold_set_hard.json", tmp_path) == []
+    )
     monkeypatch.chdir(repo_root)
-    assert _gold_check("eval/gold_set_hard.json", "./eval/gold_set_hard.json", tmp_path) == []
+    assert (
+        _gold_check("eval/gold_set_hard.json", "./eval/gold_set_hard.json", tmp_path)
+        == []
+    )
 
 
 def test_baseline_gold_different_file_fails_from_any_cwd(tmp_path, monkeypatch):

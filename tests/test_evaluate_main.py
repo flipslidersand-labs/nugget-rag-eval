@@ -47,7 +47,9 @@ def test_evaluate_verbose_false_is_silent_on_miss(capsys):
 def test_evaluate_verbose_caps_at_5_misses(capsys):
     """verbose output shows at most 5 misses even if more exist."""
     chunks_by_paper = {i: [{"text": "x", "nugget": "x"}] for i in range(1, 9)}
-    gold = [{"paper_id": i, "query": f"q{i}", "answer_spans": ["miss"]} for i in range(1, 9)]
+    gold = [
+        {"paper_id": i, "query": f"q{i}", "answer_spans": ["miss"]} for i in range(1, 9)
+    ]
     evaluate(chunks_by_paper, gold, top_k=5, verbose=True)
     captured = capsys.readouterr()
     lines = [line for line in captured.err.splitlines() if line.startswith("  [")]
@@ -102,9 +104,19 @@ def minimal_data(tmp_path):
     """Return (chunks_path, gold_path) with one passing entry."""
     paper_id = ARXIV_MAP["2410.10071"]  # == 1
     chunks = [
-        {"paper_id": paper_id, "text": "unique answer phrase", "nugget": "unique answer phrase"}
+        {
+            "paper_id": paper_id,
+            "text": "unique answer phrase",
+            "nugget": "unique answer phrase",
+        }
     ]
-    gold = [{"arxiv_id": "2410.10071", "query": "q", "answer_spans": ["unique answer phrase"]}]
+    gold = [
+        {
+            "arxiv_id": "2410.10071",
+            "query": "q",
+            "answer_spans": ["unique answer phrase"],
+        }
+    ]
     c_path = tmp_path / "chunks.json"
     g_path = tmp_path / "gold.json"
     _write_json(c_path, chunks)
@@ -223,7 +235,15 @@ def test_main_invalid_embed_weight_above_1(minimal_data, monkeypatch):
     monkeypatch.setattr(
         sys,
         "argv",
-        ["evaluate.py", "--chunks", str(c_path), "--gold", str(g_path), "--embed-weight", "2.5"],
+        [
+            "evaluate.py",
+            "--chunks",
+            str(c_path),
+            "--gold",
+            str(g_path),
+            "--embed-weight",
+            "2.5",
+        ],
     )
     with pytest.raises(SystemExit) as exc_info:
         main()
@@ -238,7 +258,15 @@ def test_main_invalid_embed_weight_negative(minimal_data, monkeypatch):
     monkeypatch.setattr(
         sys,
         "argv",
-        ["evaluate.py", "--chunks", str(c_path), "--gold", str(g_path), "--embed-weight", "-1.0"],
+        [
+            "evaluate.py",
+            "--chunks",
+            str(c_path),
+            "--gold",
+            str(g_path),
+            "--embed-weight",
+            "-1.0",
+        ],
     )
     with pytest.raises(SystemExit) as exc_info:
         main()
@@ -290,7 +318,15 @@ def test_main_invalid_top_k_negative(minimal_data, monkeypatch):
     monkeypatch.setattr(
         sys,
         "argv",
-        ["evaluate.py", "--chunks", str(c_path), "--gold", str(g_path), "--top-k", "-1"],
+        [
+            "evaluate.py",
+            "--chunks",
+            str(c_path),
+            "--gold",
+            str(g_path),
+            "--top-k",
+            "-1",
+        ],
     )
     with pytest.raises(SystemExit) as exc_info:
         main()
@@ -350,7 +386,13 @@ def test_main_missing_chunks_file_exits_with_message(tmp_path, monkeypatch, caps
     monkeypatch.setattr(
         sys,
         "argv",
-        ["evaluate.py", "--chunks", str(tmp_path / "no_such.json"), "--gold", str(g_path)],
+        [
+            "evaluate.py",
+            "--chunks",
+            str(tmp_path / "no_such.json"),
+            "--gold",
+            str(g_path),
+        ],
     )
     with pytest.raises(SystemExit) as exc_info:
         main()
@@ -368,7 +410,13 @@ def test_main_missing_gold_file_exits_with_message(tmp_path, monkeypatch, capsys
     monkeypatch.setattr(
         sys,
         "argv",
-        ["evaluate.py", "--chunks", str(c_path), "--gold", str(tmp_path / "no_such.json")],
+        [
+            "evaluate.py",
+            "--chunks",
+            str(c_path),
+            "--gold",
+            str(tmp_path / "no_such.json"),
+        ],
     )
     with pytest.raises(SystemExit) as exc_info:
         main()
@@ -516,7 +564,8 @@ def hybrid_data(tmp_path):
     g_path = tmp_path / "gold.json"
     _write_json(c_path, [{"paper_id": paper_id, "text": text}])
     _write_json(
-        g_path, [{"arxiv_id": "2410.10071", "query": "retrieval", "answer_spans": [_ANSWER]}]
+        g_path,
+        [{"arxiv_id": "2410.10071", "query": "retrieval", "answer_spans": [_ANSWER]}],
     )
     return c_path, g_path
 
@@ -526,7 +575,10 @@ def _fake_embed(calls):
 
     def embed(self, texts):
         calls.append(list(texts))
-        return [[1.0, 0.0] if (i == 0 or _ANSWER in t) else [0.0, 1.0] for i, t in enumerate(texts)]
+        return [
+            [1.0, 0.0] if (i == 0 or _ANSWER in t) else [0.0, 1.0]
+            for i, t in enumerate(texts)
+        ]
 
     return embed
 
@@ -535,7 +587,9 @@ def _run_main(monkeypatch, c_path, g_path, *extra):
     from eval.evaluate import main
 
     monkeypatch.setattr(
-        sys, "argv", ["evaluate.py", "--chunks", str(c_path), "--gold", str(g_path), *extra]
+        sys,
+        "argv",
+        ["evaluate.py", "--chunks", str(c_path), "--gold", str(g_path), *extra],
     )
     main()
 
@@ -544,7 +598,9 @@ def _result_json(out: str) -> dict:
     return json.loads(out[out.index("{") :])
 
 
-def test_main_embedding_url_warns_when_api_key_missing(hybrid_data, monkeypatch, capsys):
+def test_main_embedding_url_warns_when_api_key_missing(
+    hybrid_data, monkeypatch, capsys
+):
     from nugget_rag.embedder import EmbedClient
 
     monkeypatch.delenv("EMBEDDING_API_KEY", raising=False)
@@ -564,16 +620,27 @@ def test_main_embedding_url_no_warn_when_api_key_set(hybrid_data, monkeypatch, c
     assert "[WARN] EMBEDDING_API_KEY not set" not in capsys.readouterr().err
 
 
-def test_main_embedding_url_mode_label_includes_weight(hybrid_data, monkeypatch, capsys):
+def test_main_embedding_url_mode_label_includes_weight(
+    hybrid_data, monkeypatch, capsys
+):
     from nugget_rag.embedder import EmbedClient
 
     monkeypatch.setenv("EMBEDDING_API_KEY", "dummy-for-test")
     monkeypatch.setattr(EmbedClient, "embed", _fake_embed([]))
-    _run_main(monkeypatch, *hybrid_data, "--embedding-url", _EMBED_URL, "--embed-weight", "0.3")
+    _run_main(
+        monkeypatch,
+        *hybrid_data,
+        "--embedding-url",
+        _EMBED_URL,
+        "--embed-weight",
+        "0.3",
+    )
     assert "nugget(e0.3)" in capsys.readouterr().out
 
 
-def test_main_embedding_url_uses_embed_fn_for_nugget_selection(hybrid_data, monkeypatch, capsys):
+def test_main_embedding_url_uses_embed_fn_for_nugget_selection(
+    hybrid_data, monkeypatch, capsys
+):
     """embed_fn が evaluate() に配線され、embedding スコアで答え文が選ばれる。"""
     from nugget_rag.embedder import EmbedClient
 
@@ -585,7 +652,14 @@ def test_main_embedding_url_uses_embed_fn_for_nugget_selection(hybrid_data, monk
 
     calls: list[list[str]] = []
     monkeypatch.setattr(EmbedClient, "embed", _fake_embed(calls))
-    _run_main(monkeypatch, *hybrid_data, "--embedding-url", _EMBED_URL, "--embed-weight", "1.0")
+    _run_main(
+        monkeypatch,
+        *hybrid_data,
+        "--embedding-url",
+        _EMBED_URL,
+        "--embed-weight",
+        "1.0",
+    )
     assert calls, "EmbedClient.embed が呼ばれていない(embed_fn 未配線)"
     assert calls[0][0] == "retrieval"
     assert _result_json(capsys.readouterr().out)["nugget"]["recall"] == 1.0
@@ -663,7 +737,9 @@ def test_main_embed_error_exits_with_error(tmp_path, monkeypatch):
     c_path = tmp_path / "chunks.json"
     _write_json(c_path, [{"paper_id": 1, "text": "target answer text."}])
     g_path = tmp_path / "gold.json"
-    _write_json(g_path, [{"paper_id": 1, "query": "q", "answer_spans": ["target answer"]}])
+    _write_json(
+        g_path, [{"paper_id": 1, "query": "q", "answer_spans": ["target answer"]}]
+    )
     monkeypatch.setattr(
         sys,
         "argv",

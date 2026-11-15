@@ -21,7 +21,9 @@ QUERY = "zebra crossing rule"
 
 
 def test_window_zero_is_unchanged():
-    assert top_nuggets(QUERY, SENTS, top_k=1) == top_nuggets(QUERY, SENTS, top_k=1, window=0)
+    assert top_nuggets(QUERY, SENTS, top_k=1) == top_nuggets(
+        QUERY, SENTS, top_k=1, window=0
+    )
     assert top_nuggets(QUERY, SENTS, top_k=1) == [SENTS[2]]
 
 
@@ -47,7 +49,9 @@ def test_window_on_empty_sentences():
 def test_retrieve_nuggets_passes_window_through():
     chunks = [{"paper_id": 1, "text": " ".join(SENTS), "score": 1.0}]
     plain = retrieve_nuggets(chunks, QUERY, top_k=1, nuggets_per_chunk=1)[0]["nugget"]
-    wide = retrieve_nuggets(chunks, QUERY, top_k=1, nuggets_per_chunk=1, window=1)[0]["nugget"]
+    wide = retrieve_nuggets(chunks, QUERY, top_k=1, nuggets_per_chunk=1, window=1)[0][
+        "nugget"
+    ]
     assert plain == SENTS[2]
     assert wide == " ".join(SENTS[1:4])
 
@@ -55,7 +59,16 @@ def test_retrieve_nuggets_passes_window_through():
 def test_evaluate_window_raises_nugget_recall_without_touching_full_chunk():
     spans = ["Follow up detail"]
     # build_chunks_index keys by the registry's internal paper_id (1 for 2410.10071)
-    chunks = {1: [{"paper_id": 1, "arxiv_id": "2410.10071", "text": " ".join(SENTS), "score": 1.0}]}
+    chunks = {
+        1: [
+            {
+                "paper_id": 1,
+                "arxiv_id": "2410.10071",
+                "text": " ".join(SENTS),
+                "score": 1.0,
+            }
+        ]
+    }
     gold = [{"query": QUERY, "arxiv_id": "2410.10071", "answer_spans": spans}]
     base = evaluate(chunks, gold, top_k=1)
     wide = evaluate(chunks, gold, top_k=1, nugget_window=1)
@@ -70,7 +83,9 @@ def test_main_rejects_negative_window(monkeypatch, tmp_path):
     c.write_text("[]")
     g.write_text("[]")
     monkeypatch.setattr(
-        sys, "argv", ["evaluate.py", "--chunks", str(c), "--gold", str(g), "--nugget-window", "-1"]
+        sys,
+        "argv",
+        ["evaluate.py", "--chunks", str(c), "--gold", str(g), "--nugget-window", "-1"],
     )
     with pytest.raises(SystemExit) as exc:
         main()

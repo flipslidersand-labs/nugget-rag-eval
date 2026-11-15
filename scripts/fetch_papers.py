@@ -163,11 +163,15 @@ def fetch_chunks_for_paper(
                 chunk["arxiv_id"] = arxiv_id
             chunks.append(chunk)
     except (ValueError, KeyError, TypeError) as exc:
-        raise FetchError(f"Malformed search response for paper {paper_id}: {exc!r}") from exc
+        raise FetchError(
+            f"Malformed search response for paper {paper_id}: {exc!r}"
+        ) from exc
     return chunks
 
 
-def combine_large_chunks(chunks: list[dict], paper_id: int, target_tokens: int) -> list[dict]:
+def combine_large_chunks(
+    chunks: list[dict], paper_id: int, target_tokens: int
+) -> list[dict]:
     """Merge consecutive chunks up to target_tokens words."""
     arxiv_id = PAPER_ID_TO_ARXIV.get(paper_id)
     combined = []
@@ -247,7 +251,8 @@ def fetch_per_query(
             pid = ARXIV_TO_PAPER_ID.get(item["arxiv_id"])
             if pid is None:
                 print(
-                    f"  WARNING: unknown arxiv_id '{item['arxiv_id']}', skipping", file=sys.stderr
+                    f"  WARNING: unknown arxiv_id '{item['arxiv_id']}', skipping",
+                    file=sys.stderr,
                 )
                 # Count it so --max-failures gates unregistered ids (#230).
                 failure_count += 1
@@ -304,7 +309,9 @@ def _api_url_type(v: str) -> str:
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--api-url", default="http://localhost:8020", type=_api_url_type)
+    parser.add_argument(
+        "--api-url", default="http://localhost:8020", type=_api_url_type
+    )
     parser.add_argument("--out", default="data/chunks.json")
     parser.add_argument(
         "--query",
@@ -400,7 +407,10 @@ def main():
                 continue
             if args.chunk_mode == "large":
                 chunks = combine_large_chunks(raw, pid, args.large_chunk_target)
-                print(f"  paper {pid}: {len(raw)} → {len(chunks)} large chunks", file=sys.stderr)
+                print(
+                    f"  paper {pid}: {len(raw)} → {len(chunks)} large chunks",
+                    file=sys.stderr,
+                )
             else:
                 chunks = raw
                 print(f"  paper {pid}: {len(chunks)} chunks", file=sys.stderr)
@@ -417,7 +427,9 @@ def main():
 
     out.parent.mkdir(parents=True, exist_ok=True)
     tmp = out.with_suffix(".tmp")
-    tmp.write_text(json.dumps(all_chunks, ensure_ascii=False, indent=2), encoding="utf-8")
+    tmp.write_text(
+        json.dumps(all_chunks, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
     tmp.replace(out)
     print(f"Wrote {len(all_chunks)} chunks to {out}", file=sys.stderr)
 

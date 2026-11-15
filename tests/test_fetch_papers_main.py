@@ -38,7 +38,12 @@ def test_success_path_writes_all_chunks_atomically(monkeypatch, tmp_path, capsys
     out = _run(monkeypatch, tmp_path)
     fp.main()
     data = json.loads(out.read_text(encoding="utf-8"))
-    assert [(c["paper_id"], c["chunk_index"]) for c in data] == [(1, 0), (1, 1), (2, 0), (2, 1)]
+    assert [(c["paper_id"], c["chunk_index"]) for c in data] == [
+        (1, 0),
+        (1, 1),
+        (2, 0),
+        (2, 1),
+    ]
     assert "Wrote 4 chunks" in capsys.readouterr().err
     assert not out.with_suffix(".tmp").exists()  # tmp file replaced, not left behind
 
@@ -51,7 +56,9 @@ def test_success_creates_missing_output_directory(monkeypatch, tmp_path):
 
 
 def test_large_chunk_mode_combines_chunks(monkeypatch, tmp_path):
-    out = _run(monkeypatch, tmp_path, "--chunk-mode", "large", "--large-chunk-target", "100")
+    out = _run(
+        monkeypatch, tmp_path, "--chunk-mode", "large", "--large-chunk-target", "100"
+    )
     fp.main()
     data = json.loads(out.read_text(encoding="utf-8"))
     assert len(data) == 2  # one combined chunk per paper
@@ -127,7 +134,15 @@ def test_per_query_path_honours_failure_gate(monkeypatch, tmp_path):
     monkeypatch.setattr(
         sys,
         "argv",
-        ["fetch_papers.py", "--gold-set", str(gold), "--out", str(out), "--max-failures", "2"],
+        [
+            "fetch_papers.py",
+            "--gold-set",
+            str(gold),
+            "--out",
+            str(out),
+            "--max-failures",
+            "2",
+        ],
     )
     fp.main()  # 2 failures == threshold 2 -> allowed
 
@@ -139,7 +154,9 @@ def _run_with_read_timeout(monkeypatch, tmp_path, *extra):
     out = tmp_path / "out" / "chunks.json"
     monkeypatch.setattr(fp, "fetch_papers", lambda api: [{"id": 1}, {"id": 2}])
     monkeypatch.setattr(fp.time, "sleep", lambda s: None)
-    body = json.dumps({"results": [{"chunk_index": 0, "snippet": "t", "score": 1.0}]}).encode()
+    body = json.dumps(
+        {"results": [{"chunk_index": 0, "snippet": "t", "score": 1.0}]}
+    ).encode()
 
     def fake_urlopen(url, timeout):
         resp = MagicMock()
@@ -157,7 +174,9 @@ def _run_with_read_timeout(monkeypatch, tmp_path, *extra):
     return out
 
 
-def test_read_timeout_without_fail_fast_writes_fetched_papers(monkeypatch, tmp_path, capsys):
+def test_read_timeout_without_fail_fast_writes_fetched_papers(
+    monkeypatch, tmp_path, capsys
+):
     out = _run_with_read_timeout(monkeypatch, tmp_path)
     with pytest.raises(SystemExit) as exc:
         fp.main()
@@ -166,7 +185,9 @@ def test_read_timeout_without_fail_fast_writes_fetched_papers(monkeypatch, tmp_p
     assert "skipping paper 2" in capsys.readouterr().err
 
 
-def test_read_timeout_with_fail_fast_errors_and_writes_nothing(monkeypatch, tmp_path, capsys):
+def test_read_timeout_with_fail_fast_errors_and_writes_nothing(
+    monkeypatch, tmp_path, capsys
+):
     out = _run_with_read_timeout(monkeypatch, tmp_path, "--fail-fast")
     with pytest.raises(SystemExit) as exc:
         fp.main()

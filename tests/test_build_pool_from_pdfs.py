@@ -20,7 +20,9 @@ from scripts.build_pool_from_pdfs import build_pool, chunk_text, pdf_to_text
 
 def test_chunk_text_keeps_decimals_intact():
     """'0.5' must not be split into '0.' and '5' (split_sentences does that)."""
-    text = "We add noise with a probability of 0.5 at a random SNR. Next sentence follows."
+    text = (
+        "We add noise with a probability of 0.5 at a random SNR. Next sentence follows."
+    )
     joined = " ".join(chunk_text(text, target_words=100))
     assert "probability of 0.5 at" in joined
 
@@ -57,7 +59,9 @@ def test_pdf_to_text_raises_on_pdftotext_failure():
 
 
 def test_pdf_to_text_converts_missing_executable():
-    with patch("scripts.build_pool_from_pdfs.subprocess.run", side_effect=FileNotFoundError):
+    with patch(
+        "scripts.build_pool_from_pdfs.subprocess.run", side_effect=FileNotFoundError
+    ):
         with pytest.raises(RuntimeError, match="install poppler-utils"):
             pdf_to_text(Path("x.pdf"))
 
@@ -91,7 +95,8 @@ def test_build_pool_skips_empty_text_with_warning(tmp_path, capsys):
 
 def test_pdf_to_text_converts_other_oserror():
     with patch(
-        "scripts.build_pool_from_pdfs.subprocess.run", side_effect=PermissionError("denied")
+        "scripts.build_pool_from_pdfs.subprocess.run",
+        side_effect=PermissionError("denied"),
     ):
         with pytest.raises(RuntimeError, match="could not be run for x.pdf: denied"):
             pdf_to_text(Path("x.pdf"))
@@ -100,9 +105,13 @@ def test_pdf_to_text_converts_other_oserror():
 def test_main_exits_with_error_when_pdftotext_missing_end_to_end(monkeypatch, tmp_path):
     (tmp_path / "2410.10071.pdf").write_bytes(b"")
     monkeypatch.setattr(
-        sys, "argv", ["build", "--pdf-dir", str(tmp_path), "--out", str(tmp_path / "o.json")]
+        sys,
+        "argv",
+        ["build", "--pdf-dir", str(tmp_path), "--out", str(tmp_path / "o.json")],
     )
-    with patch("scripts.build_pool_from_pdfs.subprocess.run", side_effect=FileNotFoundError):
+    with patch(
+        "scripts.build_pool_from_pdfs.subprocess.run", side_effect=FileNotFoundError
+    ):
         with pytest.raises(SystemExit) as exc:
             mod.main()
     assert str(exc.value.code).startswith("[ERROR]")
@@ -112,13 +121,19 @@ def test_main_exits_with_error_when_pdftotext_missing_end_to_end(monkeypatch, tm
 def test_main_all_pdfs_empty_text_exits_with_error(monkeypatch, tmp_path):
     (tmp_path / "2410.10071.pdf").write_bytes(b"")
     monkeypatch.setattr(
-        sys, "argv", ["build", "--pdf-dir", str(tmp_path), "--out", str(tmp_path / "o.json")]
+        sys,
+        "argv",
+        ["build", "--pdf-dir", str(tmp_path), "--out", str(tmp_path / "o.json")],
     )
     with patch.object(mod, "pdf_to_text", return_value=""):
         with pytest.raises(SystemExit) as exc:
             mod.main()
     msg = str(exc.value.code)
-    assert msg.startswith("[ERROR]") and "no chunks built" in msg and "empty extracted text" in msg
+    assert (
+        msg.startswith("[ERROR]")
+        and "no chunks built" in msg
+        and "empty extracted text" in msg
+    )
 
 
 def test_main_partial_empty_text_exits_zero(monkeypatch, tmp_path):
@@ -127,20 +142,26 @@ def test_main_partial_empty_text_exits_zero(monkeypatch, tmp_path):
     (pdfs / "2410.10071.pdf").write_bytes(b"")
     (pdfs / "2410.10072.pdf").write_bytes(b"")
     out = tmp_path / "pool.json"
-    monkeypatch.setattr(sys, "argv", ["build", "--pdf-dir", str(pdfs), "--out", str(out)])
+    monkeypatch.setattr(
+        sys, "argv", ["build", "--pdf-dir", str(pdfs), "--out", str(out)]
+    )
     texts = {"2410.10071": "", "2410.10072": "Alpha beta."}
     with (
         patch.dict(mod.ARXIV_MAP, {"2410.10072": 2}),
         patch.object(mod, "pdf_to_text", side_effect=lambda p: texts[p.stem]),
     ):
         mod.main()  # returns normally (exit 0)
-    assert {c["arxiv_id"] for c in json.loads(out.read_text(encoding="utf-8"))} == {"2410.10072"}
+    assert {c["arxiv_id"] for c in json.loads(out.read_text(encoding="utf-8"))} == {
+        "2410.10072"
+    }
 
 
 def test_main_exits_with_error_on_pdf_to_text_failure(monkeypatch, tmp_path):
     (tmp_path / "2410.10071.pdf").write_bytes(b"")
     monkeypatch.setattr(
-        sys, "argv", ["build", "--pdf-dir", str(tmp_path), "--out", str(tmp_path / "o.json")]
+        sys,
+        "argv",
+        ["build", "--pdf-dir", str(tmp_path), "--out", str(tmp_path / "o.json")],
     )
     err = RuntimeError("pdftotext not found (install poppler-utils)")
     with patch.object(mod, "pdf_to_text", side_effect=err):
@@ -167,7 +188,13 @@ def test_main_missing_pdf_dir_exits(monkeypatch, tmp_path):
     monkeypatch.setattr(
         sys,
         "argv",
-        ["build", "--pdf-dir", str(tmp_path / "nope"), "--out", str(tmp_path / "o.json")],
+        [
+            "build",
+            "--pdf-dir",
+            str(tmp_path / "nope"),
+            "--out",
+            str(tmp_path / "o.json"),
+        ],
     )
     with pytest.raises(SystemExit) as exc:
         mod.main()
@@ -176,7 +203,9 @@ def test_main_missing_pdf_dir_exits(monkeypatch, tmp_path):
 
 def test_main_empty_dir_exits(monkeypatch, tmp_path):
     monkeypatch.setattr(
-        sys, "argv", ["build", "--pdf-dir", str(tmp_path), "--out", str(tmp_path / "o.json")]
+        sys,
+        "argv",
+        ["build", "--pdf-dir", str(tmp_path), "--out", str(tmp_path / "o.json")],
     )
     with pytest.raises(SystemExit) as exc:
         mod.main()
@@ -188,7 +217,9 @@ def test_main_writes_pool(monkeypatch, tmp_path):
     pdfs.mkdir()
     (pdfs / "2410.10071.pdf").write_bytes(b"")
     out = tmp_path / "out" / "pool.json"
-    monkeypatch.setattr(sys, "argv", ["build", "--pdf-dir", str(pdfs), "--out", str(out)])
+    monkeypatch.setattr(
+        sys, "argv", ["build", "--pdf-dir", str(pdfs), "--out", str(out)]
+    )
     with patch.object(mod, "pdf_to_text", return_value="Alpha beta. Gamma delta."):
         mod.main()
     data = json.loads(out.read_text(encoding="utf-8"))
@@ -197,7 +228,9 @@ def test_main_writes_pool(monkeypatch, tmp_path):
 
 
 def test_main_rejects_non_positive_target_words(monkeypatch, tmp_path):
-    monkeypatch.setattr(sys, "argv", ["build", "--pdf-dir", str(tmp_path), "--target-words", "0"])
+    monkeypatch.setattr(
+        sys, "argv", ["build", "--pdf-dir", str(tmp_path), "--target-words", "0"]
+    )
     with pytest.raises(SystemExit) as exc:
         mod.main()
     assert exc.value.code == 2

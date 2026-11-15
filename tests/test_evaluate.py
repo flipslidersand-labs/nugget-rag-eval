@@ -90,8 +90,12 @@ def test_mrr_rank_ordering_affects_score():
 def test_evaluate_arxiv_id_resolves_via_arxiv_map():
     """evaluate() must resolve arxiv_id through ARXIV_MAP to find chunks."""
     paper_id = ARXIV_MAP["2608.07458"]  # == 10
-    chunks_by_paper = {paper_id: [{"text": "KV cache reuse answer", "nugget": "KV cache reuse"}]}
-    gold = [{"arxiv_id": "2608.07458", "query": "KV cache", "answer_spans": ["KV cache"]}]
+    chunks_by_paper = {
+        paper_id: [{"text": "KV cache reuse answer", "nugget": "KV cache reuse"}]
+    }
+    gold = [
+        {"arxiv_id": "2608.07458", "query": "KV cache", "answer_spans": ["KV cache"]}
+    ]
     result = evaluate(chunks_by_paper, gold, top_k=5)
     assert result["full_chunk"]["recall"] == 1.0
     assert result["nugget"]["recall"] == 1.0
@@ -124,7 +128,9 @@ def test_evaluate_arxiv_id_takes_priority_over_paper_id():
     real_paper_id = ARXIV_MAP["2410.10071"]  # == 1
     # chunks は arxiv_id 解決先（paper_id=1）に置く
     chunks_by_paper = {
-        real_paper_id: [{"text": "correct answer here", "nugget": "correct answer here"}],
+        real_paper_id: [
+            {"text": "correct answer here", "nugget": "correct answer here"}
+        ],
         999: [{"text": "wrong chunk", "nugget": "wrong chunk"}],
     }
     # paper_id=999 だが arxiv_id=2410.10071 → ARXIV_MAP 経由で paper_id=1 を選ぶ
@@ -143,7 +149,9 @@ def test_evaluate_arxiv_id_takes_priority_over_paper_id():
 def test_evaluate_empty_string_arxiv_id_falls_back_to_paper_id():
     """arxiv_id が空文字列（falsy）なら paper_id にフォールバック。"""
     chunks_by_paper = {42: [{"text": "answer here", "nugget": "answer here"}]}
-    gold = [{"arxiv_id": "", "paper_id": 42, "query": "q", "answer_spans": ["answer here"]}]
+    gold = [
+        {"arxiv_id": "", "paper_id": 42, "query": "q", "answer_spans": ["answer here"]}
+    ]
     result = evaluate(chunks_by_paper, gold, top_k=5)
     assert result["full_chunk"]["recall"] == 1.0
 
@@ -151,7 +159,14 @@ def test_evaluate_empty_string_arxiv_id_falls_back_to_paper_id():
 def test_evaluate_none_arxiv_id_falls_back_to_paper_id():
     """arxiv_id が None（falsy）なら paper_id にフォールバック。"""
     chunks_by_paper = {42: [{"text": "answer here", "nugget": "answer here"}]}
-    gold = [{"arxiv_id": None, "paper_id": 42, "query": "q", "answer_spans": ["answer here"]}]
+    gold = [
+        {
+            "arxiv_id": None,
+            "paper_id": 42,
+            "query": "q",
+            "answer_spans": ["answer here"],
+        }
+    ]
     result = evaluate(chunks_by_paper, gold, top_k=5)
     assert result["full_chunk"]["recall"] == 1.0
 
@@ -314,7 +329,12 @@ def test_validate_gold_arxiv_id_only_is_valid():
 
 
 def test_validate_gold_both_ids_present_is_valid():
-    item = {"arxiv_id": "2410.10071", "paper_id": 1, "query": "q", "answer_spans": ["span"]}
+    item = {
+        "arxiv_id": "2410.10071",
+        "paper_id": 1,
+        "query": "q",
+        "answer_spans": ["span"],
+    }
     validate_gold([item])  # must not raise
 
 
@@ -379,7 +399,9 @@ def test_recall_matches_mrr_positivity():
         [],
     ]
     for results in cases:
-        assert recall_at_k(results, ["answer span"]) == (mrr_at_k(results, ["answer span"]) > 0)
+        assert recall_at_k(results, ["answer span"]) == (
+            mrr_at_k(results, ["answer span"]) > 0
+        )
 
 
 # ── validate_chunks (#149) ─────────────────────────────────────────────────────
@@ -478,8 +500,12 @@ def test_build_chunks_index_matches_evaluate_key_for_fetch_papers_style_chunks()
     build_chunks_index() and evaluate()'s gold resolution — previously
     build_chunks_index used the raw arxiv_id string while evaluate()
     resolved through ARXIV_MAP to an int, so lookups silently missed."""
-    chunks = [{"arxiv_id": "2608.07458", "paper_id": 10, "text": "KV cache reuse answer"}]
-    gold = [{"arxiv_id": "2608.07458", "query": "KV cache", "answer_spans": ["KV cache"]}]
+    chunks = [
+        {"arxiv_id": "2608.07458", "paper_id": 10, "text": "KV cache reuse answer"}
+    ]
+    gold = [
+        {"arxiv_id": "2608.07458", "query": "KV cache", "answer_spans": ["KV cache"]}
+    ]
     chunks_by_paper = build_chunks_index(chunks)
     result = evaluate(chunks_by_paper, gold, top_k=5)
     assert result["full_chunk"]["recall"] == 1.0
@@ -507,7 +533,9 @@ def test_validate_gold_rejects_non_dict_element(bad):
 @pytest.mark.parametrize("span", ["", "   ", "\n\t"])
 def test_validate_gold_rejects_blank_span(span):
     with pytest.raises(ValueError, match="empty|blank"):
-        validate_gold([{"arxiv_id": "2401.00001", "query": "q", "answer_spans": ["ok", span]}])
+        validate_gold(
+            [{"arxiv_id": "2401.00001", "query": "q", "answer_spans": ["ok", span]}]
+        )
 
 
 @pytest.mark.parametrize("bad", [None, "x", 1, ["x"]])

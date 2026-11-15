@@ -51,16 +51,24 @@ def test_check_baseline_skips_modes_without_a_baseline():
 
     with tempfile.TemporaryDirectory() as d:
         b = Path(d) / "b.json"
-        b.write_text(json.dumps({"full_chunk": {"recall": 0.5}, "nugget": {"recall": 0.5}}))
+        b.write_text(
+            json.dumps({"full_chunk": {"recall": 0.5}, "nugget": {"recall": 0.5}})
+        )
         failures, note = check_regression.check_baseline(result, str(b), max_drop=0.05)
     assert failures == [] and note == ""
 
 
-def test_check_regression_prints_every_mode_with_aligned_labels(monkeypatch, tmp_path, capsys):
+def test_check_regression_prints_every_mode_with_aligned_labels(
+    monkeypatch, tmp_path, capsys
+):
     c, g = tmp_path / "c.json", tmp_path / "g.json"
-    c.write_text(json.dumps([{"paper_id": PID, "text": "alpha beta gamma", "nugget": "alpha"}]))
+    c.write_text(
+        json.dumps([{"paper_id": PID, "text": "alpha beta gamma", "nugget": "alpha"}])
+    )
     g.write_text(json.dumps(GOLD))
-    monkeypatch.setattr(sys, "argv", ["check_regression.py", "--chunks", str(c), "--gold", str(g)])
+    monkeypatch.setattr(
+        sys, "argv", ["check_regression.py", "--chunks", str(c), "--gold", str(g)]
+    )
     check_regression.main()
     out = capsys.readouterr().out
     assert "  full-chunk : 1.0" in out
