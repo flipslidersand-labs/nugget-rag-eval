@@ -40,7 +40,9 @@ def _run_main(monkeypatch, capsys, result, extra=()):
     monkeypatch.setattr(check_regression, "load_json", lambda p, n: [])
     monkeypatch.setattr(check_regression, "existing_file", lambda p: p)
     monkeypatch.setattr(
-        sys, "argv", ["x", "--chunks", "c", "--gold", "g", "--threshold", "0.95", *extra]
+        sys,
+        "argv",
+        ["x", "--chunks", "c", "--gold", "g", "--threshold", "0.95", *extra],
     )
     code = 0
     try:
@@ -52,7 +54,9 @@ def _run_main(monkeypatch, capsys, result, extra=()):
 
 def test_189_of_199_fails_threshold_0_95(monkeypatch, capsys):
     res = _result(189, 199)
-    assert res["full_chunk"]["recall"] == 0.95  # the rounded display value that used to pass
+    assert (
+        res["full_chunk"]["recall"] == 0.95
+    )  # the rounded display value that used to pass
     code, out = _run_main(monkeypatch, capsys, res)
     assert code == 1 and "[FAIL]" in out
 
@@ -70,23 +74,31 @@ def test_result_without_hits_falls_back_to_displayed_recall(monkeypatch, capsys)
 
 def _baseline(tmp_path, recall):
     p = tmp_path / "b.json"
-    p.write_text(json.dumps({"full_chunk": {"recall": recall}, "nugget": {"recall": recall}}))
+    p.write_text(
+        json.dumps({"full_chunk": {"recall": recall}, "nugget": {"recall": recall}})
+    )
     return str(p)
 
 
 def test_baseline_compares_displayed_values_no_rounding_false_fail(tmp_path):
     # true drop 4/60 -> 1/60 is exactly 0.05, but the baseline is stored as 0.067:
     # comparing against the unrounded current value would FAIL (0.0503 > 0.05).
-    failures, _ = check_baseline(_result(1, 60), _baseline(tmp_path, 0.067), max_drop=0.05)
+    failures, _ = check_baseline(
+        _result(1, 60), _baseline(tmp_path, 0.067), max_drop=0.05
+    )
     assert failures == []
 
 
 def test_baseline_drop_exactly_max_drop_passes(tmp_path):
-    failures, _ = check_baseline(_result(95, 100), _baseline(tmp_path, 1.0), max_drop=0.05)
+    failures, _ = check_baseline(
+        _result(95, 100), _baseline(tmp_path, 1.0), max_drop=0.05
+    )
     assert failures == []
 
 
 @pytest.mark.parametrize("hits", [0, 50])
 def test_baseline_improvement_not_failure(tmp_path, hits):
-    failures, _ = check_baseline(_result(hits, 100), _baseline(tmp_path, 0.0), max_drop=0.0)
+    failures, _ = check_baseline(
+        _result(hits, 100), _baseline(tmp_path, 0.0), max_drop=0.0
+    )
     assert failures == []

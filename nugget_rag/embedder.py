@@ -21,8 +21,6 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urljoin, urlparse
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
-from nugget_rag.vectors import cosine_similarity, embed_scores  # noqa: F401 (re-exported)
-
 MAX_BATCH_SIZE = 256
 
 _ALLOWED_SCHEMES = frozenset({"http", "https"})
@@ -155,7 +153,11 @@ class EmbedClient:
         """
         api_key = os.environ.get("EMBEDDING_API_KEY", "")
         _check_api_key(api_key)
-        if api_key and not self._warned_plain_http and _is_plain_http_remote(self.base_url):
+        if (
+            api_key
+            and not self._warned_plain_http
+            and _is_plain_http_remote(self.base_url)
+        ):
             self._warned_plain_http = True
             print(
                 "[WARN] X-API-Key is sent over plain http:// to a non-loopback host; "
@@ -194,7 +196,9 @@ class EmbedClient:
                 return vecs
             except HTTPError as exc:
                 if not _is_retryable_http(exc.code):
-                    raise EmbedError(f"Embedding service error {exc.code}: {exc}") from exc
+                    raise EmbedError(
+                        f"Embedding service error {exc.code}: {exc}"
+                    ) from exc
                 delay = _retry_delay(exc, delay)
                 exc.close()  # release the response socket before retrying (#141)
                 last_exc = exc
@@ -205,7 +209,9 @@ class EmbedClient:
                 last_exc = exc
             except (json.JSONDecodeError, UnicodeDecodeError) as exc:
                 # 応答側の不正のみ (リクエスト側の ValueError は変換しない)
-                raise EmbedError(f"Unexpected embedding response format: {exc}") from exc
+                raise EmbedError(
+                    f"Unexpected embedding response format: {exc}"
+                ) from exc
             if attempt < self.max_retries:
                 time.sleep(delay)
         raise EmbedError(

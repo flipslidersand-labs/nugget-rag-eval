@@ -21,7 +21,9 @@ RESULT = {
 
 def _baseline(tmp_path, full=0.525, nugget=0.2):
     p = tmp_path / "baseline.json"
-    p.write_text(json.dumps({"full_chunk": {"recall": full}, "nugget": {"recall": nugget}}))
+    p.write_text(
+        json.dumps({"full_chunk": {"recall": full}, "nugget": {"recall": nugget}})
+    )
     return str(p)
 
 
@@ -36,7 +38,9 @@ def test_baseline_drop_over_max_fails(tmp_path):
 
 
 def test_baseline_improvement_is_not_a_failure(tmp_path):
-    failures, _ = check_baseline(RESULT, _baseline(tmp_path, full=0.1, nugget=0.0), max_drop=0.0)
+    failures, _ = check_baseline(
+        RESULT, _baseline(tmp_path, full=0.1, nugget=0.0), max_drop=0.0
+    )
     assert failures == []
 
 
@@ -55,8 +59,12 @@ def test_baseline_invalid_file_exits(tmp_path):
 
 def _write_main_inputs(tmp_path):
     pid = ARXIV_MAP["2410.10071"]
-    chunks = [{"paper_id": pid, "text": "alpha beta gamma", "nugget": "alpha beta gamma"}]
-    gold = [{"arxiv_id": "2410.10071", "query": "alpha", "answer_spans": ["alpha beta"]}]
+    chunks = [
+        {"paper_id": pid, "text": "alpha beta gamma", "nugget": "alpha beta gamma"}
+    ]
+    gold = [
+        {"arxiv_id": "2410.10071", "query": "alpha", "answer_spans": ["alpha beta"]}
+    ]
     c, g = tmp_path / "c.json", tmp_path / "g.json"
     c.write_text(json.dumps(chunks))
     g.write_text(json.dumps(gold))
@@ -66,7 +74,9 @@ def _write_main_inputs(tmp_path):
 def _run_main(monkeypatch, tmp_path, *extra):
     c, g = _write_main_inputs(tmp_path)
     monkeypatch.setattr(
-        sys, "argv", ["check_regression.py", "--chunks", str(c), "--gold", str(g), *extra]
+        sys,
+        "argv",
+        ["check_regression.py", "--chunks", str(c), "--gold", str(g), *extra],
     )
     check_regression.main()
 
@@ -81,7 +91,9 @@ def test_main_baseline_regression_exit_1(monkeypatch, tmp_path):
     # force a recorded baseline above reality by requiring a gold span that is absent
     c, g = _write_main_inputs(tmp_path)
     g.write_text(
-        json.dumps([{"arxiv_id": "2410.10071", "query": "alpha", "answer_spans": ["zzz"]}])
+        json.dumps(
+            [{"arxiv_id": "2410.10071", "query": "alpha", "answer_spans": ["zzz"]}]
+        )
     )
     base = _baseline(tmp_path, full=0.9, nugget=0.9)
     monkeypatch.setattr(
@@ -107,7 +119,9 @@ def test_main_baseline_regression_exit_1(monkeypatch, tmp_path):
 def test_main_baseline_regression_advisory_exits_0(monkeypatch, tmp_path, capsys):
     c, g = _write_main_inputs(tmp_path)
     g.write_text(
-        json.dumps([{"arxiv_id": "2410.10071", "query": "alpha", "answer_spans": ["zzz"]}])
+        json.dumps(
+            [{"arxiv_id": "2410.10071", "query": "alpha", "answer_spans": ["zzz"]}]
+        )
     )
     base = _baseline(tmp_path, full=0.9, nugget=0.9)
     monkeypatch.setattr(

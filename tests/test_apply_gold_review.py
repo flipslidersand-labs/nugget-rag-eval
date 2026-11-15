@@ -62,7 +62,9 @@ def test_unjudged_blocks_unless_allowed():
     with pytest.raises(ar.ReviewError, match="unjudged"):
         ar.apply_review(GOLD, ar.parse_review(sheet))
     kept, report = ar.apply_review(GOLD, ar.parse_review(sheet), allow_unjudged=True)
-    assert len(kept) == 3 and [n for n, _, _ in report["none"]] == [4]  # unjudged items stay
+    assert len(kept) == 3 and [n for n, _, _ in report["none"]] == [
+        4
+    ]  # unjudged items stay
 
 
 def test_refuses_to_empty_the_gold_set():
@@ -104,9 +106,14 @@ def test_main_out_leaves_the_original(monkeypatch, tmp_path):
     g, r = _files(tmp_path)
     out = tmp_path / "new.json"
     before = g.read_text()
-    monkeypatch.setattr(sys, "argv", ["apply", str(r), "--gold", str(g), "--out", str(out)])
+    monkeypatch.setattr(
+        sys, "argv", ["apply", str(r), "--gold", str(g), "--out", str(out)]
+    )
     ar.main()
-    assert g.read_text() == before and len(json.loads(out.read_text(encoding="utf-8"))) == 3
+    assert (
+        g.read_text() == before
+        and len(json.loads(out.read_text(encoding="utf-8"))) == 3
+    )
 
 
 def test_main_error_exits_without_writing(monkeypatch, tmp_path):
@@ -138,14 +145,20 @@ def test_main_missing_arxiv_id_exits_with_error_not_traceback(monkeypatch, tmp_p
     monkeypatch.setattr(sys, "argv", ["apply", str(r), "--gold", str(g)])
     with pytest.raises(SystemExit) as exc:
         ar.main()
-    assert str(exc.value.code).startswith("[ERROR]") and "no arxiv_id" in str(exc.value.code)
+    assert str(exc.value.code).startswith("[ERROR]") and "no arxiv_id" in str(
+        exc.value.code
+    )
 
 
 def test_main_invalid_gold_schema_exits_with_error(monkeypatch, tmp_path):
     g, r = tmp_path / "gold.json", tmp_path / "review.txt"
-    g.write_text(json.dumps([{"arxiv_id": "2410.10071", "query": "q", "answer_spans": []}]))
+    g.write_text(
+        json.dumps([{"arxiv_id": "2410.10071", "query": "q", "answer_spans": []}])
+    )
     r.write_text("1. 2410.10071 ○\n", encoding="utf-8")
     monkeypatch.setattr(sys, "argv", ["apply", str(r), "--gold", str(g)])
     with pytest.raises(SystemExit) as exc:
         ar.main()
-    assert str(exc.value.code).startswith("[ERROR]") and "answer_spans" in str(exc.value.code)
+    assert str(exc.value.code).startswith("[ERROR]") and "answer_spans" in str(
+        exc.value.code
+    )

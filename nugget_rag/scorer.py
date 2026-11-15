@@ -18,7 +18,11 @@ def _char_ngrams(text: str, n: int = 2) -> list[str]:
     tabs are all removed before n-gram generation — not just ASCII spaces.
     """
     text = "".join(text.split()).lower()
-    return [text[i : i + n] for i in range(len(text) - n + 1)] if len(text) >= n else list(text)
+    return (
+        [text[i : i + n] for i in range(len(text) - n + 1)]
+        if len(text) >= n
+        else list(text)
+    )
 
 
 _BIGRAM_SCRIPTS = (
@@ -121,7 +125,9 @@ def bm25_scores(
     # This must be computed outside the per-document loop so that IDF
     # reflects corpus-level rarity, not the current document's TF.
     N = len(sentences)
-    df: dict[str, int] = {term: sum(1 for doc in tokenized if term in doc) for term in set(q_terms)}
+    df: dict[str, int] = {
+        term: sum(1 for doc in tokenized if term in doc) for term in set(q_terms)
+    }
     scores = []
     for doc in tokenized:
         tf = Counter(doc)
@@ -192,16 +198,24 @@ def top_nuggets(
                 )
             qv, sv = vecs[0], vecs[1:]
         if len(sv) != len(sentences):
-            raise ValueError(f"sent_vecs has {len(sv)} vectors for {len(sentences)} sentences")
+            raise ValueError(
+                f"sent_vecs has {len(sv)} vectors for {len(sentences)} sentences"
+            )
         emb = _normalize(embed_scores(qv, sv))
-        combined = [(1 - embed_weight) * b + embed_weight * e for b, e in zip(bm25, emb)]
+        combined = [
+            (1 - embed_weight) * b + embed_weight * e for b, e in zip(bm25, emb)
+        ]
     else:
         combined = bm25
 
     # Select top-k indices by score
-    top_indices = sorted(range(len(combined)), key=lambda i: combined[i], reverse=True)[:top_k]
+    top_indices = sorted(range(len(combined)), key=lambda i: combined[i], reverse=True)[
+        :top_k
+    ]
     # Sort indices back to original order to preserve context flow
     selected = set(top_indices)
     for i in top_indices:
-        selected.update(j for j in range(i - window, i + window + 1) if 0 <= j < len(sentences))
+        selected.update(
+            j for j in range(i - window, i + window + 1) if 0 <= j < len(sentences)
+        )
     return [sentences[i] for i in sorted(selected)]

@@ -23,7 +23,9 @@ def test_cosine_similarity_known_values():
 def test_embed_scores_matches_per_sentence_cosine():
     q = [1.0, 0.0]
     sents = [[1.0, 0.0], [0.0, 1.0], [1.0, 1.0]]
-    assert vectors.embed_scores(q, sents) == [vectors.cosine_similarity(q, s) for s in sents]
+    assert vectors.embed_scores(q, sents) == [
+        vectors.cosine_similarity(q, s) for s in sents
+    ]
     assert vectors.embed_scores(q, []) == []
 
 
@@ -50,9 +52,9 @@ def test_algorithm_layer_does_not_import_the_http_client(module):
     """Algorithm modules must not depend on embedder.py (the infrastructure layer),
     not even through a function-level import hidden from the module graph."""
     imports = _imported_modules(PKG / module)
-    assert not {m for m in imports if m.startswith("nugget_rag.embedder")}, (
-        f"{module} imports nugget_rag.embedder; use nugget_rag.vectors for vector math"
-    )
+    assert not {
+        m for m in imports if m.startswith("nugget_rag.embedder")
+    }, f"{module} imports nugget_rag.embedder; use nugget_rag.vectors for vector math"
 
 
 def test_vectors_is_stdlib_only():

@@ -156,7 +156,9 @@ def test_embed_unknown_key_raises_embed_error_with_detail():
 
 def test_embed_embeddings_key_fallback_succeeds():
     """Response with 'embeddings' key (legacy schema) is accepted transparently."""
-    with patch("nugget_rag.embedder.urlopen", _make_cm_mock(b'{"embeddings": [[0.1, 0.2]]}')):
+    with patch(
+        "nugget_rag.embedder.urlopen", _make_cm_mock(b'{"embeddings": [[0.1, 0.2]]}')
+    ):
         result = _client().embed(["hello"])
     assert result == [[0.1, 0.2]]
 
@@ -166,7 +168,8 @@ def test_embed_count_mismatch_raises_embed_error():
     from nugget_rag.embedder import EmbedError
 
     with patch(
-        "nugget_rag.embedder.urlopen", _make_cm_mock(b'{"vectors": [[0.1, 0.2], [0.3, 0.4]]}')
+        "nugget_rag.embedder.urlopen",
+        _make_cm_mock(b'{"vectors": [[0.1, 0.2], [0.3, 0.4]]}'),
     ):
         # Sending 1 text but receiving 2 vectors should raise
         with pytest.raises(EmbedError, match="mismatch"):
@@ -183,7 +186,8 @@ def test_embed_invalid_json_raises():
 
 def test_embed_success_returns_vectors():
     with patch(
-        "nugget_rag.embedder.urlopen", _make_cm_mock(b'{"vectors": [[0.1, 0.2], [0.3, 0.4]]}')
+        "nugget_rag.embedder.urlopen",
+        _make_cm_mock(b'{"vectors": [[0.1, 0.2], [0.3, 0.4]]}'),
     ):
         result = _client().embed(["text1", "text2"])
     assert result == [[0.1, 0.2], [0.3, 0.4]]
@@ -301,7 +305,9 @@ def test_embed_batch_preserves_order(mock_open):
 
 
 def _retry_client(max_retries=3, backoff=0.0):
-    return EmbedClient("http://localhost:9092", max_retries=max_retries, retry_backoff=backoff)
+    return EmbedClient(
+        "http://localhost:9092", max_retries=max_retries, retry_backoff=backoff
+    )
 
 
 def _ok_response(n=1):
@@ -423,7 +429,9 @@ def _read_raises_cm(exc: BaseException) -> MagicMock:
 def test_read_timeout_exhausted_raises_embed_error(mock_open, mock_sleep):
     from nugget_rag.embedder import EmbedError
 
-    mock_open.side_effect = lambda *a, **k: _read_raises_cm(TimeoutError("read timed out"))
+    mock_open.side_effect = lambda *a, **k: _read_raises_cm(
+        TimeoutError("read timed out")
+    )
     with pytest.raises(EmbedError, match="failed after"):
         EmbedClient("http://localhost:9092", max_retries=2).embed(["a"])
     assert mock_open.call_count == 3
@@ -460,7 +468,9 @@ def test_invalid_utf8_response_raises_embed_error(mock_open):
 @pytest.mark.parametrize("vecs", [5, "abc", {"a": 1}])
 @patch("nugget_rag.embedder.urlopen")
 def test_non_list_vectors_raises_embed_error(mock_open, vecs):
-    mock_open.return_value = _make_cm_mock(_json.dumps({"vectors": vecs}).encode()).return_value
+    mock_open.return_value = _make_cm_mock(
+        _json.dumps({"vectors": vecs}).encode()
+    ).return_value
     with pytest.raises(EmbedError, match="Unexpected"):
         EmbedClient("http://localhost:9092").embed(["a"])
 
@@ -591,7 +601,9 @@ def test_retry_404_fails_immediately(mock_open, mock_sleep):
 )
 @patch("nugget_rag.embedder.time.sleep")
 @patch("nugget_rag.embedder.urlopen")
-def test_retry_after_is_capped_and_invalid_ignored(mock_open, mock_sleep, header, expected):
+def test_retry_after_is_capped_and_invalid_ignored(
+    mock_open, mock_sleep, header, expected
+):
     mock_open.side_effect = [_http_err(429, header), _ok_response()]
     _retry_client(max_retries=3, backoff=0.5).embed(["t"])
     assert [c.args[0] for c in mock_sleep.call_args_list] == [expected]
@@ -612,7 +624,9 @@ def test_retry_after_is_capped_and_invalid_ignored(mock_open, mock_sleep, header
         "dummy-key-1234あ",
     ],
 )
-def test_api_key_with_control_or_non_ascii_chars_raises_without_leaking_key(key, monkeypatch):
+def test_api_key_with_control_or_non_ascii_chars_raises_without_leaking_key(
+    key, monkeypatch
+):
     monkeypatch.setenv("EMBEDDING_API_KEY", key)
     with patch("nugget_rag.embedder.urlopen") as mock_open:
         with pytest.raises(EmbedError) as excinfo:

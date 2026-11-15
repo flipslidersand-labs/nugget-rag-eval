@@ -34,13 +34,17 @@ def _gold(query, span):
 
 def test_D_hit_when_the_answer_sentence_matches_the_query():
     by = _by("The zebra crossing rule is key. " + FILLER)
-    classes, _ = af.classify_all(by, _gold("zebra crossing rule", "zebra crossing rule is key"))
+    classes, _ = af.classify_all(
+        by, _gold("zebra crossing rule", "zebra crossing rule is key")
+    )
     assert classes == {"D": 1}
 
 
 def test_A_when_no_top_chunk_has_the_span():
     by = _by("Completely unrelated text here. " + FILLER)
-    classes, _ = af.classify_all(by, _gold("zebra crossing", "zebra crossing rule is key"))
+    classes, _ = af.classify_all(
+        by, _gold("zebra crossing", "zebra crossing rule is key")
+    )
     assert classes == {"A": 1}
 
 
@@ -54,7 +58,9 @@ def test_C_when_the_answer_sentence_is_ranked_below_the_cut_and_reports_its_rank
     # query words only appear in the first sentences; the answer sentence shares none
     text = "Alpha beta gamma one. Alpha beta two. Alpha beta three. Alpha beta four. Zeta omega closes."
     by = _by(text)
-    classes, c_rank = af.classify_all(by, _gold("alpha beta", "Zeta omega closes"), per_chunk=3)
+    classes, c_rank = af.classify_all(
+        by, _gold("alpha beta", "Zeta omega closes"), per_chunk=3
+    )
     assert classes == {"C": 1} and c_rank == {"<=5": 1}
 
 
@@ -92,11 +98,17 @@ def test_normalized_match_changes_the_class_for_glued_text():
 def test_sweep_recall_never_drops_when_k_grows_and_window_adds_context():
     text = "Alpha beta gamma one. Alpha beta two. Alpha beta three. Alpha beta four. Zeta omega closes."
     by = _by(text)
-    rows = af.sweep(by, _gold("alpha beta", "Zeta omega closes"), ks=(1, 3, 5), windows=(0, 1))
+    rows = af.sweep(
+        by, _gold("alpha beta", "Zeta omega closes"), ks=(1, 3, 5), windows=(0, 1)
+    )
     r = {(x["k"], x["window"]): x["recall"] for x in rows}
     assert r[(1, 0)] <= r[(3, 0)] <= r[(5, 0)] == 1.0
-    assert r[(1, 0)] == 0.0 and r[(5, 0)] == 1.0  # the sweep actually changes the outcome
-    assert all(r[(k, 1)] >= r[(k, 0)] for k in (1, 3, 5))  # a window only adds sentences
+    assert (
+        r[(1, 0)] == 0.0 and r[(5, 0)] == 1.0
+    )  # the sweep actually changes the outcome
+    assert all(
+        r[(k, 1)] >= r[(k, 0)] for k in (1, 3, 5)
+    )  # a window only adds sentences
 
 
 def test_format_report_lists_all_classes():
@@ -120,7 +132,9 @@ def test_main_prints_report_and_sweep(monkeypatch, tmp_path, capsys):
         )
     )
     g.write_text(json.dumps(_gold("zebra crossing rule", "zebra crossing rule is key")))
-    monkeypatch.setattr(sys, "argv", ["af", "--chunks", str(c), "--gold", str(g), "--sweep"])
+    monkeypatch.setattr(
+        sys, "argv", ["af", "--chunks", str(c), "--gold", str(g), "--sweep"]
+    )
     af.main()
     out = capsys.readouterr().out
     assert "D 成功: 1" in out and "k  window  Recall" in out

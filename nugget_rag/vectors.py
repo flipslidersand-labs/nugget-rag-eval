@@ -20,6 +20,8 @@ def cosine_similarity(a: list[float], b: list[float]) -> float:
     return dot / (norm_a * norm_b)
 
 
-def embed_scores(query_vec: list[float], sentence_vecs: list[list[float]]) -> list[float]:
+def embed_scores(
+    query_vec: list[float], sentence_vecs: list[list[float]]
+) -> list[float]:
     """Return cosine similarity of each sentence vector against the query vector."""
     return [cosine_similarity(query_vec, sv) for sv in sentence_vecs]

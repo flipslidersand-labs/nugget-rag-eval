@@ -32,7 +32,9 @@ from eval.evaluate import build_chunks_index, evaluate, validate_chunks, validat
 BATCH = 128  # texts per embedding request (the client allows up to 256)
 
 
-def collect_texts(chunks_by_paper: dict, gold: list[dict], top_k: int, match: str) -> list[str]:
+def collect_texts(
+    chunks_by_paper: dict, gold: list[dict], top_k: int, match: str
+) -> list[str]:
     """Texts evaluate() will send to embed_fn, found by a dry run with a recording stub."""
     seen: dict[str, None] = {}
 
@@ -41,7 +43,14 @@ def collect_texts(chunks_by_paper: dict, gold: list[dict], top_k: int, match: st
         return [[0.0] for _ in texts]
 
     # weight must be non-zero: 0 skips embed_fn (#239); the texts do not depend on its value
-    evaluate(chunks_by_paper, gold, top_k=top_k, embed_fn=recorder, embed_weight=1.0, match=match)
+    evaluate(
+        chunks_by_paper,
+        gold,
+        top_k=top_k,
+        embed_fn=recorder,
+        embed_weight=1.0,
+        match=match,
+    )
     return list(seen)
 
 
@@ -63,9 +72,13 @@ def load_cache(path: Path | None) -> dict[str, list[float]]:
         if not (
             isinstance(vec, list)
             and vec
-            and all(isinstance(x, (int, float)) and not isinstance(x, bool) for x in vec)
+            and all(
+                isinstance(x, (int, float)) and not isinstance(x, bool) for x in vec
+            )
         ):
-            sys.exit(f"[ERROR] cache file is corrupt: {path} (entry {key[:60]!r} is not a vector)")
+            sys.exit(
+                f"[ERROR] cache file is corrupt: {path} (entry {key[:60]!r} is not a vector)"
+            )
     return cache
 
 
@@ -85,13 +98,17 @@ def warm_cache(
 ) -> int:
     """Embed the texts missing from *cache*. Returns the number of texts newly embedded."""
     todo = [t for t in texts if t not in cache]
-    log(f"embedding: {len(texts)} unique texts, {len(texts) - len(todo)} cached, {len(todo)} to do")
+    log(
+        f"embedding: {len(texts)} unique texts, {len(texts) - len(todo)} cached, {len(todo)} to do"
+    )
     t0 = time.perf_counter()
     for i in range(0, len(todo), BATCH):
         batch = todo[i : i + BATCH]
         vecs = embed(batch)
         if len(vecs) != len(batch):
-            raise RuntimeError(f"embedding service returned {len(vecs)} vectors for {len(batch)}")
+            raise RuntimeError(
+                f"embedding service returned {len(vecs)} vectors for {len(batch)}"
+            )
         cache.update(zip(batch, vecs))
         save_cache(cache_path, cache)  # resumable if interrupted
         done = min(i + BATCH, len(todo))
@@ -101,7 +118,9 @@ def warm_cache(
     return len(todo)
 
 
-def cached_embed_fn(cache: dict[str, list[float]]) -> Callable[[list[str]], list[list[float]]]:
+def cached_embed_fn(
+    cache: dict[str, list[float]],
+) -> Callable[[list[str]], list[list[float]]]:
     def embed(texts: list[str]) -> list[list[float]]:
         missing = [t for t in texts if t not in cache]
         if missing:
@@ -125,7 +144,12 @@ def sweep(
     for gname, gold in golds.items():
         for w in weights:
             out[f"{gname}_w{w}"] = evaluate(
-                chunks_by_paper, gold, top_k=top_k, embed_fn=embed_fn, embed_weight=w, match=match
+                chunks_by_paper,
+                gold,
+                top_k=top_k,
+                embed_fn=embed_fn,
+                embed_weight=w,
+                match=match,
             )
     return out
 
@@ -143,12 +167,17 @@ def format_table(results: dict[str, dict]) -> str:
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawTextHelpFormatter
+    )
     ap.add_argument("--chunks", required=True, type=existing_file)
     ap.add_argument("--gold", required=True, nargs="+", type=existing_file)
     ap.add_argument("--embedding-url", required=True)
     ap.add_argument(
-        "--weights", nargs="+", type=float_between_0_1, default=[0.0, 0.3, 0.5, 0.7, 1.0]
+        "--weights",
+        nargs="+",
+        type=float_between_0_1,
+        default=[0.0, 0.3, 0.5, 0.7, 1.0],
     )
     ap.add_argument("--top-k", type=positive_int, default=5)
     ap.add_argument("--match", choices=["exact", "normalized"], default="normalized")
@@ -168,7 +197,9 @@ def main() -> None:
     texts: dict[str, None] = {}
     for gname, gold in golds.items():
         try:
-            texts.update(dict.fromkeys(collect_texts(by_paper, gold, args.top_k, args.match)))
+            texts.update(
+                dict.fromkeys(collect_texts(by_paper, gold, args.top_k, args.match))
+            )
         except ValueError as exc:
             sys.exit(f"[ERROR] gold={gname}: {exc}")
 
@@ -190,7 +221,12 @@ def main() -> None:
     # (mixed-model cache, inconsistent service) only surfaces in sweep().
     try:
         results = sweep(
-            by_paper, golds, args.weights, cached_embed_fn(cache), args.top_k, args.match
+            by_paper,
+            golds,
+            args.weights,
+            cached_embed_fn(cache),
+            args.top_k,
+            args.match,
         )
     except ValueError as exc:
         sys.exit(f"[ERROR] {exc}")

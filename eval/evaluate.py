@@ -61,10 +61,14 @@ def validate_chunks(chunks: list[dict]) -> None:
             the index and the specific problem.
     """
     if not isinstance(chunks, list):
-        raise ValueError(f"chunks must be a JSON array (list), got {type(chunks).__name__!r}")
+        raise ValueError(
+            f"chunks must be a JSON array (list), got {type(chunks).__name__!r}"
+        )
     for i, chunk in enumerate(chunks):
         if not isinstance(chunk, dict):
-            raise ValueError(f"chunks[{i}] must be a dict, got {type(chunk).__name__!r}")
+            raise ValueError(
+                f"chunks[{i}] must be a dict, got {type(chunk).__name__!r}"
+            )
         if not has_paper_id(chunk):
             raise ValueError(
                 f"chunks[{i}] must have 'arxiv_id' or 'paper_id' (both absent or falsy)"
@@ -104,7 +108,9 @@ def validate_gold(gold: list[dict]) -> None:
             message listing the index and the specific problem.
     """
     if not isinstance(gold, list):
-        raise ValueError(f"gold must be a JSON array (list), got {type(gold).__name__!r}")
+        raise ValueError(
+            f"gold must be a JSON array (list), got {type(gold).__name__!r}"
+        )
     for i, item in enumerate(gold):
         if not isinstance(item, dict):
             raise ValueError(f"gold[{i}] must be a dict, got {type(item).__name__!r}")
@@ -113,7 +119,9 @@ def validate_gold(gold: list[dict]) -> None:
             raise ValueError(f"gold[{i}] missing required fields: {sorted(missing)}")
 
         if not has_paper_id(item):
-            raise ValueError(f"gold[{i}] must have 'arxiv_id' or 'paper_id' (both absent or falsy)")
+            raise ValueError(
+                f"gold[{i}] must have 'arxiv_id' or 'paper_id' (both absent or falsy)"
+            )
 
         query = item["query"]
         if not isinstance(query, str) or not query.strip():
@@ -142,7 +150,9 @@ def validate_gold(gold: list[dict]) -> None:
             )
 
 
-def check_gold_chunk_coverage(chunks_by_paper: dict[str, list[dict]], gold: list[dict]) -> int:
+def check_gold_chunk_coverage(
+    chunks_by_paper: dict[str, list[dict]], gold: list[dict]
+) -> int:
     """Warn about gold keys missing from chunks_by_paper; return the count of affected queries.
 
     Prints a ``[WARN]`` line to stderr with the count and up to 5 example keys.
@@ -151,7 +161,9 @@ def check_gold_chunk_coverage(chunks_by_paper: dict[str, list[dict]], gold: list
         ValueError: If *gold* is non-empty and no gold key resolves to any chunks
             (every query would silently score recall 0).
     """
-    missing = [key for item in gold if (key := resolve_paper_key(item)) not in chunks_by_paper]
+    missing = [
+        key for item in gold if (key := resolve_paper_key(item)) not in chunks_by_paper
+    ]
     if not missing:
         return 0
 
@@ -192,7 +204,10 @@ def _span_in(text: str, spans: list[str], normalize: bool) -> bool:
 
 
 def recall_at_k(
-    results: list[dict], answer_spans: list[str], field: str = "text", normalize: bool = False
+    results: list[dict],
+    answer_spans: list[str],
+    field: str = "text",
+    normalize: bool = False,
 ) -> bool:
     """Return True if any single result contains any answer span.
 
@@ -204,7 +219,10 @@ def recall_at_k(
 
 
 def mrr_at_k(
-    results: list[dict], answer_spans: list[str], field: str = "text", normalize: bool = False
+    results: list[dict],
+    answer_spans: list[str],
+    field: str = "text",
+    normalize: bool = False,
 ) -> float:
     """Return reciprocal rank of the first hit (1-indexed), 0 if no hit."""
     for rank, result in enumerate(results, start=1):
@@ -213,7 +231,9 @@ def mrr_at_k(
     return 0.0
 
 
-def avg_tokens(results: list[dict], field: str = "text", estimator: str = "words") -> float:
+def avg_tokens(
+    results: list[dict], field: str = "text", estimator: str = "words"
+) -> float:
     texts = [r.get(field, "") for r in results]
     if estimator == "chars":
         return sum(len(t) / 4 for t in texts) / max(len(texts), 1)
@@ -300,7 +320,9 @@ def evaluate(
             window=nugget_window,
         ),
     }
-    assert set(retrievers) == {m.name for m in MODES}, "MODES and retrievers out of sync"
+    assert set(retrievers) == {
+        m.name for m in MODES
+    }, "MODES and retrievers out of sync"
 
     hits = {m.name: 0 for m in MODES}
     tokens = {m.name: 0.0 for m in MODES}
@@ -432,7 +454,10 @@ def main():
             collection=args.embedding_collection,
         )
         embed_fn = client.embed
-        print(f"Embedding: {args.embedding_url}  weight={args.embed_weight}", file=sys.stderr)
+        print(
+            f"Embedding: {args.embedding_url}  weight={args.embed_weight}",
+            file=sys.stderr,
+        )
 
     chunks_data: list[dict] = _load_json(args.chunks, "--chunks")
     gold: list[dict] = _load_json(args.gold, "--gold")

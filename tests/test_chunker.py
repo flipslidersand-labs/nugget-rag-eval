@@ -82,12 +82,19 @@ def test_split_keeps_abbreviations_intact():
 
 
 def test_split_abbreviation_is_case_insensitive():
-    assert split_sentences("fig. 3 shows it. FIG. 4 too.") == ["fig. 3 shows it.", "FIG. 4 too."]
+    assert split_sentences("fig. 3 shows it. FIG. 4 too.") == [
+        "fig. 3 shows it.",
+        "FIG. 4 too.",
+    ]
 
 
 def test_split_after_abbreviation_still_splits_real_boundary():
     text = "Smith et al. 2020 showed gains. Fig. 3 shows it. Done."
-    assert split_sentences(text) == ["Smith et al. 2020 showed gains.", "Fig. 3 shows it.", "Done."]
+    assert split_sentences(text) == [
+        "Smith et al. 2020 showed gains.",
+        "Fig. 3 shows it.",
+        "Done.",
+    ]
 
 
 def test_split_sentence_ending_in_non_abbreviation_word_splits():
@@ -98,7 +105,10 @@ def test_split_sentence_ending_in_non_abbreviation_word_splits():
 
 
 def test_split_no_as_answer_word_splits():
-    assert split_sentences("The answer is no. Next we go.") == ["The answer is no.", "Next we go."]
+    assert split_sentences("The answer is no. Next we go.") == [
+        "The answer is no.",
+        "Next we go.",
+    ]
 
 
 def test_split_keeps_parenthesized_abbreviations_intact():

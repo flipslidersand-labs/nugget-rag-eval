@@ -63,7 +63,9 @@ def retrieve_nuggets(
         return results
 
     # Hybrid path — one batch embed call for query + all chunk sentences
-    chunk_sentences: list[list[str]] = [split_sentences(c["text"]) for c in ranked_chunks]
+    chunk_sentences: list[list[str]] = [
+        split_sentences(c["text"]) for c in ranked_chunks
+    ]
     all_sentences: list[str] = [s for sents in chunk_sentences for s in sents]
 
     if all_sentences:

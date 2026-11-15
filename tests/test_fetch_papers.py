@@ -226,7 +226,9 @@ def test_fetch_chunks_returns_chunks(mock_open):
 @patch("scripts.fetch_papers.urlopen")
 def test_fetch_chunks_adds_arxiv_id_for_known_paper(mock_open):
     mock_open.return_value = _cm(
-        json.dumps({"results": [{"chunk_index": 0, "snippet": "x", "score": 0.5}]}).encode()
+        json.dumps(
+            {"results": [{"chunk_index": 0, "snippet": "x", "score": 0.5}]}
+        ).encode()
     ).return_value
     pid = 1
     chunks = fetch_chunks_for_paper("http://api", paper_id=pid, query="q")
@@ -236,7 +238,9 @@ def test_fetch_chunks_adds_arxiv_id_for_known_paper(mock_open):
 @patch("scripts.fetch_papers.urlopen")
 def test_fetch_chunks_no_arxiv_id_for_unknown_paper(mock_open):
     mock_open.return_value = _cm(
-        json.dumps({"results": [{"chunk_index": 0, "snippet": "x", "score": 0.5}]}).encode()
+        json.dumps(
+            {"results": [{"chunk_index": 0, "snippet": "x", "score": 0.5}]}
+        ).encode()
     ).return_value
     chunks = fetch_chunks_for_paper("http://api", paper_id=9999, query="q")
     assert "arxiv_id" not in chunks[0]
@@ -266,7 +270,9 @@ def test_fetch_per_query_deduplicates(mock_fetch):
         {"paper_id": 1, "query": "q1", "answer_spans": ["t"]},
         {"paper_id": 1, "query": "q2", "answer_spans": ["t"]},
     ]
-    result, failures = fetch_per_query("http://api", gold, chunk_mode="small", target_tokens=512)
+    result, failures = fetch_per_query(
+        "http://api", gold, chunk_mode="small", target_tokens=512
+    )
     assert len(result) == 1
     assert result[0]["score"] == 0.9
     assert failures == 0
@@ -275,7 +281,9 @@ def test_fetch_per_query_deduplicates(mock_fetch):
 @patch("scripts.fetch_papers.fetch_chunks_for_paper")
 def test_fetch_per_query_resolves_arxiv_id(mock_fetch):
     """gold に arxiv_id がある場合、ARXIV_TO_PAPER_ID で paper_id を解決する。"""
-    mock_fetch.return_value = [{"paper_id": 1, "chunk_index": 0, "text": "t", "score": 0.5}]
+    mock_fetch.return_value = [
+        {"paper_id": 1, "chunk_index": 0, "text": "t", "score": 0.5}
+    ]
     gold = [{"arxiv_id": "2410.10071", "query": "q", "answer_spans": ["t"]}]
 
     fetch_per_query("http://api", gold, chunk_mode="small", target_tokens=512)
@@ -287,7 +295,9 @@ def test_fetch_per_query_resolves_arxiv_id(mock_fetch):
 def test_fetch_per_query_skips_unknown_arxiv_id(mock_fetch, capsys):
     """知らない arxiv_id の gold アイテムはスキップされ警告を出す。"""
     gold = [{"arxiv_id": "9999.99999", "query": "q", "answer_spans": ["t"]}]
-    result, failures = fetch_per_query("http://api", gold, chunk_mode="small", target_tokens=512)
+    result, failures = fetch_per_query(
+        "http://api", gold, chunk_mode="small", target_tokens=512
+    )
     assert result == []
     assert failures == 1  # #230: counted so --max-failures can gate it
     mock_fetch.assert_not_called()
@@ -297,12 +307,16 @@ def test_fetch_per_query_skips_unknown_arxiv_id(mock_fetch, capsys):
 @patch("scripts.fetch_papers.fetch_chunks_for_paper")
 def test_fetch_per_query_null_arxiv_id_falls_back_to_paper_id(mock_fetch):
     """arxiv_id が null/空でも有効な paper_id が使われ、失敗に数えない (#230)。"""
-    mock_fetch.return_value = [{"paper_id": 7, "chunk_index": 0, "text": "t", "score": 0.5}]
+    mock_fetch.return_value = [
+        {"paper_id": 7, "chunk_index": 0, "text": "t", "score": 0.5}
+    ]
     gold = [
         {"arxiv_id": None, "paper_id": 7, "query": "q", "answer_spans": ["t"]},
         {"arxiv_id": "", "paper_id": 7, "query": "q2", "answer_spans": ["t"]},
     ]
-    result, failures = fetch_per_query("http://api", gold, chunk_mode="small", target_tokens=512)
+    result, failures = fetch_per_query(
+        "http://api", gold, chunk_mode="small", target_tokens=512
+    )
     assert failures == 0
     assert [c[0][1] for c in mock_fetch.call_args_list] == [7, 7]
     assert len(result) == 1
@@ -317,7 +331,9 @@ def test_main_unregistered_arxiv_id_exits_1_by_default(tmp_path, monkeypatch):
         encoding="utf-8",
     )
     out = tmp_path / "chunks.json"
-    monkeypatch.setattr("sys.argv", ["fetch_papers", "--gold-set", str(gold), "--out", str(out)])
+    monkeypatch.setattr(
+        "sys.argv", ["fetch_papers", "--gold-set", str(gold), "--out", str(out)]
+    )
     with pytest.raises(SystemExit) as exc:
         fetch_papers_main()
     assert exc.value.code == 1
@@ -334,7 +350,15 @@ def test_main_empty_result_keeps_existing_out_gold_mode(tmp_path, monkeypatch, c
     out.write_text('[{"keep": true}]', encoding="utf-8")
     monkeypatch.setattr(
         "sys.argv",
-        ["fetch_papers", "--gold-set", str(gold), "--out", str(out), "--max-failures", "10"],
+        [
+            "fetch_papers",
+            "--gold-set",
+            str(gold),
+            "--out",
+            str(out),
+            "--max-failures",
+            "10",
+        ],
     )
     with pytest.raises(SystemExit) as exc:
         fetch_papers_main()
@@ -345,7 +369,9 @@ def test_main_empty_result_keeps_existing_out_gold_mode(tmp_path, monkeypatch, c
 
 
 @patch("scripts.fetch_papers.fetch_papers", return_value=[])
-def test_main_empty_result_keeps_existing_out_papers_mode(_mock, tmp_path, monkeypatch, capsys):
+def test_main_empty_result_keeps_existing_out_papers_mode(
+    _mock, tmp_path, monkeypatch, capsys
+):
     """/papers が空でも exit 1 し、既存 out を保持する (#249)。"""
     out = tmp_path / "chunks.json"
     out.write_text('[{"keep": true}]', encoding="utf-8")
@@ -368,7 +394,9 @@ def test_fetch_per_query_returns_all_unique_chunks(mock_fetch):
         {"paper_id": 1, "query": "q1", "answer_spans": ["paper 1"]},
         {"paper_id": 2, "query": "q2", "answer_spans": ["paper 2"]},
     ]
-    result, failures = fetch_per_query("http://api", gold, chunk_mode="small", target_tokens=512)
+    result, failures = fetch_per_query(
+        "http://api", gold, chunk_mode="small", target_tokens=512
+    )
     assert len(result) == 2
     assert failures == 0
 
@@ -434,7 +462,9 @@ def test_retry_backoff_is_exponential(mock_open, mock_sleep):
 def test_fetch_chunks_recovers_from_transient_error(mock_open, mock_sleep):
     """fetch_chunks_for_paper は transient エラー後にリトライで chunks を返す。"""
     ok = _cm(
-        json.dumps({"results": [{"chunk_index": 0, "snippet": "x", "score": 0.5}]}).encode()
+        json.dumps(
+            {"results": [{"chunk_index": 0, "snippet": "x", "score": 0.5}]}
+        ).encode()
     ).return_value
     mock_open.side_effect = [URLError("reset"), ok]
     chunks = fetch_chunks_for_paper("http://api", paper_id=1, query="q")
@@ -475,7 +505,9 @@ def test_fetch_per_query_skips_failed_item_by_default(mock_fetch, capsys):
         {"paper_id": 1, "query": "q1", "answer_spans": ["x"]},
         {"paper_id": 2, "query": "q2", "answer_spans": ["ok"]},
     ]
-    result, failures = fetch_per_query("http://api", gold, chunk_mode="small", target_tokens=512)
+    result, failures = fetch_per_query(
+        "http://api", gold, chunk_mode="small", target_tokens=512
+    )
     # second item must be preserved despite first failure
     assert len(result) == 1
     assert result[0]["paper_id"] == 2
@@ -489,7 +521,9 @@ def test_fetch_per_query_fail_fast_raises(mock_fetch):
     mock_fetch.side_effect = FetchError("boom")
     gold = [{"paper_id": 1, "query": "q", "answer_spans": ["x"]}]
     with pytest.raises(FetchError, match="boom"):
-        fetch_per_query("http://api", gold, chunk_mode="small", target_tokens=512, fail_fast=True)
+        fetch_per_query(
+            "http://api", gold, chunk_mode="small", target_tokens=512, fail_fast=True
+        )
 
 
 _BAD_RESULT_ITEMS = [
@@ -511,7 +545,9 @@ def test_fetch_chunks_wrong_value_types_raise_fetch_error(mock_open, item):
 
 @pytest.mark.parametrize("chunk_mode", ["small", "large"])
 @patch("scripts.fetch_papers.urlopen")
-def test_fetch_per_query_wrong_value_types_counted_and_continues(mock_open, chunk_mode, capsys):
+def test_fetch_per_query_wrong_value_types_counted_and_continues(
+    mock_open, chunk_mode, capsys
+):
     """型不正の応答は failure_count に加算され、次の項目の処理が継続する (#241)。"""
     bad = {"results": [{"chunk_index": [1], "snippet": None, "score": 0.5}]}
     good = {"results": [{"chunk_index": 0, "snippet": "ok text", "score": 0.7}]}
@@ -523,7 +559,9 @@ def test_fetch_per_query_wrong_value_types_counted_and_continues(mock_open, chun
         {"paper_id": 1, "query": "q1", "answer_spans": ["x"]},
         {"paper_id": 2, "query": "q2", "answer_spans": ["ok"]},
     ]
-    result, failures = fetch_per_query("http://api", gold, chunk_mode=chunk_mode, target_tokens=512)
+    result, failures = fetch_per_query(
+        "http://api", gold, chunk_mode=chunk_mode, target_tokens=512
+    )
     assert failures == 1
     assert len(result) == 1
     assert result[0]["paper_id"] == 2
@@ -645,7 +683,9 @@ def test_fetch_papers_malformed_body_raises_fetch_error(mock_open, body):
 
 @patch("scripts.fetch_papers.urlopen")
 def test_fetch_per_query_counts_malformed_body_and_continues(mock_open):
-    good = json.dumps({"results": [{"chunk_index": 0, "snippet": "t", "score": 0.5}]}).encode()
+    good = json.dumps(
+        {"results": [{"chunk_index": 0, "snippet": "t", "score": 0.5}]}
+    ).encode()
     mock_open.side_effect = [
         _cm(b"not json").return_value,
         _cm(b'{"results": null}').return_value,
@@ -714,7 +754,9 @@ def test_retry_succeeds_after_read_error(mock_open, mock_sleep, make_exc):
 @pytest.mark.parametrize("make_exc", _READ_ERRORS)
 @patch("scripts.fetch_papers.time.sleep")
 @patch("scripts.fetch_papers.urlopen")
-def test_fetch_chunks_read_error_exhaustion_raises_fetch_error(mock_open, mock_sleep, make_exc):
+def test_fetch_chunks_read_error_exhaustion_raises_fetch_error(
+    mock_open, mock_sleep, make_exc
+):
     """再試行を使い切ったら FetchError（traceback で止まらない）。"""
     mock_open.side_effect = lambda *a, **k: _read_raises_cm(make_exc())
     with pytest.raises(FetchError, match="Failed to fetch chunks for paper 1"):
@@ -726,7 +768,9 @@ def test_fetch_chunks_read_error_exhaustion_raises_fetch_error(mock_open, mock_s
 @pytest.mark.parametrize("make_exc", _READ_ERRORS)
 @patch("scripts.fetch_papers.time.sleep")
 @patch("scripts.fetch_papers.urlopen")
-def test_fetch_papers_read_error_exhaustion_raises_fetch_error(mock_open, mock_sleep, make_exc):
+def test_fetch_papers_read_error_exhaustion_raises_fetch_error(
+    mock_open, mock_sleep, make_exc
+):
     mock_open.side_effect = lambda *a, **k: _read_raises_cm(make_exc())
     with pytest.raises(FetchError, match="Failed to fetch papers"):
         fetch_papers("http://api")
@@ -769,7 +813,9 @@ def test_retry_408_429_then_success(mock_open, mock_sleep, code):
 )
 @patch("scripts.fetch_papers.time.sleep")
 @patch("scripts.fetch_papers.urlopen")
-def test_retry_after_is_capped_and_invalid_ignored(mock_open, mock_sleep, header, expected):
+def test_retry_after_is_capped_and_invalid_ignored(
+    mock_open, mock_sleep, header, expected
+):
     ok = _cm(b"payload").return_value
     mock_open.side_effect = [_http_error_ra(429, header), ok]
     _urlopen_with_retry("http://api", timeout=5)
@@ -778,7 +824,9 @@ def test_retry_after_is_capped_and_invalid_ignored(mock_open, mock_sleep, header
 
 @patch("scripts.fetch_papers.time.sleep")
 @patch("scripts.fetch_papers.urlopen")
-def test_retry_5xx_closes_http_error_before_retry_and_on_exhaustion(mock_open, mock_sleep):
+def test_retry_5xx_closes_http_error_before_retry_and_on_exhaustion(
+    mock_open, mock_sleep
+):
     """5xx の HTTPError は再試行前・最終 raise 前に close される（FD リーク防止, #280）。"""
     errors = [_http_error(503) for _ in range(3)]
     for e in errors:

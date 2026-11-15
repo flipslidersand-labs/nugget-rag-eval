@@ -46,7 +46,9 @@ def pdf_to_text(pdf: Path) -> str:
     except OSError as exc:
         raise RuntimeError(f"pdftotext could not be run for {pdf.name}: {exc}") from exc
     if proc.returncode != 0:
-        raise RuntimeError(f"pdftotext failed for {pdf.name}: {proc.stderr.strip()[:200]}")
+        raise RuntimeError(
+            f"pdftotext failed for {pdf.name}: {proc.stderr.strip()[:200]}"
+        )
     return re.sub(r"\s+", " ", proc.stdout).strip()
 
 
@@ -75,7 +77,9 @@ def build_pool(pdf_dir: Path, target_words: int) -> list[dict]:
         arxiv_id = pdf.stem
         paper_id = ARXIV_MAP.get(arxiv_id)
         if paper_id is None:
-            print(f"  WARNING: {pdf.name} is not in ARXIV_MAP, skipping", file=sys.stderr)
+            print(
+                f"  WARNING: {pdf.name} is not in ARXIV_MAP, skipping", file=sys.stderr
+            )
             continue
         text = pdf_to_text(pdf)
         if not text:
