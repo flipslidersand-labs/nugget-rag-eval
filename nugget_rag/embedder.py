@@ -24,15 +24,20 @@ from urllib.request import HTTPRedirectHandler, Request, build_opener
 from nugget_rag.vectors import cosine_similarity, embed_scores  # noqa: F401 (re-exported)
 
 MAX_BATCH_SIZE = 256
+# Response body cap. A full batch is ~256 vectors x 768 dims x ~25 B of JSON text
+# (about 5 MB), so 32 MiB leaves wide headroom while still bounding memory use.
+MAX_RESPONSE_BYTES = 32 * 1024 * 1024
 
 _ALLOWED_SCHEMES = frozenset({"http", "https"})
 
 
 def _validate_url(url: str) -> None:
-    """Reject non-HTTP(S) schemes and URLs without a host.
+    """Reject non-HTTP(S) schemes, URLs without a host, and URLs with userinfo.
 
-    This only pins the scheme (blocks file://, ftp://, etc.) and requires a
-    non-empty netloc. It does NOT restrict target hosts: the client is meant
+    This pins the scheme (blocks file://, ftp://, etc.), requires a non-empty
+    host, and refuses ``user:pass@host`` (credentials belong in EMBEDDING_API_KEY).
+    Error messages never echo the URL, since it may carry secrets. It does NOT
+    restrict target hosts: the client is meant
     for LAN-internal services, so internal IPs are intentionally allowed.
     Redirect following is separately disabled (see _NoRedirectHandler) so
     request headers can never be forwarded beyond the validated initial URL.
@@ -42,8 +47,10 @@ def _validate_url(url: str) -> None:
         raise ValueError(
             f"Unsupported URL scheme: {parsed.scheme!r}. Only 'http' and 'https' are allowed."
         )
+    if "@" in parsed.netloc:
+        raise ValueError("URL must not contain userinfo (user:pass@host)")
     if not parsed.netloc:
-        raise ValueError(f"URL has no host: {url!r}")
+        raise ValueError("URL has no host")
 
 
 def _is_plain_http_remote(url: str) -> bool:
@@ -173,7 +180,12 @@ class EmbedClient:
             delay = self.retry_backoff * (2**attempt)
             try:
                 with urlopen(req, timeout=self.timeout) as http_resp:
-                    resp = json.loads(http_resp.read())
+                    raw = http_resp.read(MAX_RESPONSE_BYTES + 1)
+                if len(raw) > MAX_RESPONSE_BYTES:
+                    raise EmbedError(
+                        f"Embedding response exceeds {MAX_RESPONSE_BYTES} bytes; refusing to parse"
+                    )
+                resp = json.loads(raw)
                 if not isinstance(resp, dict):
                     raise EmbedError(
                         f"Unexpected embedding response format: expected object, got {type(resp).__name__}"

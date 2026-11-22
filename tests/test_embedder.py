@@ -6,6 +6,7 @@ import pytest
 
 from nugget_rag.embedder import (
     MAX_BATCH_SIZE,
+    MAX_RESPONSE_BYTES,
     EmbedClient,
     EmbedError,
     _is_plain_http_remote,
@@ -78,6 +79,32 @@ def test_validate_url_rejects_empty_netloc():
 def test_validate_url_rejects_empty_netloc_with_path():
     with pytest.raises(ValueError, match="no host"):
         _validate_url("http:///path")
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "http://user:secret-token@example.invalid:9092",
+        "https://token-only@example.invalid",
+        "http://@example.invalid",
+    ],
+)
+def test_validate_url_rejects_userinfo_without_echoing_url(url):
+    with pytest.raises(ValueError, match="userinfo") as ei:
+        _validate_url(url)
+    assert "secret-token" not in str(ei.value)
+    assert "token-only" not in str(ei.value)
+
+
+def test_validate_url_no_host_error_does_not_echo_url():
+    with pytest.raises(ValueError, match="no host") as ei:
+        _validate_url("http://?key=secret-token")
+    assert "secret-token" not in str(ei.value)
+
+
+def test_embed_client_rejects_userinfo_base_url():
+    with pytest.raises(ValueError, match="userinfo"):
+        EmbedClient("http://user:secret-token@example.invalid:9092")
 
 
 # --- リダイレクト遮断 (#147: X-API-Key 転送防止) ---
@@ -627,3 +654,31 @@ def test_api_key_with_control_or_non_ascii_chars_raises_without_leaking_key(key,
 
 def test_api_key_clean_value_still_accepted(monkeypatch):
     _embed_with_key("http://127.0.0.1:9", "dummy-key-1234", monkeypatch)
+
+
+# --- 応答サイズ上限 (#271) ---
+
+
+def _padded_json(total: int) -> bytes:
+    """Valid JSON response padded with trailing whitespace to exactly ``total`` bytes."""
+    base = b'{"vectors": [[0.0]]}'
+    return base + b" " * (total - len(base))
+
+
+@patch("nugget_rag.embedder.time.sleep")
+@patch("nugget_rag.embedder.urlopen")
+def test_oversized_response_raises_embed_error_without_retry(mock_open, mock_sleep):
+    cm = _make_cm_mock(b"x" * (MAX_RESPONSE_BYTES + 1))
+    mock_open.return_value = cm.return_value
+    with pytest.raises(EmbedError, match="exceeds") as ei:
+        _retry_client().embed(["a"])
+    assert mock_open.call_count == 1
+    mock_sleep.assert_not_called()
+    assert "example" not in str(ei.value)
+    cm.return_value.__enter__.return_value.read.assert_called_once_with(MAX_RESPONSE_BYTES + 1)
+
+
+@patch("nugget_rag.embedder.urlopen")
+def test_response_at_size_limit_is_accepted(mock_open):
+    mock_open.return_value = _make_cm_mock(_padded_json(MAX_RESPONSE_BYTES)).return_value
+    assert EmbedClient("http://localhost:9092").embed(["a"]) == [[0.0]]
