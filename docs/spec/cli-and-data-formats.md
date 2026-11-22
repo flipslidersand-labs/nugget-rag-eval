@@ -1,0 +1,130 @@
+# Spec: CLIs and data formats / 仕様: CLI とデータ形式
+
+外から見た振る舞いだけを書く。内部の構造は [design.md](../design.md)、使い方の流れは [README](../../README.md)。
+各 CLI の最新の引数は `--help` が正本（venv に `pip install -e ".[dev]"` した状態で実行する）。
+
+What the tools accept and produce. Internals: [design.md](../design.md). Usage walk-through: [README](../../README.md).
+`--help` is the source of truth for flags (run it after `pip install -e ".[dev]"`).
+
+## データ形式 / Data formats
+
+### チャンク（`--chunks`）
+
+JSON 配列。各要素は次を持つ。
+
+| キー | 必須 | 内容 |
+| --- | --- | --- |
+| `text` | 必須 | 空白だけでない文字列 |
+| `arxiv_id` または `paper_id` | どちらか必須 | 論文の識別子。両方あるとき `arxiv_id` が優先される |
+| `chunk_indices`, `score` など | 任意 | 取得スクリプトが付ける。評価は読まない |
+
+`arxiv_id` を内部の `paper_id` に対応づける表は `nugget_rag/paper_registry.py` の `ARXIV_MAP`。
+検証に失敗すると `[ERROR] chunks[i] ...` を出して終了コード 1。
+
+### ゴールド（`--gold`）
+
+JSON 配列。各要素は次を持つ。
+
+| キー | 必須 | 内容 |
+| --- | --- | --- |
+| `query` | 必須 | 空白だけでない文字列 |
+| `answer_spans` | 必須 | 空でない文字列の配列。空白だけの要素は不可 |
+| `arxiv_id` または `paper_id` | どちらか必須 | 正解論文。この論文のチャンクだけから検索する |
+| `notes` | 任意 | 評価は読まない |
+
+ヒットの定義: 上位 k 件の結果のテキストのどれかに、いずれかの `answer_spans` が含まれること。
+照合は `--match exact`（大文字小文字を無視した部分文字列、既定）か `--match normalized`（空白・記号も無視）。
+
+同梱: `eval/gold_set.json`（19 件）、`eval/gold_set_hard.json`（難問。件数は README と ADR-003 を参照）。
+
+### 基準値（`check_regression.py --baseline`）
+
+`eval/baseline_hard.json` の形。`full_chunk.recall` と `nugget.recall`（モードごとの記録値）に加えて、
+`top_k`・`gold`・`n`・`nugget_window`・`pool`・`_comment` を持つ。
+モード名が 1 つも一致しない、または `top_k`・`gold`・`n` が今回の実行と違うときは FAIL（キーが無い古い形式は照合しない）。
+ファイルが無いときは低下チェックを飛ばす。
+
+## CLI
+
+### `eval/evaluate.py`
+
+チャンクとゴールドを読み、full-chunk と nugget の Recall@k・MRR@k・平均トークン数を表と JSON で出力する。
+
+| 引数 | 既定 | 内容 |
+| --- | --- | --- |
+| `--chunks`, `--gold` | 必須 | 上記の形式。存在しないパスは引数エラー |
+| `--top-k` | 5 | 正の整数 |
+| `--token-estimator` | `words` | `words`（`split()`）か `chars`（`len/4`） |
+| `--nugget-window` | 0 | nugget の前後 N 文も返す。0 は無効 |
+| `--match` | `exact` | `exact` か `normalized` |
+| `--pool-label` | なし | 候補プールの作り方のメモ。JSON の `pool` にそのまま出る |
+| `--embedding-url` | なし | 指定すると nugget の文選びが BM25 + 埋め込みのハイブリッドになる |
+| `--embed-weight` | 0.5 | 0 = BM25 のみ、1 = 埋め込みのみ。0 のときは埋め込みサービスを呼ばない |
+| `--embedding-collection` | `search-engine` | 埋め込みサービスのコレクション名 |
+| `--verbose` | off | 失敗クエリの詳細を出す |
+
+出力の例は [README の出力フォーマット](../../README.md#出力フォーマット)。JSON は `n_queries`・モードごとの
+`recall`/`mrr`/`avg_tokens`・`hits`・`latency_ms`・`comparison` を持つ。
+
+入力の検証エラーは `[ERROR] ...` を標準エラーに出して終了コード 1。
+
+### `eval/check_regression.py`
+
+Recall が下がっていないかを見る CI 用のゲート。
+
+| 引数 | 既定 | 内容 |
+| --- | --- | --- |
+| `--chunks`, `--gold` | 必須 | 同上 |
+| `--threshold` | 0.95 | 0〜1。いずれかのモードの Recall@k がこれ未満なら失敗 |
+| `--top-k` | 5 | |
+| `--baseline` | なし | 記録した Recall の JSON |
+| `--max-drop` | 0.05 | 基準値からの許容低下幅 |
+| `--advisory` | off | 基準値からの低下を `[WARN]` で出して終了コード 0 |
+| `--verbose`, `-v` | off | 失敗クエリの詳細を標準エラーに出す |
+
+終了コード: 閾値未満 → 1（`[FAIL]`）。基準値からの低下 → 1（`--advisory` なら 0）。入力不正 → 1（`[ERROR]`）。通れば `[PASS]` で 0。
+閾値の判定は丸め前の Recall で行う。
+
+### `scripts/fetch_papers.py`
+
+論文検索 API からチャンクを集めて JSON に書く。
+
+| 引数 | 既定 | 内容 |
+| --- | --- | --- |
+| `--api-url` | `http://localhost:8020` | 検索 API |
+| `--out` | `data/chunks.json` | 出力先。0 件のときは既存ファイルを上書きせず終了コード 1 |
+| `--gold-set` | なし | 指定するとゴールドのクエリごとに取得する（正解論文のチャンクが候補に入る） |
+| `--query` | `method results contribution` | `--gold-set` が無いときの共通クエリ |
+| `--chunk-mode` | `small` | `small`（約 20 トークン）か `large`（約 512 トークンに結合） |
+| `--large-chunk-target` | 512 | `large` のときの目標トークン数 |
+| `--snippet-length` | 200 | API が返すテキストの最大文字数。**0 で全文**。既定の 200 では各チャンクの先頭しか来ない |
+| `--fail-fast` | off | 最初の取得エラーで止める |
+| `--max-failures` | 0 | 失敗数（取得エラー + 未登録の `arxiv_id`）がこれを超えると終了コード 1 |
+
+### `scripts/build_pool_from_pdfs.py`
+
+ローカルの PDF から、クエリに依存しない候補プールを作る。外部コマンド `pdftotext`（poppler-utils）が要る。
+
+| 引数 | 既定 | 内容 |
+| --- | --- | --- |
+| `--pdf-dir` | `data/papers` | PDF の置き場所。ファイル名は `<arxiv_id>.pdf`。`ARXIV_MAP` に無いものは警告して飛ばす |
+| `--out` | `data/chunks_pdf.json` | 出力先 |
+| `--target-words` | 300 | 1 チャンクあたりの目標語数 |
+
+### その他のスクリプト
+
+| スクリプト | 役割 |
+| --- | --- |
+| `scripts/analyze_nugget_failures.py` | nugget が外した理由を A 検索ミス / B 分割ミス / C 抽出ミス / D ヒットに分類し、`--sweep` で `nuggets_per_chunk` × 窓を掃引する |
+| `scripts/sweep_embed_weight.py` | `--embed-weight` を振って再評価する。文の埋め込みは 1 回だけ計算してキャッシュする。`--embedding-url` と `--out-dir` が必須 |
+| `scripts/make_eval_report.py` | README の評価表を測定から生成する。`--pool NAME=PATH[:exact\|normalized]` と `--gold NAME=PATH` を複数指定する |
+| `scripts/apply_gold_review.py` | 人の確認シートの判定（○△×）を難問ゴールドに適用する。既定は dry run で、`--write` か `--out` で書く |
+
+## 環境変数 / 外部サービス
+
+| 名前 | 使う場所 | 内容 |
+| --- | --- | --- |
+| `EMBEDDING_API_KEY` | `evaluate.py`・`sweep_embed_weight.py` | 埋め込みサービスの鍵。`X-API-Key` ヘッダで送る。CLI 引数では受け取らない |
+
+埋め込みサービス（`--embedding-url`）は `POST /embed/batch` に `{"texts": [...], "collection": "<name>"}` を受け、
+`{"vectors": [[...]]}`（または `{"embeddings": [[...]]}`）を返す想定。リモートへの `http://` は鍵が平文で流れるため警告が出る。
