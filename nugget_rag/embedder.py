@@ -181,6 +181,17 @@ class EmbedClient:
             try:
                 with urlopen(req, timeout=self.timeout) as http_resp:
                     raw = http_resp.read(MAX_RESPONSE_BYTES + 1)
+                    # read(amt) does not raise IncompleteRead on a short body (read() does),
+                    # so keep the retry-on-truncation behaviour (#232) explicitly.
+                    declared = http_resp.headers.get("Content-Length")
+                    if (
+                        isinstance(declared, str)
+                        and declared.isascii()
+                        and declared.isdigit()
+                        and len(declared) <= 12
+                        and len(raw) < int(declared) <= MAX_RESPONSE_BYTES
+                    ):
+                        raise http.client.IncompleteRead(raw, int(declared) - len(raw))
                 if len(raw) > MAX_RESPONSE_BYTES:
                     raise EmbedError(
                         f"Embedding response exceeds {MAX_RESPONSE_BYTES} bytes; refusing to parse"

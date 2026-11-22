@@ -682,3 +682,19 @@ def test_oversized_response_raises_embed_error_without_retry(mock_open, mock_sle
 def test_response_at_size_limit_is_accepted(mock_open):
     mock_open.return_value = _make_cm_mock(_padded_json(MAX_RESPONSE_BYTES)).return_value
     assert EmbedClient("http://localhost:9092").embed(["a"]) == [[0.0]]
+
+
+@patch("nugget_rag.embedder.time.sleep")
+@patch("nugget_rag.embedder.urlopen")
+def test_truncated_body_retries_like_incomplete_read(mock_open, mock_sleep):
+    """read(amt) には IncompleteRead が出ないため、Content-Length 不足を自前で再試行扱いにする。"""
+    short = MagicMock()
+    short.read.return_value = b'{"vectors"'
+    short.headers.get.return_value = "100"
+    cm = MagicMock()
+    cm.__enter__ = MagicMock(return_value=short)
+    cm.__exit__ = MagicMock(return_value=False)
+    ok = _ok_response()
+    mock_open.side_effect = [cm, ok]
+    assert _retry_client().embed(["a"]) == [[0.1]]
+    assert mock_open.call_count == 2
