@@ -2,9 +2,54 @@
 
 Release type: `reference`
 
+English · [日本語](#日本語)
+
+## English
+
+An evaluation harness that measures the core idea of CoinRAG ([arxiv 2608.07458](https://arxiv.org/abs/2608.07458)) —
+**hand the LLM only the query-relevant spans ("nuggets") instead of the whole chunk** — before adopting it.
+It compares two ways of returning the same top-k BM25 results: the full chunks, or only the best-matching sentences from each chunk.
+Both are scored by Recall@k and MRR@k against a hand-built gold set, together with the number of words returned.
+
+- **Zero runtime dependencies** (Python 3.12+, standard library only; BM25 is implemented in `nugget_rag/scorer.py`).
+- **Current version:** v2.0.0 (see [CHANGELOG](CHANGELOG.md) for what has merged since).
+- **Finding so far** (details and tables in the Japanese part below): a nugget picks sentences from the top chunks, so it can never beat
+  full-chunk on Recall. It returns about 28% of the words, but on the hard gold set it loses much of the Recall.
+  The adoption recommendation from the first results was withdrawn.
+
+### Quick start
+
+```bash
+pip install -e ".[dev]"      # the CLIs import `eval` and `nugget_rag`, so the editable install is required
+pytest
+
+# Evaluate a chunk pool against a gold set (BM25 only)
+python eval/evaluate.py --chunks <chunks.json> --gold eval/gold_set.json
+
+# CI regression gate (fails with exit 1 when Recall@5 is below the threshold)
+python eval/check_regression.py --chunks data/chunks_large.json --gold eval/gold_set.json --threshold 0.95
+```
+
+### Documentation
+
+- [Spec: CLIs and data formats](docs/spec/cli-and-data-formats.md) — flags, input files, exit codes
+- [Design](docs/design.md) — data flow and module responsibilities
+- [Architecture decision records](docs/adr/README.md)
+- [CHANGELOG](CHANGELOG.md) · [CONTRIBUTING](CONTRIBUTING.md)
+
+## 日本語
+
 CoinRAG ([arxiv 2608.07458](https://arxiv.org/abs/2608.07458)) のコアアイデア —
 **チャンク全体でなくクエリ関連スパン（ナゲット）だけを LLM に渡す** — を
 academic-paper-system に導入する前に定量評価するためのリポジトリ。
+
+現在のバージョンは v2.0.0。それ以降の変更は [CHANGELOG](CHANGELOG.md) を参照。
+
+## ドキュメント
+
+- [仕様: CLI とデータ形式](docs/spec/cli-and-data-formats.md) — 引数・入力ファイル・終了コード
+- [設計](docs/design.md) — データの流れとモジュールの責務
+- [CONTRIBUTING](CONTRIBUTING.md) — 開発の流れ・CI・コミット規約
 
 ## 設計判断（ADR）/ Design decisions
 
@@ -39,7 +84,7 @@ eval/         # 評価 CLI（evaluate.py / check_regression.py ほか）、ゴ�
 scripts/      # データ取得・プール作成・分析用スクリプト（fetch_papers.py / build_pool_from_pdfs.py ほか）
 tests/        # pytest スイート（fixtures/ に評価スクリプト用テストデータ）
 data/         # CI 回帰ゲート用チャンク（chunks_large.json）。PDF 由来のプールは gitignore
-docs/adr/     # 設計判断の記録（ADR）
+docs/         # adr/（設計判断の記録）、spec/（CLI とデータ形式）、design.md（設計）
 ```
 
 ファイル単位の一覧は `git ls-files` を参照（ずれを避けるためここでは列挙しない）。
@@ -86,6 +131,7 @@ EMBEDDING_API_KEY=<key> python eval/evaluate.py \
 python eval/evaluate.py --chunks <chunks> --gold <gold> --nugget-window 1
 
 # 5. API に依存せず PDF から候補プールを作って難問セットを評価
+#    PDF は data/papers/<arxiv_id>.pdf に置く。外部コマンド pdftotext（poppler-utils）が要る
 python scripts/build_pool_from_pdfs.py --pdf-dir data/papers --out data/chunks_pdf.json
 python eval/evaluate.py --chunks data/chunks_pdf.json --gold eval/gold_set_hard.json
 

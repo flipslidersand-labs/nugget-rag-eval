@@ -22,7 +22,7 @@ eval/                # evaluation CLIs (evaluate.py, check_regression.py, etc.),
 scripts/             # data fetch / pool build / analysis scripts
 tests/               # pytest suite
 tests/fixtures/      # minimal test data for CI (chunks_test.json, gold_test.json)
-docs/adr/            # architecture decision records
+docs/                # adr/ (decisions), spec/ (CLIs and data formats), design.md
 ```
 
 Run `git ls-files` for the per-file list; it is not enumerated here to avoid drift.
