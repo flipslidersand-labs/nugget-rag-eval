@@ -404,7 +404,8 @@ def main():
                 chunks = combine_large_chunks(raw, pid, args.large_chunk_target)
                 print(f"  paper {pid}: {len(raw)} → {len(chunks)} large chunks", file=sys.stderr)
             else:
-                chunks = raw
+                # Same small-mode rule as fetch_per_query: drop whitespace-only snippets.
+                chunks = [c for c in raw if c["text"].strip()]
                 print(f"  paper {pid}: {len(chunks)} chunks", file=sys.stderr)
             all_chunks.extend(chunks)
 

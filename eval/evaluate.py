@@ -121,7 +121,7 @@ def validate_gold(gold: list[dict]) -> None:
         query = item["query"]
         if not isinstance(query, str):
             raise ValueError(
-                f"gold[{i}] 'query' must be a non-empty string, got {type(query).__name__!r}"
+                f"gold[{i}] 'query' must be a string, got {type(query).__name__!r}"
             )
         if not query.strip():
             raise ValueError(f"gold[{i}] 'query' is blank (whitespace only); it must have text")
