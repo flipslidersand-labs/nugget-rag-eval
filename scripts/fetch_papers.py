@@ -71,6 +71,7 @@ def _urlopen_with_retry(
                 return http_resp.read()
         except HTTPError as exc:
             if not _is_retryable_http(exc.code):
+                exc.close()  # release the response socket before re-raising (#313)
                 raise
             last_exc = exc
             delay = _retry_delay(exc, delay)

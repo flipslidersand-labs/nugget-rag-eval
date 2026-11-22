@@ -149,3 +149,34 @@ def test_format_table_lists_every_run():
     res = sw.sweep(by, {"g": GOLD}, [0.0, 0.5], sw.cached_embed_fn(cache), match="exact")
     table = sw.format_table(res)
     assert "g | 0.0 |" in table and "g | 0.5 |" in table
+
+
+def _run_main(monkeypatch, tmp_path, gold_data, embed):
+    """main() を実ネットワークなしで走らせる。EmbedClient は差し替える。"""
+    import sys
+
+    import nugget_rag.embedder as embedder
+
+    class FakeClient:
+        def __init__(self, url):
+            self.embed = embed
+
+    monkeypatch.setattr(embedder, "EmbedClient", FakeClient)
+    c, g = tmp_path / "c.json", tmp_path / "my_gold.json"
+    c.write_text(json.dumps(CHUNKS))
+    g.write_text(json.dumps(gold_data))
+    argv = ["sweep", "--chunks", str(c), "--gold", str(g), "--embedding-url", "http://x"]
+    monkeypatch.setattr(sys, "argv", argv + ["--out-dir", str(tmp_path / "out")])
+    with pytest.raises(SystemExit) as exc:
+        sw.main()
+    return str(exc.value.code)
+
+
+def test_main_reports_a_short_embedding_response_as_error(monkeypatch, tmp_path):
+    msg = _run_main(monkeypatch, tmp_path, GOLD, lambda ts: [[0.0]][: len(ts) - 1])
+    assert msg.startswith("[ERROR] ") and "vectors for" in msg
+
+
+def test_main_invalid_gold_error_names_the_gold(monkeypatch, tmp_path):
+    msg = _run_main(monkeypatch, tmp_path, [{"arxiv_id": "2410.10071"}], lambda ts: [])
+    assert msg.startswith("[ERROR] gold=my_gold: gold[0] missing required fields")

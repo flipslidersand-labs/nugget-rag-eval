@@ -122,13 +122,19 @@ def main() -> None:
         for spec in args.pool:
             name, path, match = parse_named(spec, "--pool")
             chunks = load_json(path, f"--pool {name}")
-            validate_chunks(chunks)
+            try:
+                validate_chunks(chunks)
+            except ValueError as exc:
+                raise ValueError(f"pool={name}: {exc}") from exc
             pools[name] = (build_chunks_index(chunks), match or "exact")
         golds = {}
         for spec in args.gold:
             name, path, _ = parse_named(spec, "--gold")
             gold = load_json(path, f"--gold {name}")
-            validate_gold(gold)
+            try:
+                validate_gold(gold)
+            except ValueError as exc:
+                raise ValueError(f"gold={name}: {exc}") from exc
             golds[name] = gold
     except ValueError as exc:
         sys.exit(f"[ERROR] {exc}")
