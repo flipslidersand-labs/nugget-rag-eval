@@ -269,7 +269,9 @@ def fetch_per_query(
         if chunk_mode == "large":
             chunks = combine_large_chunks(raw, pid, target_tokens)
         else:
-            chunks = raw
+            # A whitespace-only snippet would make validate_chunks reject the whole
+            # chunks file, so drop it at the source (small mode only).
+            chunks = [c for c in raw if c["text"].strip()]
 
         for c in chunks:
             k = key_field(c)

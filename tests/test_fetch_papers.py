@@ -273,6 +273,19 @@ def test_fetch_per_query_deduplicates(mock_fetch):
 
 
 @patch("scripts.fetch_papers.fetch_chunks_for_paper")
+def test_fetch_per_query_small_drops_blank_snippets(mock_fetch):
+    """small モード: 空白だけの snippet は出力しない (1件で chunks 全体が不正になる)。"""
+    blank = {"paper_id": 1, "chunk_index": 0, "text": "   \n ", "score": 0.9}
+    good = {"paper_id": 1, "chunk_index": 1, "text": "real text", "score": 0.5}
+    mock_fetch.return_value = [blank, good]
+
+    gold = [{"paper_id": 1, "query": "q", "answer_spans": ["real"]}]
+    result, failures = fetch_per_query("http://api", gold, chunk_mode="small", target_tokens=512)
+    assert [c["text"] for c in result] == ["real text"]
+    assert failures == 0
+
+
+@patch("scripts.fetch_papers.fetch_chunks_for_paper")
 def test_fetch_per_query_resolves_arxiv_id(mock_fetch):
     """gold に arxiv_id がある場合、ARXIV_TO_PAPER_ID で paper_id を解決する。"""
     mock_fetch.return_value = [{"paper_id": 1, "chunk_index": 0, "text": "t", "score": 0.5}]
