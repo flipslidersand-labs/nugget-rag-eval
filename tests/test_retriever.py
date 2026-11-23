@@ -251,3 +251,28 @@ def test_retrieve_nuggets_embed_fn_dimension_mismatch_raises():
 
     with pytest.raises(ValueError):
         retrieve_nuggets(CHUNKS, "KV cache", top_k=3, embed_fn=ragged_embed)
+
+
+# ── 同点時の順序 (#353) ───────────────────────────────────────────────────
+# 仕様: BM25 が同点(例: クエリが全く当たらず全て 0)のチャンクは入力順を保つ。
+
+
+def _tied_chunks(n: int = 5) -> list[dict]:
+    return [{"paper_id": 1, "chunk_index": i, "text": f"alpha{i} beta{i}"} for i in range(n)]
+
+
+def test_full_chunk_zero_score_ties_keep_input_order():
+    results = retrieve_full_chunk(_tied_chunks(), "xyznotinany", top_k=3)
+    assert [r["chunk_index"] for r in results] == [0, 1, 2]
+
+
+def test_full_chunk_tie_after_higher_score_keeps_input_order():
+    chunks = _tied_chunks()
+    chunks[3] = {"paper_id": 1, "chunk_index": 3, "text": "KV cache reuse"}
+    results = retrieve_full_chunk(chunks, "KV cache", top_k=4)
+    assert [r["chunk_index"] for r in results] == [3, 0, 1, 2]
+
+
+def test_retrieve_nuggets_zero_score_ties_keep_input_order():
+    results = retrieve_nuggets(_tied_chunks(), "xyznotinany", top_k=3)
+    assert [r["chunk_index"] for r in results] == [0, 1, 2]
