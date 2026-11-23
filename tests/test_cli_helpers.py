@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import argparse
+import json
+import os
 import subprocess
 import sys
 
@@ -14,6 +16,7 @@ from eval.cli_helpers import (
     load_json,
     non_negative_int,
     positive_int,
+    write_json_atomic,
 )
 
 
@@ -82,3 +85,48 @@ def test_fetch_papers_gold_set_invalid_utf8_has_no_traceback(tmp_path):
     assert result.returncode == 1
     assert "[ERROR]" in result.stderr
     assert "Traceback" not in result.stderr
+
+
+def test_write_json_atomic_format_and_no_tmp_left(tmp_path):
+    out = tmp_path / "x.json"
+    write_json_atomic(out, {"k": "日本語"})
+    assert out.read_text(encoding="utf-8") == '{\n  "k": "日本語"\n}'
+    write_json_atomic(out, [1], indent=None, trailing_newline=True)
+    assert out.read_text(encoding="utf-8") == "[1]\n"
+    write_json_atomic(out, [1], indent=1)
+    assert out.read_text(encoding="utf-8") == "[\n 1\n]"
+    assert [p.name for p in tmp_path.iterdir()] == ["x.json"]
+
+
+def test_write_json_atomic_extension_not_clobbering_sibling(tmp_path):
+    # with_suffix(".tmp") would turn "x.json.tmp" into "x.json.tmp" itself / collide with a sibling
+    out = tmp_path / "x.json.tmp"
+    sibling = tmp_path / "x.json"
+    sibling.write_text("keep", encoding="utf-8")
+    write_json_atomic(out, {"a": 1})
+    assert json.loads(out.read_text(encoding="utf-8")) == {"a": 1}
+    assert sibling.read_text(encoding="utf-8") == "keep"
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["x.json", "x.json.tmp"]
+
+
+def test_write_json_atomic_unserializable_keeps_existing(tmp_path):
+    out = tmp_path / "x.json"
+    out.write_text("old", encoding="utf-8")
+    with pytest.raises(TypeError):
+        write_json_atomic(out, {"k": object()})
+    assert out.read_text(encoding="utf-8") == "old"
+    assert [p.name for p in tmp_path.iterdir()] == ["x.json"]
+
+
+def test_write_json_atomic_replace_failure_keeps_existing_and_cleans_tmp(tmp_path, monkeypatch):
+    out = tmp_path / "x.json"
+    out.write_text("old", encoding="utf-8")
+
+    def boom(src, dst):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(os, "replace", boom)
+    with pytest.raises(OSError, match="disk full"):
+        write_json_atomic(out, {"new": 1})
+    assert out.read_text(encoding="utf-8") == "old"
+    assert [p.name for p in tmp_path.iterdir()] == ["x.json"]

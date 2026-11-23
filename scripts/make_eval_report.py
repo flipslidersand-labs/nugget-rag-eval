@@ -16,11 +16,10 @@ A pool is NAME=PATH[:MATCH] with MATCH exact (default) or normalized.
 from __future__ import annotations
 
 import argparse
-import json
 import sys
 from pathlib import Path
 
-from eval.cli_helpers import load_json, non_negative_int
+from eval.cli_helpers import load_json, non_negative_int, write_json_atomic
 from eval.evaluate import build_chunks_index, evaluate, validate_chunks, validate_gold
 
 
@@ -139,7 +138,7 @@ def main() -> None:
         sys.exit(f"[ERROR] {exc}")
     print(format_markdown(rows))
     if args.json:
-        args.json.write_text(json.dumps(rows, ensure_ascii=False, indent=1), encoding="utf-8")
+        write_json_atomic(args.json, rows, indent=1)
 
 
 if __name__ == "__main__":

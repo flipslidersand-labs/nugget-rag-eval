@@ -12,13 +12,12 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import json
 import re
 import subprocess
 import sys
 from pathlib import Path
 
-from eval.cli_helpers import positive_int
+from eval.cli_helpers import positive_int, write_json_atomic
 from nugget_rag.paper_registry import ARXIV_MAP
 
 # Split only where whitespace follows the terminator, so decimals such as "0.5"
@@ -119,9 +118,7 @@ def main() -> None:
         )
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
-    tmp = args.out.with_suffix(".tmp")
-    tmp.write_text(json.dumps(pool, ensure_ascii=False, indent=2), encoding="utf-8")
-    tmp.replace(args.out)
+    write_json_atomic(args.out, pool)
     print(f"Wrote {len(pool)} chunks to {args.out}", file=sys.stderr)
 
 
