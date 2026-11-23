@@ -276,3 +276,93 @@ def test_full_chunk_tie_after_higher_score_keeps_input_order():
 def test_retrieve_nuggets_zero_score_ties_keep_input_order():
     results = retrieve_nuggets(_tied_chunks(), "xyznotinany", top_k=3)
     assert [r["chunk_index"] for r in results] == [0, 1, 2]
+
+
+# ── #350 hybrid 経路: 文が 0 件のチャンクが混在/全件 ─────────────────────────
+# 空/空白のみの text は split_sentences が [] を返す。n=0 のチャンクを挟んでも offset が
+# ずれず、全件空なら embed_fn を呼ばない(else 分岐)ことを固定する。
+
+_HYBRID_QUERY = "zzz query"  # どのチャンクにも BM25 で当たらない -> チャンク順は入力順(#353)
+_NON_EMPTY = [
+    {"paper_id": 1, "chunk_index": 0, "text": "Bad one. Good two."},
+    {"paper_id": 1, "chunk_index": 1, "text": "Good three. Bad four."},
+    {"paper_id": 1, "chunk_index": 2, "text": "Bad five. Good six."},
+]
+_EMPTY_TEXTS = ["", "  "]
+
+
+def _make_content_embed_fn():
+    """Return (embed_fn, seen_batches). Vector depends on text: 'good'/query -> [1,0], else [0,1]."""
+    seen: list[list[str]] = []
+
+    def embed_fn(texts):
+        seen.append(list(texts))
+        return [
+            [1.0, 0.0] if t == _HYBRID_QUERY or "good" in t.lower() else [0.0, 1.0] for t in texts
+        ]
+
+    return embed_fn, seen
+
+
+def _hybrid_nuggets(chunks, embed_fn):
+    results = retrieve_nuggets(
+        chunks, _HYBRID_QUERY, top_k=10, nuggets_per_chunk=1, embed_fn=embed_fn, embed_weight=1.0
+    )
+    return {r["chunk_index"]: r["nugget"] for r in results}
+
+
+@pytest.mark.parametrize("position", ["start", "middle", "end"])
+def test_hybrid_empty_chunk_mixed_in_matches_result_without_it(position):
+    """空チャンクを先頭/中間/末尾に挟んでも、embed_fn は 1 回・非空の文だけを受け取り、
+    非空チャンクの nugget は空チャンク無しの結果と一致する。"""
+    base_fn, base_seen = _make_content_embed_fn()
+    expected = _hybrid_nuggets(_NON_EMPTY, base_fn)
+    assert expected == {0: "Good two.", 1: "Good three.", 2: "Good six."}
+
+    insert_at = {"start": 0, "middle": 2, "end": 3}[position]
+    mixed = list(_NON_EMPTY)
+    for k, text in enumerate(_EMPTY_TEXTS):
+        mixed.insert(insert_at + k, {"paper_id": 1, "chunk_index": 10 + k, "text": text})
+    embed_fn, seen = _make_content_embed_fn()
+    got = _hybrid_nuggets(mixed, embed_fn)
+
+    assert len(seen) == 1
+    assert seen == base_seen
+    assert seen[0] == [
+        _HYBRID_QUERY,
+        "Bad one.",
+        "Good two.",
+        "Good three.",
+        "Bad four.",
+        "Bad five.",
+        "Good six.",
+    ]
+    assert {k: v for k, v in got.items() if k < 10} == expected
+    assert got[10] == ""
+    assert got[11] == ""
+
+
+@pytest.mark.parametrize("texts", [[""], ["  "], ["", "  ", "\n\t"]])
+def test_hybrid_all_chunks_empty_does_not_call_embed_fn(texts):
+    """全チャンクが空/空白のとき embed_fn は呼ばれず、全 nugget が空文字(else 分岐)。"""
+    chunks = [{"paper_id": 1, "chunk_index": i, "text": t} for i, t in enumerate(texts)]
+    embed_fn, seen = _make_content_embed_fn()
+    results = retrieve_nuggets(chunks, _HYBRID_QUERY, top_k=10, embed_fn=embed_fn)
+    assert seen == []
+    assert [r["nugget"] for r in results] == [""] * len(texts)
+    assert [r["chunk_index"] for r in results] == list(range(len(texts)))
+
+
+def test_hybrid_offset_slices_follow_content_across_empty_chunk():
+    """内容依存ベクトルで、空チャンクの後続チャンクが自分の文のベクトルを受け取ることを確認する。
+    offset がずれると選ばれる文が変わる(例: offset += n を欠くと 2 番目のチャンクが 'Bad four.')。"""
+    chunks = [
+        _NON_EMPTY[0],
+        {"paper_id": 1, "chunk_index": 10, "text": ""},
+        _NON_EMPTY[1],
+        {"paper_id": 1, "chunk_index": 11, "text": "  "},
+        _NON_EMPTY[2],
+    ]
+    embed_fn, _ = _make_content_embed_fn()
+    got = _hybrid_nuggets(chunks, embed_fn)
+    assert got == {0: "Good two.", 10: "", 1: "Good three.", 11: "", 2: "Good six."}
