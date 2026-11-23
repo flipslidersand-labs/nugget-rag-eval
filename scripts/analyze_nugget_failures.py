@@ -8,9 +8,9 @@ For every gold item (searching only the gold paper's chunks, like evaluate.py):
   D hit              a selected sentence contains the span (a span split across two selected
                      adjacent sentences is still B here; evaluate counts it as a hit)
 
-The sweep re-runs retrieve_nuggets with several nuggets_per_chunk / window values.
-Selection logic comes from nugget_rag itself (retriever.select_nuggets), nothing is
-re-implemented here.
+The sweep calls evaluate() with several nuggets_per_chunk / window values.
+Selection logic and the recall / token counting come from nugget_rag and eval.evaluate
+(retriever.select_nuggets, evaluate()), nothing is re-implemented here.
 
 Usage:
     python scripts/analyze_nugget_failures.py --chunks pool.json --gold eval/gold_set_hard.json \\
@@ -24,15 +24,9 @@ import sys
 from collections import Counter
 
 from eval.cli_helpers import existing_file, positive_int
-from eval.evaluate import (
-    _span_in,
-    avg_tokens,
-    check_gold_chunk_coverage,
-    load_inputs,
-    recall_at_k,
-)
+from eval.evaluate import EvalConfig, _span_in, check_gold_chunk_coverage, evaluate, load_inputs
 from nugget_rag.paper_registry import resolve_paper_key
-from nugget_rag.retriever import retrieve_nuggets, select_nuggets
+from nugget_rag.retriever import select_nuggets
 from nugget_rag.scorer import bm25_scores
 
 LABELS = {
@@ -102,19 +96,19 @@ def sweep(
     rows = []
     for k in ks:
         for w in windows:
-            hits, toks = 0, 0.0
-            for item in gold:
-                chunks = by_paper.get(resolve_paper_key(item), [])
-                res = retrieve_nuggets(chunks, item["query"], top_k, nuggets_per_chunk=k, window=w)
-                hits += recall_at_k(res, item["answer_spans"], "nugget", normalize)
-                toks += avg_tokens(res, "nugget")
-            n = max(len(gold), 1)
+            config = EvalConfig(
+                top_k=top_k,
+                match="normalized" if normalize else "exact",
+                nugget_window=w,
+                nuggets_per_chunk=k,
+            )
+            nugget = evaluate(by_paper, gold, config)["nugget"]
             rows.append(
                 {
                     "k": k,
                     "window": w,
-                    "recall": round(hits / n, 3),
-                    "avg_tokens": round(toks / n, 1),
+                    "recall": nugget["recall"],
+                    "avg_tokens": nugget["avg_tokens"],
                 }
             )
     return rows
