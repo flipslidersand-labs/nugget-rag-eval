@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from eval.evaluate import avg_tokens
+import pytest
+
+from eval.evaluate import avg_tokens, evaluate
 from tests.conftest import make_results
 
 
@@ -42,3 +44,15 @@ def test_empty_results():
 def test_default_estimator_is_words():
     results = make_results(["one two three"])
     assert avg_tokens(results) == 3.0
+
+
+def test_avg_tokens_rejects_unknown_estimator():
+    results = make_results(["one two three"])
+    with pytest.raises(ValueError, match="estimator must be 'words' or 'chars', got 'bogus'"):
+        avg_tokens(results, field="text", estimator="bogus")
+
+
+def test_evaluate_rejects_unknown_estimator():
+    # A typo such as "char" must not be silently counted as words.
+    with pytest.raises(ValueError, match="estimator must be 'words' or 'chars', got 'char'"):
+        evaluate({}, [], estimator="char")
