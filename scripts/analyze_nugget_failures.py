@@ -47,21 +47,29 @@ LABELS = {
 def classify(
     chunks: list[dict], query: str, spans: list[str], top_k: int, per_chunk: int, normalize: bool
 ) -> tuple[str, int | None]:
-    """Return (class, rank of the best sentence holding the span among its chunk's sentences)."""
+    """Return (class, best rank of a sentence holding the span, for C only).
+
+    Every top-k chunk containing a span is examined, as evaluate's nugget hit does (#327).
+    Priority: D if any holder is a hit, else C (smallest rank over holders), else B, else A.
+    """
     top = retrieve_full_chunk(chunks, query, top_k)
     holders = [c for c in top if _span_in(c.get("text", ""), spans, normalize)]
     if not holders:
         return "A", None
-    sentences = split_sentences(holders[0]["text"])
-    holding = [i for i, s in enumerate(sentences) if _span_in(s, spans, normalize)]
-    if not holding:
-        return "B", None
-    chosen = top_nuggets(query, sentences, top_k=per_chunk)
-    if any(_span_in(s, spans, normalize) for s in chosen):
-        return "D", None
-    scores = bm25_scores(query, sentences)
-    order = sorted(range(len(sentences)), key=lambda i: scores[i], reverse=True)
-    return "C", min(order.index(i) for i in holding) + 1
+    best_rank: int | None = None
+    for holder in holders:
+        sentences = split_sentences(holder["text"])
+        holding = [i for i, s in enumerate(sentences) if _span_in(s, spans, normalize)]
+        if not holding:
+            continue  # B in this chunk; a later holder may still be C or D
+        chosen = top_nuggets(query, sentences, top_k=per_chunk)
+        if any(_span_in(s, spans, normalize) for s in chosen):
+            return "D", None
+        scores = bm25_scores(query, sentences)
+        order = sorted(range(len(sentences)), key=lambda i: scores[i], reverse=True)
+        rank = min(order.index(i) for i in holding) + 1
+        best_rank = rank if best_rank is None else min(best_rank, rank)
+    return ("B", None) if best_rank is None else ("C", best_rank)
 
 
 def classify_all(
