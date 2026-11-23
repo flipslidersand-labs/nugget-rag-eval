@@ -6,11 +6,12 @@ failure), build_pool (chunk shape, unregistered PDF skipped), main() exit paths.
 
 from __future__ import annotations
 
+import io
 import json
 import subprocess
 import sys
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -43,37 +44,98 @@ def test_chunk_text_empty_returns_empty():
     assert chunk_text("", target_words=10) == []
 
 
+class _FakePopen:
+    """Stand-in for subprocess.Popen: canned stdout/stderr bytes, no real process."""
+
+    last: _FakePopen
+
+    def __init__(self, stdout=b"", stderr=b"", returncode=0, hang=False):
+        self.stdout = io.BytesIO(stdout)
+        self.stderr = io.BytesIO(stderr)
+        self.returncode = returncode
+        self.hang = hang
+        self.killed = False
+        self.wait_timeouts: list = []
+        _FakePopen.last = self
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def wait(self, timeout=None):
+        self.wait_timeouts.append(timeout)
+        if self.hang and timeout is not None and not self.killed:
+            raise subprocess.TimeoutExpired(cmd="pdftotext", timeout=timeout)
+        return self.returncode
+
+    def kill(self):
+        self.killed = True
+
+
+def _popen(**kwargs):
+    return patch(
+        "scripts.build_pool_from_pdfs.subprocess.Popen",
+        side_effect=lambda *a, **k: _FakePopen(**kwargs),
+    )
+
+
 def test_pdf_to_text_collapses_whitespace():
-    proc = MagicMock(returncode=0, stdout="a  b\n\nc\td ", stderr="")
-    with patch("scripts.build_pool_from_pdfs.subprocess.run", return_value=proc):
+    with _popen(stdout=b"a  b\n\nc\td "):
         assert pdf_to_text(Path("x.pdf")) == "a b c d"
 
 
 def test_pdf_to_text_raises_on_pdftotext_failure():
-    proc = MagicMock(returncode=1, stdout="", stderr="boom")
-    with patch("scripts.build_pool_from_pdfs.subprocess.run", return_value=proc):
-        with pytest.raises(RuntimeError, match="pdftotext failed for x.pdf"):
+    with _popen(returncode=1, stderr=b"boom"):
+        with pytest.raises(RuntimeError, match="pdftotext failed for x.pdf: boom"):
             pdf_to_text(Path("x.pdf"))
 
 
 def test_pdf_to_text_converts_missing_executable():
-    with patch("scripts.build_pool_from_pdfs.subprocess.run", side_effect=FileNotFoundError):
+    with patch("scripts.build_pool_from_pdfs.subprocess.Popen", side_effect=FileNotFoundError):
         with pytest.raises(RuntimeError, match="install poppler-utils"):
             pdf_to_text(Path("x.pdf"))
 
 
-def test_pdf_to_text_converts_timeout():
-    exc = subprocess.TimeoutExpired(cmd="pdftotext", timeout=120)
-    with patch("scripts.build_pool_from_pdfs.subprocess.run", side_effect=exc):
+def test_pdf_to_text_converts_timeout_and_kills_process():
+    with _popen(hang=True):
         with pytest.raises(RuntimeError, match="timed out"):
             pdf_to_text(Path("x.pdf"))
+    assert _FakePopen.last.killed
 
 
 def test_pdf_to_text_passes_timeout():
-    proc = MagicMock(returncode=0, stdout="a", stderr="")
-    with patch("scripts.build_pool_from_pdfs.subprocess.run", return_value=proc) as run:
+    with _popen(stdout=b"a"):
         pdf_to_text(Path("x.pdf"))
-    assert run.call_args.kwargs["timeout"] == 120
+    assert 120 in _FakePopen.last.wait_timeouts
+
+
+def test_pdf_to_text_oversized_output_kills_process_and_raises():
+    """A crafted PDF must not be able to fill memory with pdftotext output (#305)."""
+    with (
+        patch.object(mod, "PDFTOTEXT_MAX_OUTPUT_BYTES", 100),
+        _popen(stdout=b"x" * 101),
+    ):
+        with pytest.raises(RuntimeError, match="output exceeds 100 bytes for x.pdf"):
+            pdf_to_text(Path("x.pdf"))
+    assert _FakePopen.last.killed
+
+
+def test_pdf_to_text_output_at_limit_is_accepted():
+    with (
+        patch.object(mod, "PDFTOTEXT_MAX_OUTPUT_BYTES", 100),
+        _popen(stdout=b"x" * 100),
+    ):
+        assert pdf_to_text(Path("x.pdf")) == "x" * 100
+    assert not _FakePopen.last.killed
+
+
+def test_pdf_to_text_huge_stderr_does_not_fail_or_kill():
+    with _popen(returncode=1, stderr=b"e" * 1_000_000):
+        with pytest.raises(RuntimeError, match="pdftotext failed for x.pdf: e{200}$"):
+            pdf_to_text(Path("x.pdf"))
+    assert not _FakePopen.last.killed
 
 
 def test_build_pool_skips_empty_text_with_warning(tmp_path, capsys):
@@ -91,7 +153,7 @@ def test_build_pool_skips_empty_text_with_warning(tmp_path, capsys):
 
 def test_pdf_to_text_converts_other_oserror():
     with patch(
-        "scripts.build_pool_from_pdfs.subprocess.run", side_effect=PermissionError("denied")
+        "scripts.build_pool_from_pdfs.subprocess.Popen", side_effect=PermissionError("denied")
     ):
         with pytest.raises(RuntimeError, match="could not be run for x.pdf: denied"):
             pdf_to_text(Path("x.pdf"))
@@ -102,7 +164,7 @@ def test_main_exits_with_error_when_pdftotext_missing_end_to_end(monkeypatch, tm
     monkeypatch.setattr(
         sys, "argv", ["build", "--pdf-dir", str(tmp_path), "--out", str(tmp_path / "o.json")]
     )
-    with patch("scripts.build_pool_from_pdfs.subprocess.run", side_effect=FileNotFoundError):
+    with patch("scripts.build_pool_from_pdfs.subprocess.Popen", side_effect=FileNotFoundError):
         with pytest.raises(SystemExit) as exc:
             mod.main()
     assert str(exc.value.code).startswith("[ERROR]")

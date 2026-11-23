@@ -283,7 +283,13 @@ def mrr_at_k(
     return 0.0
 
 
+def _check_estimator(estimator: str) -> None:
+    if estimator not in ("words", "chars"):
+        raise ValueError(f"estimator must be 'words' or 'chars', got {estimator!r}")
+
+
 def avg_tokens(results: list[dict], field: str = "text", estimator: str = "words") -> float:
+    _check_estimator(estimator)
     texts = [r.get(field, "") for r in results]
     if estimator == "chars":
         return sum(len(t) / 4 for t in texts) / max(len(texts), 1)
@@ -368,6 +374,7 @@ def evaluate(
 ) -> dict:
     if match not in ("exact", "normalized"):
         raise ValueError(f"match must be 'exact' or 'normalized', got {match!r}")
+    _check_estimator(estimator)
     normalize = match == "normalized"
     validate_gold(gold)
     n_queries_without_chunks, warnings = check_gold_chunk_coverage(chunks_by_paper, gold)
