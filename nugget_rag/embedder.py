@@ -141,9 +141,15 @@ def validate_vectors(vecs: list) -> None:
                     f"Unexpected embedding response format: vector {i} element {j} "
                     f"must be a number, got {type(x).__name__}"
                 )
-            if not math.isfinite(x):
+            # float(x) overflows for huge ints, and cosine_similarity (math.sqrt) would too.
+            try:
+                finite = math.isfinite(float(x))
+            except OverflowError:
+                finite = False
+            if not finite:
                 raise EmbedError(
-                    f"Unexpected embedding response format: vector {i} element {j} is not finite"
+                    f"Unexpected embedding response format: vector {i} element {j} "
+                    f"is not a finite float-representable number"
                 )
 
 

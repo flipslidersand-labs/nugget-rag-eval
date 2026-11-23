@@ -513,6 +513,9 @@ def test_non_list_vectors_raises_embed_error(mock_open, vecs):
         b'{"vectors": [[0.1, null]]}',
         b'{"vectors": [1.0]}',
         b'{"embeddings": [[]]}',
+        b'{"vectors": [[1' + b"0" * 400 + b"]]}",  # int too large for float (cosine would overflow)
+        b'{"vectors": [[-1' + b"0" * 400 + b"]]}",
+        b'{"vectors": [[1e999]]}',
     ],
 )
 @patch("nugget_rag.embedder.time.sleep")
@@ -525,6 +528,7 @@ def test_malformed_vector_elements_raise_embed_error_without_retry(mock_open, mo
     assert mock_open.call_count == 1
     mock_sleep.assert_not_called()
     assert "Infinity" not in str(ei.value) and "'a'" not in str(ei.value)
+    assert "0" * 50 not in str(ei.value)
 
 
 @patch("nugget_rag.embedder.urlopen")
