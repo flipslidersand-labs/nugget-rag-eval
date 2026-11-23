@@ -45,25 +45,25 @@ def _cm_side_effect(fn):
 # --- URL スキーム検証 (SSRF 対策) ---
 
 
-def testvalidate_url_allows_http():
+def test_validate_url_allows_http():
     validate_url("http://localhost:9092")  # should not raise
 
 
-def testvalidate_url_allows_https():
+def test_validate_url_allows_https():
     validate_url("https://example.com/embed")  # should not raise
 
 
-def testvalidate_url_rejects_file_scheme():
+def test_validate_url_rejects_file_scheme():
     with pytest.raises(ValueError, match="file"):
         validate_url("file:///etc/passwd")
 
 
-def testvalidate_url_rejects_ftp_scheme():
+def test_validate_url_rejects_ftp_scheme():
     with pytest.raises(ValueError, match="ftp"):
         validate_url("ftp://internal-host/resource")
 
 
-def testvalidate_url_rejects_imds_url():
+def test_validate_url_rejects_imds_url():
     """AWS IMDSv1 経由の SSRF を防ぐ。スキームが http でも検証済みなら通過するが、
     ここではカスタムスキーム的な悪用パターンを確認する。"""
     # file:// / ftp:// は拒否される
@@ -71,12 +71,12 @@ def testvalidate_url_rejects_imds_url():
         validate_url("file://169.254.169.254/latest/meta-data/")
 
 
-def testvalidate_url_rejects_empty_netloc():
+def test_validate_url_rejects_empty_netloc():
     with pytest.raises(ValueError, match="no host"):
         validate_url("http://")
 
 
-def testvalidate_url_rejects_empty_netloc_with_path():
+def test_validate_url_rejects_empty_netloc_with_path():
     with pytest.raises(ValueError, match="no host"):
         validate_url("http:///path")
 
@@ -89,14 +89,14 @@ def testvalidate_url_rejects_empty_netloc_with_path():
         "http://@example.invalid",
     ],
 )
-def testvalidate_url_rejects_userinfo_without_echoing_url(url):
+def test_validate_url_rejects_userinfo_without_echoing_url(url):
     with pytest.raises(ValueError, match="userinfo") as ei:
         validate_url(url)
     assert "secret-token" not in str(ei.value)
     assert "token-only" not in str(ei.value)
 
 
-def testvalidate_url_no_host_error_does_not_echo_url():
+def test_validate_url_no_host_error_does_not_echo_url():
     with pytest.raises(ValueError, match="no host") as ei:
         validate_url("http://?key=secret-token")
     assert "secret-token" not in str(ei.value)

@@ -47,25 +47,25 @@ def _cm(data: bytes) -> MagicMock:
 # ── validate_url (SSRF 対策) ────────────────────────────────────────────────
 
 
-def test_fetchvalidate_url_allows_http():
+def test_fetch_validate_url_allows_http():
     validate_url("http://localhost:8020")  # should not raise
 
 
-def test_fetchvalidate_url_allows_https():
+def test_fetch_validate_url_allows_https():
     validate_url("https://api.example.com")  # should not raise
 
 
-def test_fetchvalidate_url_rejects_file_scheme():
+def test_fetch_validate_url_rejects_file_scheme():
     with pytest.raises(ValueError, match="file"):
         validate_url("file:///etc/passwd")
 
 
-def test_fetchvalidate_url_rejects_ftp_scheme():
+def test_fetch_validate_url_rejects_ftp_scheme():
     with pytest.raises(ValueError, match="ftp"):
         validate_url("ftp://internal/resource")
 
 
-def test_fetchvalidate_url_rejects_empty_netloc():
+def test_fetch_validate_url_rejects_empty_netloc():
     with pytest.raises(ValueError, match="no host"):
         validate_url("http:///path")
 
