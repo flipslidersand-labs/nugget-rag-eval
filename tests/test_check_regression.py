@@ -263,10 +263,9 @@ def test_invalid_json_chunks_exits_with_error_message(tmp_path):
 
 def test_chunks_dict_instead_of_list_exits_with_error(tmp_path):
     """chunks が JSON オブジェクト（dict）の場合は [ERROR] + exit 1。"""
-    c_path = tmp_path / "chunks.json"
+    c_path = tmp_path / "bad_chunks.json"
     c_path.write_text(json.dumps({"paper_id": 1, "text": "x"}))
-    g_path = tmp_path / "gold.json"
-    _write_json(g_path, [])
+    _, g_path = _passing_data(tmp_path)  # gold は非空 (空だと gold チェックが先に発火する)
     result = _run_main(["--chunks", str(c_path), "--gold", str(g_path)])
     assert result.returncode != 0
     assert "[ERROR]" in result.stderr
@@ -274,21 +273,20 @@ def test_chunks_dict_instead_of_list_exits_with_error(tmp_path):
 
 def test_chunks_missing_id_exits_with_error(tmp_path):
     """ID フィールドが両方欠落した chunk は [ERROR] + exit 1。"""
-    c_path = tmp_path / "chunks.json"
+    c_path = tmp_path / "bad_chunks.json"
     _write_json(c_path, [{"text": "some content"}])
-    g_path = tmp_path / "gold.json"
-    _write_json(g_path, [])
+    _, g_path = _passing_data(tmp_path)  # gold は非空 (空だと gold チェックが先に発火する)
     result = _run_main(["--chunks", str(c_path), "--gold", str(g_path)])
     assert result.returncode != 0
     assert "[ERROR]" in result.stderr
+    assert "chunks[0]" in result.stderr  # validate_chunks 由来のメッセージ
 
 
 def test_chunks_missing_text_exits_with_error(tmp_path):
     """text フィールドが欠落した chunk は [ERROR] + exit 1。"""
-    c_path = tmp_path / "chunks.json"
+    c_path = tmp_path / "bad_chunks.json"
     _write_json(c_path, [{"paper_id": 1}])
-    g_path = tmp_path / "gold.json"
-    _write_json(g_path, [])
+    _, g_path = _passing_data(tmp_path)  # gold は非空 (空だと gold チェックが先に発火する)
     result = _run_main(["--chunks", str(c_path), "--gold", str(g_path)])
     assert result.returncode != 0
     assert "[ERROR]" in result.stderr
@@ -296,10 +294,9 @@ def test_chunks_missing_text_exits_with_error(tmp_path):
 
 def test_chunks_empty_text_exits_with_error(tmp_path):
     """text が空文字列の chunk は [ERROR] + exit 1（サイレント recall 低下を防ぐ）。"""
-    c_path = tmp_path / "chunks.json"
+    c_path = tmp_path / "bad_chunks.json"
     _write_json(c_path, [{"paper_id": 1, "text": ""}])
-    g_path = tmp_path / "gold.json"
-    _write_json(g_path, [])
+    _, g_path = _passing_data(tmp_path)  # gold は非空 (空だと gold チェックが先に発火する)
     result = _run_main(["--chunks", str(c_path), "--gold", str(g_path)])
     assert result.returncode != 0
     assert "[ERROR]" in result.stderr
