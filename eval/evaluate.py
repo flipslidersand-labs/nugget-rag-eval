@@ -196,6 +196,49 @@ def check_gold_chunk_coverage(
     return len(missing), [warning]
 
 
+def _validated_or_exit(check: Callable[[list[dict]], None], data: list[dict], prefix: str) -> None:
+    """Run *check* on *data*; a ValueError becomes ``sys.exit("[ERROR] <prefix><message>")``."""
+    try:
+        check(data)
+    except ValueError as exc:
+        sys.exit(f"[ERROR] {prefix}{exc}")
+
+
+def load_chunks_index(
+    path: str, label: str, *, error_prefix: str = ""
+) -> dict[str | int, list[dict]]:
+    """Read + validate a chunks JSON and return it indexed by paper (#340).
+
+    The one place the CLIs turn a bad file into ``sys.exit("[ERROR] ...")``. *label* names the
+    option in read errors (``--chunks``); *error_prefix* is put before a validation message
+    (e.g. ``"pool=P: "``).
+    """
+    chunks = _load_json(path, label)
+    _validated_or_exit(validate_chunks, chunks, error_prefix)
+    return build_chunks_index(chunks)
+
+
+def load_gold(path: str, label: str, *, error_prefix: str = "") -> list[dict]:
+    """Read + validate a gold JSON; same exit behaviour as :func:`load_chunks_index` (#340)."""
+    gold = _load_json(path, label)
+    _validated_or_exit(validate_gold, gold, error_prefix)
+    return gold
+
+
+def load_inputs(chunks_path: str, gold_path: str) -> tuple[dict[str | int, list[dict]], list[dict]]:
+    """Load ``--chunks`` and ``--gold`` the way evaluate/check_regression/analyze all need (#340).
+
+    Both files are read first, then chunks and gold are validated (in that order), so the
+    first error reported is the same as before the CLIs shared this. Gold coverage
+    (``check_gold_chunk_coverage``) is deliberately not done here: ``evaluate()`` does it itself.
+    """
+    chunks = _load_json(chunks_path, "--chunks")
+    gold = _load_json(gold_path, "--gold")
+    _validated_or_exit(validate_chunks, chunks, "")
+    _validated_or_exit(validate_gold, gold, "")
+    return build_chunks_index(chunks), gold
+
+
 _NON_WORD = re.compile(r"[\W_]+")
 
 
@@ -458,20 +501,7 @@ def main():
         embed_fn = build_embed_client(args).embed
         print(f"Embedding: {args.embedding_url}  weight={args.embed_weight}", file=sys.stderr)
 
-    chunks_data: list[dict] = _load_json(args.chunks, "--chunks")
-    gold: list[dict] = _load_json(args.gold, "--gold")
-
-    try:
-        validate_chunks(chunks_data)
-    except ValueError as exc:
-        sys.exit(f"[ERROR] {exc}")
-
-    try:
-        validate_gold(gold)
-    except ValueError as exc:
-        sys.exit(f"[ERROR] {exc}")
-
-    chunks_by_paper = build_chunks_index(chunks_data)
+    chunks_by_paper, gold = load_inputs(args.chunks, args.gold)
 
     try:
         result = evaluate(

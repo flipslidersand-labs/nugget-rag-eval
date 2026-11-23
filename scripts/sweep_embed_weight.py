@@ -31,17 +31,15 @@ from eval.cli_helpers import (
     build_embed_client,
     existing_file,
     float_between_0_1,
-    load_json,
     positive_int,
     write_json_atomic,
 )
 from eval.evaluate import (
-    build_chunks_index,
     evaluate,
     format_diagnostics,
+    load_chunks_index,
+    load_gold,
     pop_diagnostics,
-    validate_chunks,
-    validate_gold,
 )
 from nugget_rag.embedder import validate_vectors
 
@@ -173,23 +171,13 @@ def main() -> None:
     ap.add_argument("--out-dir", type=Path, required=True)
     args = ap.parse_args()
 
-    chunks = load_json(args.chunks, "--chunks")
-    try:
-        validate_chunks(chunks)
-        golds = {}
-        for p in args.gold:
-            gname = Path(p).stem
-            if gname in golds:
-                raise ValueError(f"gold name '{gname}' is used twice ({p})")
-            golds[gname] = load_json(p, "--gold")
-        for gname, g in golds.items():
-            try:
-                validate_gold(g)
-            except ValueError as exc:
-                raise ValueError(f"gold={gname}: {exc}") from exc
-    except ValueError as exc:
-        sys.exit(f"[ERROR] {exc}")
-    by_paper = build_chunks_index(chunks)
+    by_paper = load_chunks_index(args.chunks, "--chunks")
+    golds = {}
+    for p in args.gold:
+        gname = Path(p).stem
+        if gname in golds:
+            sys.exit(f"[ERROR] gold name '{gname}' is used twice ({p})")
+        golds[gname] = load_gold(p, "--gold", error_prefix=f"gold={gname}: ")
 
     texts: dict[str, None] = {}
     for gname, gold in golds.items():

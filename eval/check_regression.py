@@ -28,14 +28,13 @@ import math
 import sys
 from pathlib import Path
 
-from eval.cli_helpers import existing_file, float_between_0_1, load_json, positive_int
+from eval.cli_helpers import existing_file, float_between_0_1, positive_int
 from eval.evaluate import (
-    build_chunks_index,
     evaluate,
     format_diagnostics,
+    load_inputs,
     mode_label,
     pop_diagnostics,
-    validate_chunks,
 )
 
 
@@ -183,15 +182,7 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    chunks_data: list[dict] = load_json(args.chunks, "--chunks")
-    gold: list[dict] = load_json(args.gold, "--gold")
-
-    try:
-        validate_chunks(chunks_data)
-    except ValueError as exc:
-        sys.exit(f"[ERROR] {exc}")
-
-    chunks_by_paper = build_chunks_index(chunks_data)
+    chunks_by_paper, gold = load_inputs(args.chunks, args.gold)
 
     try:
         result = evaluate(chunks_by_paper, gold, top_k=args.top_k)
