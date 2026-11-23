@@ -15,6 +15,7 @@ import argparse
 import re
 import subprocess
 import sys
+import threading
 from pathlib import Path
 
 from eval.cli_helpers import positive_int, write_json_atomic
@@ -27,29 +28,87 @@ from nugget_rag.schema import make_chunk
 # Pool chunks are cut at a ~300-word target, so exact sentence boundaries do not matter here.
 _SENT_BOUNDARY = re.compile(r"(?<=[.!?])\s+")
 PDFTOTEXT_TIMEOUT_SEC = 120
+# A paper's text is well under 1 MB; this only stops a crafted PDF from filling memory.
+PDFTOTEXT_MAX_OUTPUT_BYTES = 64 * 1024 * 1024
+PDFTOTEXT_MAX_STDERR_BYTES = 64 * 1024
+
+
+def _drain(stream, limit: int, out: list[bytes], exceeded: threading.Event, kill=None) -> None:
+    """Read *stream*, keeping at most *limit* bytes in *out*.
+
+    Past *limit*, set *exceeded* and call *kill* (stdout: stop the child, stop reading).
+    Without *kill* (stderr) keep draining and discarding so the child never blocks on a full pipe.
+    """
+    total = 0
+    while chunk := stream.read(65536):
+        room = limit - total
+        total += len(chunk)
+        if room > 0:
+            out.append(chunk[:room])
+        if total > limit:
+            exceeded.set()
+            if kill is not None:
+                kill()
+                return
 
 
 def pdf_to_text(pdf: Path) -> str:
-    """Extract text with pdftotext (reading order, no layout) and collapse whitespace."""
+    """Extract text with pdftotext (reading order, no layout) and collapse whitespace.
+
+    stdout is read with a cap of PDFTOTEXT_MAX_OUTPUT_BYTES; a crafted PDF that emits more
+    gets the process killed and a RuntimeError (#305).
+    """
+    out_parts: list[bytes] = []
+    err_parts: list[bytes] = []
+    out_exceeded = threading.Event()
     try:
-        proc = subprocess.run(
+        with subprocess.Popen(
             ["pdftotext", "-enc", "UTF-8", str(pdf), "-"],
-            capture_output=True,
-            text=True,
-            check=False,
-            timeout=PDFTOTEXT_TIMEOUT_SEC,
-        )
-    except subprocess.TimeoutExpired as exc:
-        raise RuntimeError(
-            f"pdftotext timed out after {PDFTOTEXT_TIMEOUT_SEC}s for {pdf.name}"
-        ) from exc
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        ) as proc:
+            readers = [
+                threading.Thread(
+                    target=_drain,
+                    args=(
+                        proc.stdout,
+                        PDFTOTEXT_MAX_OUTPUT_BYTES,
+                        out_parts,
+                        out_exceeded,
+                        proc.kill,
+                    ),
+                ),
+                threading.Thread(
+                    target=_drain,
+                    args=(proc.stderr, PDFTOTEXT_MAX_STDERR_BYTES, err_parts, threading.Event()),
+                ),
+            ]
+            for t in readers:
+                t.start()
+            try:
+                proc.wait(timeout=PDFTOTEXT_TIMEOUT_SEC)
+            except subprocess.TimeoutExpired as exc:
+                proc.kill()
+                proc.wait()
+                raise RuntimeError(
+                    f"pdftotext timed out after {PDFTOTEXT_TIMEOUT_SEC}s for {pdf.name}"
+                ) from exc
+            finally:
+                for t in readers:
+                    t.join()
     except FileNotFoundError as exc:
         raise RuntimeError("pdftotext not found (install poppler-utils)") from exc
     except OSError as exc:
         raise RuntimeError(f"pdftotext could not be run for {pdf.name}: {exc}") from exc
+    if out_exceeded.is_set():
+        raise RuntimeError(
+            f"pdftotext output exceeds {PDFTOTEXT_MAX_OUTPUT_BYTES} bytes for {pdf.name}"
+        )
     if proc.returncode != 0:
-        raise RuntimeError(f"pdftotext failed for {pdf.name}: {proc.stderr.strip()[:200]}")
-    return re.sub(r"\s+", " ", proc.stdout).strip()
+        stderr = b"".join(err_parts).decode("utf-8", errors="replace")
+        raise RuntimeError(f"pdftotext failed for {pdf.name}: {stderr.strip()[:200]}")
+    text = b"".join(out_parts).decode("utf-8", errors="replace")
+    return re.sub(r"\s+", " ", text).strip()
 
 
 def chunk_text(text: str, target_words: int) -> list[str]:
