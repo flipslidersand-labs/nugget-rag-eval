@@ -52,6 +52,16 @@ def retrieve_full_chunk(chunks: list[dict], query: str, top_k: int = 5) -> list[
     return _rank_chunks(chunks, query)[:top_k]
 
 
+def _embed_batch(
+    embed_fn: Callable[[list[str]], list[list[float]]], query: str, sentences: list[str]
+) -> tuple[list[float], list[list[float]]]:
+    """Embed query + sentences in one call; return (query_vec, sentence_vecs) (#150, #251)."""
+    vecs = embed_fn([query] + sentences)
+    if len(vecs) != 1 + len(sentences):
+        raise ValueError(f"embed_fn returned {len(vecs)} vectors, expected {1 + len(sentences)}")
+    return vecs[0], vecs[1:]
+
+
 def retrieve_nuggets(
     chunks: list[dict],
     query: str,
@@ -74,52 +84,30 @@ def retrieve_nuggets(
     per query and eliminates repeated query-vector computation.
     """
     ranked_chunks = _rank_chunks(chunks, query)[:top_k]
+    chunk_sentences: list[list[str]] = [split_sentences(c["text"]) for c in ranked_chunks]
 
     # weight 0 -> embedding adds nothing to the score; skip the service call (#239)
-    if embed_fn is None or embed_weight == 0:
-        # BM25-only path — no batching needed
-        results = []
-        for chunk in ranked_chunks:
-            sentences = split_sentences(chunk["text"])
-            nugget_idx = top_nugget_indices(
-                query,
-                sentences,
-                top_k=nuggets_per_chunk,
-                embed_weight=embed_weight,
-                window=window,
-            )
-            results.append({**chunk, "nugget": _join_nuggets(sentences, nugget_idx)})
-        return results
-
-    # Hybrid path — one batch embed call for query + all chunk sentences
-    chunk_sentences: list[list[str]] = [split_sentences(c["text"]) for c in ranked_chunks]
-    all_sentences: list[str] = [s for sents in chunk_sentences for s in sents]
-
-    if all_sentences:
-        all_vecs = embed_fn([query] + all_sentences)
-        if len(all_vecs) != 1 + len(all_sentences):
-            raise ValueError(
-                f"embed_fn returned {len(all_vecs)} vectors, expected {1 + len(all_sentences)}"
-            )
-        query_vec: list[float] = all_vecs[0]
-        flat_sent_vecs: list[list[float]] = all_vecs[1:]
-    else:
-        query_vec = []
-        flat_sent_vecs = []
+    query_vec: list[float] | None = None
+    flat_sent_vecs: list[list[float]] | None = None
+    all_sentences = [s for sents in chunk_sentences for s in sents]
+    if embed_fn is not None and embed_weight != 0 and all_sentences:
+        query_vec, flat_sent_vecs = _embed_batch(embed_fn, query, all_sentences)
 
     results = []
     offset = 0
     for chunk, sentences in zip(ranked_chunks, chunk_sentences):
         n = len(sentences)
-        sent_vecs = flat_sent_vecs[offset : offset + n]
-        offset += n
+        sent_vecs = None
+        if flat_sent_vecs is not None:
+            sent_vecs = flat_sent_vecs[offset : offset + n]
+            offset += n
         nugget_idx = top_nugget_indices(
             query,
             sentences,
             top_k=nuggets_per_chunk,
             embed_weight=embed_weight,
-            query_vec=query_vec if sentences else None,
-            sent_vecs=sent_vecs if sentences else None,
+            query_vec=query_vec,
+            sent_vecs=sent_vecs,
             window=window,
         )
         results.append({**chunk, "nugget": _join_nuggets(sentences, nugget_idx)})

@@ -176,14 +176,18 @@ def test_tokenize_empty_string_returns_empty():
 
 
 def test_top_nuggets_embed_weight_zero_equals_bm25_only():
-    """embed_weight=0.0 では embed_fn を渡しても BM25-only と同じ結果。"""
+    """embed_weight=0.0 ではベクトルを渡しても BM25-only と同じ結果。"""
     sentences = ["KV cache reuse", "diffusion model training"]
 
-    def mock_embed(texts):
-        # embedding で diffusion を高スコアに設定（BM25 と逆順）
-        return [[0.0, 1.0]] + [[0.0, 1.0], [1.0, 0.0]]
-
-    result_w0 = top_nuggets("KV", sentences, top_k=1, embed_fn=mock_embed, embed_weight=0.0)
+    # embedding で diffusion を高スコアに設定（BM25 と逆順）
+    result_w0 = top_nuggets(
+        "KV",
+        sentences,
+        top_k=1,
+        embed_weight=0.0,
+        query_vec=[0.0, 1.0],
+        sent_vecs=[[0.0, 1.0], [1.0, 0.0]],
+    )
     result_bm25 = top_nuggets("KV", sentences, top_k=1)
     assert result_w0 == result_bm25
 
@@ -192,11 +196,15 @@ def test_top_nuggets_embed_weight_one_uses_only_embedding():
     """embed_weight=1.0 では BM25 を無視し embedding 順になる。"""
     sentences = ["diffusion model", "KV cache reuse"]
 
-    def mock_embed(texts):
-        # query と sentences[0]（diffusion）が近い
-        return [[1.0, 0.0]] + [[0.9, 0.1], [0.1, 0.9]]
-
-    result = top_nuggets("query", sentences, top_k=1, embed_fn=mock_embed, embed_weight=1.0)
+    # query と sentences[0]（diffusion）が近い
+    result = top_nuggets(
+        "query",
+        sentences,
+        top_k=1,
+        embed_weight=1.0,
+        query_vec=[1.0, 0.0],
+        sent_vecs=[[0.9, 0.1], [0.1, 0.9]],
+    )
     assert result == ["diffusion model"]
 
 
@@ -247,46 +255,10 @@ def test_bm25_ubiquitous_term_has_low_idf_contribution():
 # ── #150 precomputed query_vec / sent_vecs ───────────────────────────────
 
 
-def test_top_nuggets_precomputed_vecs_match_embed_fn():
-    """#150: query_vec+sent_vecs を渡すと embed_fn と同じ結果になる。"""
-    sentences = ["KV cache reuse", "diffusion model training"]
-
-    def mock_embed(texts):
-        return [[1.0, 0.0]] + [[0.9, 0.1], [0.1, 0.9]]
-
-    result_fn = top_nuggets("query", sentences, top_k=1, embed_fn=mock_embed, embed_weight=1.0)
-
-    # Provide the same vectors directly (bypassing embed_fn)
-    result_pre = top_nuggets(
-        "query",
-        sentences,
-        top_k=1,
-        embed_weight=1.0,
-        query_vec=[1.0, 0.0],
-        sent_vecs=[[0.9, 0.1], [0.1, 0.9]],
-    )
-    assert result_fn == result_pre
-
-
-def test_top_nuggets_precomputed_does_not_call_embed_fn():
-    """#150: query_vec+sent_vecs がある場合 embed_fn は呼ばれない。"""
-    calls: list = []
-
-    def should_not_be_called(texts):
-        calls.append(texts)
-        return [[0.0, 1.0]] * len(texts)
-
-    sentences = ["KV cache reuse", "diffusion model"]
-    top_nuggets(
-        "query",
-        sentences,
-        top_k=1,
-        embed_fn=should_not_be_called,
-        embed_weight=0.5,
-        query_vec=[1.0, 0.0],
-        sent_vecs=[[0.9, 0.1], [0.1, 0.9]],
-    )
-    assert calls == [], "embed_fn should not be called when precomputed vecs are provided"
+def test_top_nuggets_embed_fn_argument_removed():
+    """#333: embed 呼び出しは呼び出し側 (retriever) の責務。top_nuggets は embed_fn を受けない。"""
+    with pytest.raises(TypeError):
+        top_nuggets("query", ["KV cache reuse"], embed_fn=lambda texts: [[1.0]] * len(texts))
 
 
 # ── 混在言語 BM25 (#152) ──────────────────────────────────────────────────
@@ -444,14 +416,6 @@ def test_tokenize_iteration_marks_stay_in_bigrams():
 _SENTS = ["KV cache reuse.", "Diffusion models.", "KV cache method."]
 
 
-def test_top_nuggets_embed_fn_returning_one_too_few_vectors_raises():
-    def short_embed(texts):
-        return [[1.0, 0.0] for _ in texts][:-1]
-
-    with pytest.raises(ValueError):
-        top_nuggets("KV cache", _SENTS, embed_fn=short_embed)
-
-
 def test_top_nuggets_sent_vecs_length_mismatch_raises():
     with pytest.raises(ValueError):
         top_nuggets("KV cache", _SENTS, query_vec=[1.0, 0.0], sent_vecs=[[1.0, 0.0]] * 2)
@@ -503,8 +467,12 @@ def test_top_nuggets_hybrid_tie_prefers_earlier_sentence():
     # 埋め込みが全文同一 -> 正規化後に BM25・埋め込みとも同値 -> 合成スコアも同点。
     sentences = ["A", "B", "C", "D", "E"]
 
-    def const_embed(texts):
-        return [[1.0, 0.0] for _ in texts]
-
-    result = top_nuggets("xyznotinany", sentences, top_k=2, embed_fn=const_embed, embed_weight=0.5)
+    result = top_nuggets(
+        "xyznotinany",
+        sentences,
+        top_k=2,
+        embed_weight=0.5,
+        query_vec=[1.0, 0.0],
+        sent_vecs=[[1.0, 0.0] for _ in sentences],
+    )
     assert result == ["A", "B"]

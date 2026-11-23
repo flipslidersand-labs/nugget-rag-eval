@@ -5,7 +5,6 @@ from __future__ import annotations
 import math
 import unicodedata
 from collections import Counter
-from collections.abc import Callable
 from functools import cache
 
 from nugget_rag.vectors import embed_scores
@@ -152,7 +151,6 @@ def top_nugget_indices(
     query: str,
     sentences: list[str],
     top_k: int = 2,
-    embed_fn: Callable[[list[str]], list[list[float]]] | None = None,
     embed_weight: float = 0.5,
     query_vec: list[float] | None = None,
     sent_vecs: list[list[float]] | None = None,
@@ -163,13 +161,11 @@ def top_nugget_indices(
     ``window`` adds that many neighbouring sentences on each side of every
     selected sentence (0 = off, behaviour unchanged). Output stays in document order.
 
-    When embed_fn is provided, scores are a weighted blend of BM25 and
-    cosine similarity (embed_weight controls the embedding contribution).
-    Without embed_fn, falls back to BM25-only.
-
-    Pre-computed vectors can be supplied via ``query_vec`` and ``sent_vecs``
-    to avoid redundant HTTP calls when batching across multiple chunks.
-    When both are provided, ``embed_fn`` is not called.
+    When ``query_vec`` and ``sent_vecs`` are provided, scores are a weighted blend of
+    BM25 and cosine similarity (embed_weight controls the embedding contribution).
+    Without them, falls back to BM25-only. This function never calls an embedding
+    service: the caller embeds (see ``retriever.retrieve_nuggets``, which batches one
+    call per query, #150).
     Providing only one of ``query_vec`` / ``sent_vecs`` raises ValueError.
     """
     if not sentences:
@@ -179,21 +175,12 @@ def top_nugget_indices(
 
     if (query_vec is None) != (sent_vecs is None):
         raise ValueError("query_vec and sent_vecs must be provided together")
-    use_precomputed = query_vec is not None and sent_vecs is not None
-    if use_precomputed or embed_fn is not None:
-        if use_precomputed:
-            qv = query_vec
-            sv = sent_vecs
-        else:
-            vecs = embed_fn([query] + sentences)  # type: ignore[misc]
-            if len(vecs) != 1 + len(sentences):
-                raise ValueError(
-                    f"embed_fn returned {len(vecs)} vectors, expected {1 + len(sentences)}"
-                )
-            qv, sv = vecs[0], vecs[1:]
-        if len(sv) != len(sentences):
-            raise ValueError(f"sent_vecs has {len(sv)} vectors for {len(sentences)} sentences")
-        emb = _normalize(embed_scores(qv, sv))
+    if query_vec is not None and sent_vecs is not None:
+        if len(sent_vecs) != len(sentences):
+            raise ValueError(
+                f"sent_vecs has {len(sent_vecs)} vectors for {len(sentences)} sentences"
+            )
+        emb = _normalize(embed_scores(query_vec, sent_vecs))
         combined = [(1 - embed_weight) * b + embed_weight * e for b, e in zip(bm25, emb)]
     else:
         combined = bm25
