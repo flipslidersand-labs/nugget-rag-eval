@@ -165,6 +165,37 @@ def test_combine_splits_on_overflow():
     assert result[1]["chunk_indices"] == [1]
 
 
+def _words(n: int) -> str:
+    return " ".join(f"w{i}" for i in range(n))
+
+
+@pytest.mark.parametrize(
+    ("sizes", "target", "expected_indices"),
+    [
+        # (1) 合計がちょうど target なら結合する(<= の等号境界)
+        ([3, 3], 6, [[0, 1]]),
+        # (2a) 先頭が単独で target 超過 → それ単独で 1 チャンク、次は新しいチャンクを始める
+        ([8, 2], 6, [[0], [1]]),
+        # (2b) 途中が単独で target 超過 → 前後と結合せず単独で出る
+        ([2, 8, 2], 6, [[0], [1], [2]]),
+        # (3) 0 語(空 text)は size 0 として結合される。ちょうど target の直後でも入る
+        ([6, 0], 6, [[0, 1]]),
+        ([0, 3, 0, 3], 6, [[0, 1, 2, 3]]),
+        # (4) 3 チャンク以上の連鎖で current_size が累積する(2+2+2=6 は結合、次の 1 は溢れる)
+        ([2, 2, 2, 1], 6, [[0, 1, 2], [3]]),
+    ],
+)
+def test_combine_size_boundaries(sizes, target, expected_indices):
+    """結合可否は current_size + chunk_size <= target_tokens。超過チャンクは分割せず単独で出す。"""
+    chunks = [_make_chunk(i, _words(n)) for i, n in enumerate(sizes)]
+    result = combine_large_chunks(chunks, paper_id=1, target_tokens=target)
+    assert [r["chunk_indices"] for r in result] == expected_indices
+    # 超過チャンクの text は分割・切り詰めされずそのまま出る
+    for r in result:
+        if len(r["chunk_indices"]) == 1:
+            assert r["text"] == chunks[r["chunk_indices"][0]]["text"]
+
+
 def test_combine_takes_max_score():
     """スコアは結合チャンク中の最大値を採用する。"""
     chunks = [
