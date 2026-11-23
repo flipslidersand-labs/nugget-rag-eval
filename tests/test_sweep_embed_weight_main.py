@@ -107,7 +107,7 @@ def test_main_exits_on_schema_error_in_gold(env, monkeypatch):
     gold.write_text(json.dumps([{"arxiv_id": "2410.10071", "query": "q"}]), encoding="utf-8")
     with pytest.raises(SystemExit) as exc:
         _run(monkeypatch, tmp_path, chunks, gold)
-    assert str(exc.value).startswith("[ERROR] gold[0] missing required fields")
+    assert str(exc.value).startswith("[ERROR] gold=gold: gold[0] missing required fields")
 
 
 @pytest.mark.parametrize(
