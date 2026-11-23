@@ -151,3 +151,19 @@ def test_main_invalid_gold_error_names_the_gold(monkeypatch, tmp_path):
     with pytest.raises(SystemExit) as exc:
         mr.main()
     assert str(exc.value.code).startswith("[ERROR] gold=GoldX: gold[0] missing required fields")
+
+
+@pytest.mark.parametrize("kind", ["pool", "gold"])
+def test_main_rejects_a_name_given_twice(monkeypatch, tmp_path, kind):
+    c, g = tmp_path / "c.json", tmp_path / "g.json"
+    c.write_text(json.dumps(CHUNKS))
+    g.write_text(json.dumps(GOLD))
+    pools = [f"P={c}", f"P={c}"] if kind == "pool" else [f"P={c}"]
+    golds = [f"G={g}", f"G={g}"] if kind == "gold" else [f"G={g}"]
+    argv = ["rep"] + [a for s in pools for a in ("--pool", s)]
+    argv += [a for s in golds for a in ("--gold", s)]
+    monkeypatch.setattr(sys, "argv", argv)
+    with pytest.raises(SystemExit) as exc:
+        mr.main()
+    expected = "P" if kind == "pool" else "G"
+    assert str(exc.value.code) == f"[ERROR] {kind} name '{expected}' is used twice"

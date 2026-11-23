@@ -76,6 +76,21 @@ def test_main_with_two_gold_files_summarises_both(env, monkeypatch):
     assert set(summary) == {"gold_w0.5", "gold_hard_w0.5"}
 
 
+def test_main_rejects_gold_files_with_the_same_stem(env, monkeypatch):
+    tmp_path, chunks, gold = env
+    other = tmp_path / "sub" / "gold.json"
+    other.parent.mkdir()
+    other.write_text(json.dumps(GOLD), encoding="utf-8")
+    with pytest.raises(SystemExit) as exc:
+        argv = ["sw", "--chunks", str(chunks), "--gold", str(gold), str(other)]
+        argv += ["--embedding-url", "http://embed.invalid", "--out-dir", str(tmp_path / "out")]
+        monkeypatch.setattr(sys, "argv", argv)
+        sw.main()
+    assert str(exc.value).startswith("[ERROR] gold name 'gold' is used twice")
+    assert not FakeClient.instances
+    assert not (tmp_path / "out" / "summary.json").exists()
+
+
 def test_main_resumes_from_existing_cache_without_calling_embed(env, monkeypatch):
     tmp_path, chunks, gold = env
     _run(monkeypatch, tmp_path, chunks, gold, "--weights", "0.5")
