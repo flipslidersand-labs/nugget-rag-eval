@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import json
 import sys
+from pathlib import Path
 
 import pytest
 
-from eval.evaluate import build_chunks_index
+from eval.evaluate import build_chunks_index, evaluate
 from nugget_rag.paper_registry import ARXIV_MAP
 from scripts import analyze_nugget_failures as af
 
@@ -78,6 +79,85 @@ def test_C_rank_bucket_boundaries(rank, bucket):
 
     classes, c_rank = af.classify_all(by, gold, per_chunk=3)
     assert classes == {"C": 1} and c_rank == {bucket: 1}
+
+
+def _gold_spans(query, *spans):
+    return [{"arxiv_id": "2410.10071", "query": query, "answer_spans": list(spans)}]
+
+
+# Span 1 straddles a sentence boundary in B_CHUNK; span 2 sits inside one sentence in D_CHUNK.
+# (The straddling sentences share no query word and three decoys fill the nugget slots, so
+# evaluate's nugget text does not join them either.)
+B_CHUNK = (
+    "Zebra crossing rule one. Zebra crossing rule two. Zebra crossing rule three. "
+    "Alpha beta gamma. Delta epsilon zeta. " + FILLER
+)
+D_CHUNK = "The zebra crossing rule is key. " + FILLER
+B_D_GOLD = _gold_spans("zebra crossing rule", "gamma. Delta", "zebra crossing rule is key")
+
+
+def test_D_when_a_later_holder_chunk_hits_even_if_the_first_is_B():
+    by = _by(B_CHUNK, D_CHUNK)
+    top = af.retrieve_full_chunk(by[PID], "zebra crossing rule", 5)
+    # guard: both chunks hold a span and the B chunk ranks first (the old holders[0])
+    assert [c["text"] for c in top] == [B_CHUNK, D_CHUNK]
+    classes, _ = af.classify_all(by, B_D_GOLD)
+    assert classes == {"D": 1}
+
+
+def test_C_beats_B_and_reports_the_best_rank_over_all_holders():
+    # chunk 0: answer sentence at rank 6 (C). chunk 1: answer sentence at rank 4 (C).
+    # chunk 2: span straddles sentences (B). Result: C with the smallest rank, 4.
+    def chunk(answer, n_decoys):
+        return " ".join([*(f"Alpha beta number{i}." for i in range(n_decoys)), answer])
+
+    by = _by(
+        chunk("Zeta omega closes.", 5),
+        chunk("Theta sigma closes.", 3),
+        "Alpha beta. Straddles here. " + FILLER,
+    )
+    gold = _gold_spans("alpha beta", "Zeta omega closes", "Theta sigma closes", "beta. Straddles")
+    cls, rank = af.classify(by[PID], "alpha beta", gold[0]["answer_spans"], 5, 3, False)
+    assert (cls, rank) == ("C", 4)
+    classes, c_rank = af.classify_all(by, gold, per_chunk=3)
+    assert classes == {"C": 1} and c_rank == {"<=5": 1}
+
+
+def test_B_when_every_holder_straddles_and_none_has_a_sentence_holding_the_span():
+    by = _by(B_CHUNK, B_CHUNK.replace("Alpha", "Omega"))
+    classes, _ = af.classify_all(by, _gold_spans("zebra crossing rule", "gamma. Delta"))
+    assert classes == {"B": 1}
+
+
+def test_D_count_matches_evaluate_nugget_hits():
+    # Mixed outcomes, including a multi-holder item whose first holder is B (#327).
+    gold = [
+        *B_D_GOLD,
+        *_gold("zebra crossing rule", "zebra crossing rule is key"),  # D
+        *_gold("zebra crossing", "no such answer anywhere"),  # A
+        *_gold_spans("zebra crossing rule", "gamma. Delta"),  # B
+        *_gold("alpha beta", "Zeta omega closes"),  # C
+    ]
+    by = _by(
+        B_CHUNK,
+        D_CHUNK,
+        "Alpha beta gamma one. Alpha beta two. Alpha beta three. Alpha beta four. "
+        "Zeta omega closes.",
+    )
+    classes, _ = af.classify_all(by, gold, top_k=5, per_chunk=3)
+    result = evaluate(by, gold, top_k=5)  # BM25-only: no embed_fn, nugget_window=0
+    assert classes["D"] == result["hits"]["nugget"]
+    assert classes == {"D": 2, "A": 1, "B": 1, "C": 1}
+
+
+def test_D_count_matches_evaluate_on_the_committed_fixtures():
+    root = Path(__file__).parent / "fixtures"
+    by = build_chunks_index(json.loads((root / "chunks_test.json").read_text()))
+    gold = json.loads((root / "gold_test.json").read_text())
+    for normalize in (False, True):
+        classes, _ = af.classify_all(by, gold, normalize=normalize)
+        result = evaluate(by, gold, match="normalized" if normalize else "exact")
+        assert classes["D"] == result["hits"]["nugget"]
 
 
 def test_only_the_gold_paper_is_searched():
