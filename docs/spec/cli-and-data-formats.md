@@ -64,8 +64,19 @@ JSON 配列。各要素は次を持つ。
 | `--embedding-collection` | `search-engine` | 埋め込みサービスのコレクション名 |
 | `--verbose` | off | 失敗クエリの詳細を出す |
 
-出力の例は [README の出力フォーマット](../../README.md#出力フォーマット)。JSON は `n_queries`・モードごとの
-`recall`/`mrr`/`avg_tokens`・`hits`・`latency_ms`・`comparison` を持つ。
+出力の例は [README の出力フォーマット](../../README.md#出力フォーマット)。JSON は次のキーを持つ。
+
+| キー | 内容 |
+| --- | --- |
+| `match` | 使った照合方式（`exact` か `normalized`） |
+| `n_queries` | gold のクエリ数 |
+| `n_queries_without_chunks` | gold の論文キーに対応するチャンクが `--chunks` に無いクエリ数。そのクエリは静かに Recall 0 になるので、0 でなければ標準エラーに `[WARN]` も出る。全クエリが該当なしのときは Recall 0 を出さず `[ERROR]` で終了コード 1 |
+| `modes` | 評価したモード名の配列（`full_chunk`, `nugget`） |
+| `hits` | モードごとの正解クエリ数（丸め前） |
+| `full_chunk`, `nugget` | モードごとの `recall`・`mrr`・`avg_tokens` |
+| `latency_ms` | モードごとのレイテンシ（`p50`・`p95`） |
+| `comparison` | full-chunk と nugget の対応あり比較 |
+| `pool` | `--pool-label` を指定したときだけ出る。指定した文字列そのまま |
 
 入力の検証エラーは `[ERROR] ...` を標準エラーに出して終了コード 1。
 
