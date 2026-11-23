@@ -26,7 +26,13 @@ import time
 from collections.abc import Callable
 from pathlib import Path
 
-from eval.cli_helpers import existing_file, float_between_0_1, load_json, positive_int
+from eval.cli_helpers import (
+    existing_file,
+    float_between_0_1,
+    load_json,
+    positive_int,
+    write_json_atomic,
+)
 from eval.evaluate import build_chunks_index, evaluate, validate_chunks, validate_gold
 
 BATCH = 128  # texts per embedding request (the client allows up to 256)
@@ -71,9 +77,7 @@ def load_cache(path: Path | None) -> dict[str, list[float]]:
 
 def save_cache(path: Path | None, cache: dict[str, list[float]]) -> None:
     if path:
-        tmp = path.with_suffix(".tmp")
-        tmp.write_text(json.dumps(cache, ensure_ascii=False), encoding="utf-8")
-        tmp.replace(path)
+        write_json_atomic(path, cache, indent=None)
 
 
 def warm_cache(
@@ -159,8 +163,11 @@ def main() -> None:
     try:
         validate_chunks(chunks)
         golds = {Path(p).stem: load_json(p, "--gold") for p in args.gold}
-        for g in golds.values():
-            validate_gold(g)
+        for gname, g in golds.items():
+            try:
+                validate_gold(g)
+            except ValueError as exc:
+                raise ValueError(f"gold={gname}: {exc}") from exc
     except ValueError as exc:
         sys.exit(f"[ERROR] {exc}")
     by_paper = build_chunks_index(chunks)
@@ -185,6 +192,8 @@ def main() -> None:
         warm_cache(list(texts), client.embed, cache, cache_path)
     except EmbedError as exc:
         sys.exit(f"[ERROR] embedding service failed: {exc}")
+    except RuntimeError as exc:  # warm_cache: vector count != batch size
+        sys.exit(f"[ERROR] {exc}")
 
     # collect_texts embeds with dummy 1-dim vectors, so a real dimension mismatch
     # (mixed-model cache, inconsistent service) only surfaces in sweep().
@@ -194,9 +203,7 @@ def main() -> None:
         )
     except ValueError as exc:
         sys.exit(f"[ERROR] {exc}")
-    (args.out_dir / "summary.json").write_text(
-        json.dumps(results, ensure_ascii=False, indent=1), encoding="utf-8"
-    )
+    write_json_atomic(args.out_dir / "summary.json", results, indent=1)
     print("\n" + format_table(results))
     print(f"\nresults: {args.out_dir / 'summary.json'}  (no API key inside)")
 

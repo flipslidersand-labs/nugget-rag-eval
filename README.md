@@ -1,5 +1,7 @@
 # nugget-rag-eval
 
+Release type: `reference`
+
 English · [日本語](#日本語)
 
 ## English
@@ -166,7 +168,8 @@ nugget             0.216        0.128        78.7
 
 （`hits` はモードごとの正解クエリ数（丸め前）。`recall` は `hits / n_queries` を 3 桁に丸めた値。
 例は難問セット・PDF プール・BM25 のみ。`comparison` の判別条件は `mcnemar_p < 0.05` かつ
-`recall_diff_ci95` が 0 を含まないこと。`nugget_only` は構造上常に 0。）
+`recall_diff_ci95` が 0 を含まないこと。`nugget_only` は構造上常に 0。
+この出力例は #252（トークナイザの句読点修正）より前の実行で、現在の基準値の Recall は full 0.595 / nugget 0.270 〔`eval/baseline_hard.json`〕。）
 
 ## CI 回帰チェック
 
@@ -196,6 +199,7 @@ python eval/check_regression.py \
 
 - 基準値は `eval/baseline_hard.json`。意図した変更で動かすときだけ更新し、新しい値を PR 本文に書く。
 - `--advisory` は低下を `[WARN]` で出して exit 0（まず助言）。安定したら外して失敗にする。
+- `--advisory` でも、基準の `top_k`・`gold`・`n` が今回と違う、またはモード名が 1 つも一致しないときは `[WARN]` と「比較不能」を出して exit 0 のまま。数値の差は意味を持たない。
 - 基準ファイルが無いと低下チェックはスキップされる。
 - 基準にモード名が 1 つも一致しない、または基準の `top_k`・`gold`・`n` が今回の実行と違うときは FAIL（キーが無い古い形式は照合しない）。
 
@@ -222,7 +226,7 @@ python eval/check_regression.py \
 |---|---|---|---|---|
 | A 旧: per-query hybrid・先頭 200 字の断片 | 63 | 1.000 / 1.000 | 0.027 / 0.027 | 0.027（1/37） |
 | **C per-query hybrid・チャンク全文** | 187 | 1.000 / 0.842 | 0.459 / 0.000 | 0.946（正規化照合 35/37） |
-| B PDF 全文プール | 354 | 0.842 / 0.789 | 0.514 / 0.216 | 1.000 |
+| B PDF 全文プール | 354 | 0.842 / 0.789 | 0.595 / 0.270 | 1.000 |
 
 （C は `--match normalized`、A・B は完全一致。A の難問が 0.027 なのは、根拠が先頭 200 字に入らないため。C の完全一致では
 根拠の一致が 14/37 にとどまり、英数字で正規化すると 35/37。差は空白の入り方で、内容の欠落ではない。）
@@ -255,9 +259,11 @@ python eval/check_regression.py \
 | 既存 `gold_set.json` | 19 | full-chunk | 0.842 | 0.655 | 278.9 | - |
 | | | nugget | 0.789 | 0.532 | 76.7 | 0.275 |
 | | | nugget（窓 1） | 0.842 | 0.653 | 146.1 | 0.524 |
-| 難問 `gold_set_hard.json` | 37 | full-chunk | 0.514 | 0.373 | 281.4 | - |
-| | | nugget | 0.216 | 0.128 | 78.7 | 0.280 |
+| 難問 `gold_set_hard.json` | 37 | full-chunk | 0.595 | 0.373 | 281.4 | - |
+| | | nugget | 0.270 | 0.128 | 78.7 | 0.280 |
 | | | nugget（窓 1） | 0.378 | 0.259 | 155.6 | 0.553 |
+
+（2026-11-22: 難問の窓 0 の Recall@5 だけを `eval/baseline_hard.json`（2026-11-07 に #252 の修正後で記録し直し）に合わせた。MRR・平均語数・語数/full・窓 1・下の `comparison` と保持率・失敗の内訳は #252 より前の値で、再測定していない。）
 
 full-chunk と nugget は差があるか（`comparison`。判別条件は実測前に固定: p < 0.05 かつ Recall 差の 95% 区間が 0 を含まない）:
 
@@ -319,6 +325,19 @@ nugget             1.000        0.791        100.5        (削減率 66.5%)
 EMBEDDING_API_KEY=<key> python scripts/sweep_embed_weight.py --chunks <pool> \
   --gold eval/gold_set.json eval/gold_set_hard.json --embedding-url http://<host>:9092 --out-dir <dir>
 ```
+
+## v1 の範囲
+
+コードと成果物を静的に照合した結果（未実行）。
+
+- [x] 実行時の依存がゼロ（BM25 は自前実装）で、テストがそれを確認している
+- [x] 「実行」の手順 1〜6 の CLI オプションが実装にあり、手順 5 の 10 論文は arxiv ID で特定できる
+- [x] CI が Recall@5 の閾値 0.95 の回帰ゲートを実データで回している
+- [x] 難問セットの基準値と、低下幅のチェック（助言モード）がある
+- [x] 評価結果の表の Recall@5 が現在の基準値と一致している（難問・窓 0: 0.595/0.27。MRR・語数・`comparison` などは再測定しておらず #252 より前の値）
+- [ ] README の残りの数値（出力例・MRR・語数・保持率・失敗の内訳・comparison）を #252 後の再測定で更新している（PDF を `data/papers/` に置いて「実行」手順 5 を回す）
+
+v1 に含めないもの: 難問ゴールドの人による確認（#194）、37 件での埋め込み重みの再測定、埋め込み併用を採るかどうか。
 
 ## 限界
 

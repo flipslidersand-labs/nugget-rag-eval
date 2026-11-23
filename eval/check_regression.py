@@ -53,6 +53,14 @@ def _same_path(a: object, b: str) -> bool:
     return isinstance(a, str) and (_REPO_ROOT / a).resolve() == Path(b).resolve()
 
 
+# Marks recall-drop messages; any other baseline failure means "not comparable".
+_DROP_MARK = " dropped "
+_INCOMPARABLE_NOTE = (
+    "[WARN] 比較不能 (not comparable): baseline と今回で top_k/gold/n/モード が違うため、"
+    "数値の差は意味を持たない"
+)
+
+
 def check_baseline(
     result: dict,
     baseline_path: str,
@@ -108,7 +116,7 @@ def check_baseline(
         drop = round(base[mode] - now, 3)
         if drop > max_drop:
             failures.append(
-                f"{mode} recall {now} dropped {round(drop, 3)} from baseline {base[mode]} (max-drop {max_drop})"
+                f"{mode} recall {now}{_DROP_MARK}{round(drop, 3)} from baseline {base[mode]} (max-drop {max_drop})"
             )
     return failures, ""
 
@@ -204,6 +212,8 @@ def main() -> None:
             print(f"  - {msg}")
         if not args.advisory:
             sys.exit(1)
+        if any(_DROP_MARK not in msg for msg in drops):
+            print(f"  {_INCOMPARABLE_NOTE}")
         print("  (advisory: exit 0)")
         return
 

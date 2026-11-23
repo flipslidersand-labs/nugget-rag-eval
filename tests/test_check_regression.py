@@ -6,6 +6,8 @@ import json
 import subprocess
 import sys
 
+import pytest
+
 from nugget_rag.paper_registry import ARXIV_MAP
 
 
@@ -334,11 +336,13 @@ def test_real_data_gate_passes_threshold():
 # ── #269: non-string text / query exit 1 with [ERROR], no traceback ──────────
 
 
-def test_chunks_non_string_text_exits_with_error(tmp_path):
-    c_path = tmp_path / "chunks.json"
-    _write_json(c_path, [{"paper_id": 1, "text": 123}])
-    g_path = tmp_path / "gold.json"
-    _write_json(g_path, [])
+@pytest.mark.parametrize("text", [123, "   "])
+def test_chunks_non_string_or_blank_text_exits_with_error(tmp_path, text):
+    # gold は空でない (paper_id=1 に当たる) ものを使う。gold が空だと chunks が
+    # 評価されず、検証が無くてもトレースバックが出ないため検出力がなくなる。
+    _, g_path = _passing_data(tmp_path)
+    c_path = tmp_path / "bad_chunks.json"
+    _write_json(c_path, [{"paper_id": 1, "text": text}])
     result = _run_main(["--chunks", str(c_path), "--gold", str(g_path)])
     assert result.returncode == 1
     assert "[ERROR]" in result.stderr
@@ -517,3 +521,40 @@ def test_baseline_gold_different_file_fails_from_any_cwd(tmp_path, monkeypatch):
     other = str(repo_root / "eval" / "gold_set.json")
     failures = _gold_check("eval/gold_set_hard.json", other, tmp_path)
     assert len(failures) == 1 and "gold" in failures[0]
+
+
+# ── #314: --advisory でも metadata 不一致は「比較不能」と明記する（exit 0 のまま） ──────
+
+
+def test_advisory_metadata_mismatch_is_warn_exit0_and_says_incomparable(tmp_path):
+    base = {"n": 37, "full_chunk": {"recall": 1.0}, "nugget": {"recall": 1.0}}
+    result, _ = _run_with_baseline(tmp_path, base, ["--advisory"])
+    assert result.returncode == 0, result.stdout
+    assert "[WARN]" in result.stdout and "[FAIL]" not in result.stdout
+    assert "baseline n 37 != current n 1" in result.stdout  # which item differs is kept
+    assert "比較不能" in result.stdout
+
+
+def test_advisory_top_k_mismatch_says_incomparable(tmp_path):
+    base = {"top_k": 5, "full_chunk": {"recall": 1.0}, "nugget": {"recall": 1.0}}
+    result, _ = _run_with_baseline(tmp_path, base, ["--top-k", "10", "--advisory"])
+    assert result.returncode == 0, result.stdout
+    assert "比較不能" in result.stdout
+
+
+def test_advisory_pure_recall_drop_does_not_say_incomparable(tmp_path):
+    c_path, g_path = _failing_data(tmp_path)
+    b_path = tmp_path / "baseline.json"
+    _write_json(b_path, {"full_chunk": {"recall": 1.0}, "nugget": {"recall": 1.0}})
+    args = ["--chunks", str(c_path), "--gold", str(g_path), "--threshold", "0"]
+    result = _run_main([*args, "--baseline", str(b_path), "--advisory"])
+    assert result.returncode == 0, result.stdout
+    assert "[WARN]" in result.stdout and "dropped" in result.stdout
+    assert "比較不能" not in result.stdout
+
+
+def test_non_advisory_metadata_mismatch_still_fails(tmp_path):
+    base = {"n": 37, "full_chunk": {"recall": 1.0}, "nugget": {"recall": 1.0}}
+    result, _ = _run_with_baseline(tmp_path, base)
+    assert result.returncode == 1, result.stdout
+    assert "[FAIL]" in result.stdout
