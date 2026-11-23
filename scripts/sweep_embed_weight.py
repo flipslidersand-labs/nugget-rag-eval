@@ -36,6 +36,7 @@ from eval.cli_helpers import (
     write_json_atomic,
 )
 from eval.evaluate import build_chunks_index, evaluate, validate_chunks, validate_gold
+from nugget_rag.embedder import validate_vectors
 
 BATCH = 128  # texts per embedding request (the client allows up to 256)
 
@@ -98,6 +99,7 @@ def warm_cache(
         vecs = embed(batch)
         if len(vecs) != len(batch):
             raise RuntimeError(f"embedding service returned {len(vecs)} vectors for {len(batch)}")
+        validate_vectors(vecs)  # never cache a vector load_cache() would reject (#326)
         cache.update(zip(batch, vecs))
         save_cache(cache_path, cache)  # resumable if interrupted
         done = min(i + BATCH, len(todo))
