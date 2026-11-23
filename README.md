@@ -37,6 +37,10 @@ python eval/check_regression.py --chunks data/chunks_large.json --gold eval/gold
 - [Architecture decision records](docs/adr/README.md)
 - [CHANGELOG](CHANGELOG.md) · [CONTRIBUTING](CONTRIBUTING.md)
 
+### License
+
+MIT — see [LICENSE](LICENSE).
+
 ## 日本語
 
 CoinRAG ([arxiv 2608.07458](https://arxiv.org/abs/2608.07458)) のコアアイデア —
@@ -50,6 +54,10 @@ academic-paper-system に導入する前に定量評価するためのリポジ�
 - [仕様: CLI とデータ形式](docs/spec/cli-and-data-formats.md) — 引数・入力ファイル・終了コード
 - [設計](docs/design.md) — データの流れとモジュールの責務
 - [CONTRIBUTING](CONTRIBUTING.md) — 開発の流れ・CI・コミット規約
+
+## ライセンス
+
+MIT — [LICENSE](LICENSE) を参照。
 
 ## 設計判断（ADR）/ Design decisions
 
