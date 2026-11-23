@@ -37,6 +37,10 @@ python eval/check_regression.py --chunks data/chunks_large.json --gold eval/gold
 - [Architecture decision records](docs/adr/README.md)
 - [CHANGELOG](CHANGELOG.md) · [CONTRIBUTING](CONTRIBUTING.md)
 
+### License
+
+MIT — see [LICENSE](LICENSE).
+
 ## 日本語
 
 CoinRAG ([arxiv 2608.07458](https://arxiv.org/abs/2608.07458)) のコアアイデア —
@@ -50,6 +54,10 @@ academic-paper-system に導入する前に定量評価するためのリポジ�
 - [仕様: CLI とデータ形式](docs/spec/cli-and-data-formats.md) — 引数・入力ファイル・終了コード
 - [設計](docs/design.md) — データの流れとモジュールの責務
 - [CONTRIBUTING](CONTRIBUTING.md) — 開発の流れ・CI・コミット規約
+
+## ライセンス
+
+MIT — [LICENSE](LICENSE) を参照。
 
 ## 設計判断（ADR）/ Design decisions
 
@@ -153,7 +161,9 @@ full-chunk         0.514        0.373        281.4
 nugget             0.216        0.128        78.7
 
 {
+  "match": "exact",
   "n_queries": 37,
+  "n_queries_without_chunks": 0,
   "full_chunk": {"recall": 0.514, "mrr": 0.373, "avg_tokens": 281.4},
   "nugget":     {"recall": 0.216,   "mrr": 0.128, "avg_tokens": 78.7},
   "hits": {"full_chunk": 19, "nugget": 8},
@@ -166,7 +176,10 @@ nugget             0.216        0.128        78.7
 }
 ```
 
-（`hits` はモードごとの正解クエリ数（丸め前）。`recall` は `hits / n_queries` を 3 桁に丸めた値。
+（`match` は照合方式（`--match`）。`n_queries_without_chunks` は gold の論文キーに対応するチャンクが無いクエリ数で、
+そのクエリは静かに Recall 0 になる（0 でなければ標準エラーに `[WARN]`、全件該当なしならエラー終了）。
+実際の出力には `modes`（モード名の配列）もあり、`--pool-label` を指定したときだけ `pool` が付く。
+`hits` はモードごとの正解クエリ数（丸め前）。`recall` は `hits / n_queries` を 3 桁に丸めた値。
 例は難問セット・PDF プール・BM25 のみ。`comparison` の判別条件は `mcnemar_p < 0.05` かつ
 `recall_diff_ci95` が 0 を含まないこと。`nugget_only` は構造上常に 0。
 この出力例は #252（トークナイザの句読点修正）より前の実行で、現在の基準値の Recall は full 0.595 / nugget 0.270 〔`eval/baseline_hard.json`〕。）
@@ -350,7 +363,9 @@ v1 に含めないもの: 難問ゴールドの人による確認（#194）、37
   外したのは人が判定した 3 件（20・22・38）。Claude の案で一度外した 11・16 は復元した（16 は本文と付録 A.1 が同一文で、span が両方に一致するので一意性の問題はなかった=外したのは誤り。11 は文が違うため、span を両方の節に共通する語に変えて残した）。
   △の 4 件（5・14・23・36）は 2026-10-31 に直した（クエリの修正と別 span の追加）。
   **表の数値は、現在の 37 件の再測定値**（2026-10-31）。例外は埋め込み重みの表で、35 件・△修正前の版。人の確認が進めば、件数と数値は変わる。
-  AI 単独の査読（独立した Opus）は、人が不採用にした 3 件のうち、×にできたのが 1 件、△が 1 件、見逃しが 1 件で、人が○にした 9 件のうち 5 件に誤警報を出した（表・図・要旨の再掲を「重複」とするため）。
+  AI による査読は、Codex 2 回（1 回目は 12 件すべて△で不採用、下の数字は 2 回目）と Opus 1 回を別々に行った（人の判定が付いた 12 件で較正。記録は #194 のコメント）。
+  Codex 査読（人が不採用にした 3 件のうち 0 件、○の 9 件のうち 1 件に誤警報。確認シートには採用せず）: [#194 のコメント](https://github.com/flipslidersand-labs/nugget-rag-eval/issues/194#issuecomment-6455190697)。
+  Opus 査読（人の判定を伏せて実施。独立レビュー）は、人が不採用にした 3 件のうち、×にできたのが 1 件、△が 1 件、見逃しが 1 件で、人が○にした 9 件のうち 5 件に誤警報を出した（表・図・要旨の再掲を「重複」とするため）: [#194 のコメント](https://github.com/flipslidersand-labs/nugget-rag-eval/issues/194#issuecomment-6526950725)。
 - **span の含有で判定している。** 回答として正しいか、LLM が実際に答えられるかは評価していない（Recall のみ）。
 - **本文の表記が API 由来のチャンクと異なる。** 難問の span は `pdftotext` の出力で作った。API のチャンクは空白の入り方が違う（`UniversityofCalifornia`）ので、
   API 由来のチャンクで測るときは `--match normalized` が必要。正規化は空白・記号を無視するだけだが、わずかに偽の一致を増やしうる。

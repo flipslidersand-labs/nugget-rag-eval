@@ -18,9 +18,9 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
         with:
-          node-version: "20"
+          node-version: "24"  # markdownlint-cli@0.49.1 は engines node >=22
       - run: npx --yes markdownlint-cli@0.49.1 --config .markdownlint.json "**/*.md" --ignore node_modules --ignore .venv
 
   test:
@@ -38,7 +38,7 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
-      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5.6.0
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0  # v7.1.0
         with:
           python-version: "3.12"
           cache: pip
@@ -46,7 +46,7 @@ jobs:
       - name: Eval regression smoke (BM25-only, fixture data)
         run: python eval/check_regression.py --chunks tests/fixtures/chunks_test.json --gold tests/fixtures/gold_test.json --threshold 0.95
       - name: Eval regression gate (BM25-only, real data)
-        run: python eval/check_regression.py --chunks data/chunks_large.json --gold eval/gold_set.json --threshold 0.95
+        run: python eval/check_regression.py --chunks data/chunks_large.json --gold eval/gold_set.json --threshold 0.95 --baseline eval/baseline_gold.json --max-drop 0.0
 
   gitleaks:
     permissions:
