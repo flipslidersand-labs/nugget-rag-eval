@@ -10,6 +10,14 @@ Usage:
 
     # Show which queries caused regression:
     python eval/check_regression.py ... --verbose
+
+    # Baseline mode: fail if recall drops more than --max-drop below the recorded
+    # values; --advisory reports the drop as [WARN] and exits 0:
+    python eval/check_regression.py \
+        --chunks data/chunks_pdf.json \
+        --gold eval/gold_set_hard.json \
+        --threshold 0 \
+        --baseline eval/baseline_hard.json --max-drop 0.05 --advisory
 """
 
 from __future__ import annotations
