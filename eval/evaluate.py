@@ -17,7 +17,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import re
 import sys
 import time
@@ -25,8 +24,8 @@ import unicodedata
 from collections.abc import Callable
 from dataclasses import dataclass
 
+from eval.cli_helpers import add_embedding_args, build_embed_client
 from eval.cli_helpers import existing_file as _existing_file
-from eval.cli_helpers import float_between_0_1 as _float_between_0_1
 from eval.cli_helpers import load_json as _load_json
 from eval.cli_helpers import non_negative_int as _non_negative_int
 from eval.cli_helpers import positive_int as _positive_int
@@ -403,23 +402,7 @@ def main():
     parser.add_argument("--gold", required=True, type=_existing_file)
     parser.add_argument("--top-k", type=_positive_int, default=5)
     parser.add_argument("--verbose", action="store_true")
-    parser.add_argument(
-        "--embedding-url",
-        default=None,
-        help="Embedding service URL (e.g. http://<internal-host>:9092). "
-        "When set, nugget scoring uses BM25 + embedding hybrid.",
-    )
-    parser.add_argument(
-        "--embed-weight",
-        type=_float_between_0_1,
-        default=0.5,
-        help="Embedding weight in hybrid score: 0=BM25-only, 1=embed-only (default: 0.5)",
-    )
-    parser.add_argument(
-        "--embedding-collection",
-        default="search-engine",
-        help="Embedding collection name (default: search-engine)",
-    )
+    add_embedding_args(parser)
     parser.add_argument(
         "--token-estimator",
         choices=["words", "chars"],
@@ -449,15 +432,7 @@ def main():
 
     embed_fn = None
     if args.embedding_url:
-        from nugget_rag.embedder import EmbedClient
-
-        if not os.environ.get("EMBEDDING_API_KEY"):
-            print("[WARN] EMBEDDING_API_KEY not set", file=sys.stderr)
-        client = EmbedClient(
-            args.embedding_url,
-            collection=args.embedding_collection,
-        )
-        embed_fn = client.embed
+        embed_fn = build_embed_client(args).embed
         print(f"Embedding: {args.embedding_url}  weight={args.embed_weight}", file=sys.stderr)
 
     chunks_data: list[dict] = _load_json(args.chunks, "--chunks")
