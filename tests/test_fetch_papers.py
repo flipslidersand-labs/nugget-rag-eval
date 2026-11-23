@@ -272,6 +272,56 @@ def test_fetch_per_query_deduplicates(mock_fetch):
     assert failures == 0
 
 
+def _raw(pid: int, idx: int, score: float = 0.5) -> dict:
+    return {"paper_id": pid, "chunk_index": idx, "text": f"body{idx}", "score": score}
+
+
+@patch("scripts.fetch_papers.fetch_chunks_for_paper")
+def test_fetch_per_query_large_shared_chunk_appears_once(mock_fetch):
+    """large: クエリ1=[3,5]・クエリ2=[3,7] でも chunk 3 は 1 回だけ出る (#266)。"""
+    mock_fetch.side_effect = [[_raw(1, 3), _raw(1, 5)], [_raw(1, 3), _raw(1, 7)]]
+    gold = [
+        {"paper_id": 1, "query": "q1", "answer_spans": ["x"]},
+        {"paper_id": 1, "query": "q2", "answer_spans": ["x"]},
+    ]
+    result, failures = fetch_per_query("http://api", gold, chunk_mode="large", target_tokens=512)
+    assert failures == 0
+    all_indices = [i for c in result for i in c["chunk_indices"]]
+    assert sorted(all_indices) == [3, 5, 7]
+    assert sum(c["text"].split().count("body3") for c in result) == 1
+    # 固定: 重複排除後の和集合を 1 回で結合する (初出順 3,5,7)。
+    assert len(result) == 1
+    assert result[0]["chunk_indices"] == [3, 5, 7]
+    assert result[0]["text"] == "body3 body5 body7"
+
+
+@patch("scripts.fetch_papers.fetch_chunks_for_paper")
+def test_fetch_per_query_large_shared_chunk_keeps_highest_score(mock_fetch):
+    """large: 重複チャンクは高スコア側が残り、結合チャンクの score に反映される (#266)。"""
+    mock_fetch.side_effect = [[_raw(1, 3, 0.2)], [_raw(1, 3, 0.9)]]
+    gold = [
+        {"paper_id": 1, "query": "q1", "answer_spans": ["x"]},
+        {"paper_id": 1, "query": "q2", "answer_spans": ["x"]},
+    ]
+    result, _ = fetch_per_query("http://api", gold, chunk_mode="large", target_tokens=512)
+    assert len(result) == 1
+    assert result[0]["chunk_indices"] == [3]
+    assert result[0]["score"] == 0.9
+
+
+@patch("scripts.fetch_papers.fetch_chunks_for_paper")
+def test_fetch_per_query_large_combines_per_paper(mock_fetch):
+    """large: 論文ごとに別々に結合し、論文をまたいでは結合しない (#266)。"""
+    mock_fetch.side_effect = [[_raw(1, 0)], [_raw(2, 0)], [_raw(1, 1)]]
+    gold = [
+        {"paper_id": 1, "query": "q1", "answer_spans": ["x"]},
+        {"paper_id": 2, "query": "q2", "answer_spans": ["x"]},
+        {"paper_id": 1, "query": "q3", "answer_spans": ["x"]},
+    ]
+    result, _ = fetch_per_query("http://api", gold, chunk_mode="large", target_tokens=512)
+    assert [(c["paper_id"], c["chunk_indices"]) for c in result] == [(1, [0, 1]), (2, [0])]
+
+
 @patch("scripts.fetch_papers.fetch_chunks_for_paper")
 def test_fetch_per_query_resolves_arxiv_id(mock_fetch):
     """gold に arxiv_id がある場合、ARXIV_TO_PAPER_ID で paper_id を解決する。"""
