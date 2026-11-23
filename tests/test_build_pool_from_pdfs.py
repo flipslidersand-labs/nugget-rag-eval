@@ -160,7 +160,7 @@ def test_build_pool_shape_and_skips_unregistered(tmp_path):
     first = pool[0]
     assert first["paper_id"] == 1
     assert first["chunk_indices"] == [0]
-    assert set(first) == {"paper_id", "arxiv_id", "chunk_indices", "text", "score"}
+    assert list(first) == ["paper_id", "arxiv_id", "chunk_indices", "text", "score"]
 
 
 def test_main_missing_pdf_dir_exits(monkeypatch, tmp_path):
