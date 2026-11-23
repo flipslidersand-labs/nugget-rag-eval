@@ -13,5 +13,10 @@ data/*
 !tests/fixtures/
 .env
 .env.local
+.env.*
+!.env.example
+*.pem
+*.key
+*.tmp
 out/
 *embed_cache*.json

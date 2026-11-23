@@ -5,7 +5,36 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from nugget_rag.chunker import split_sentences
-from nugget_rag.scorer import bm25_scores, top_nuggets
+from nugget_rag.scorer import bm25_scores, top_nugget_indices
+
+# Marks a gap between non-adjacent picked sentences (#301). It must be a word character:
+# the normalized match mode drops whitespace/punctuation, so any other separator would
+# vanish and the two sentences would still match across the gap. U+01C0 is a letter
+# (survives NFKC + lower) and absent from the data. It is glued to the next sentence
+# (" " + marker + sentence) so the whitespace word count is the same as a plain join.
+_SEAM = "\u01c0"
+# Sentence ends after which split_sentences() removed no whitespace (see chunker._SENT_RE).
+_CJK_ENDS = "。！？"
+
+
+def _join_nuggets(sentences: list[str], indices: list[int]) -> str:
+    """Join picked sentences without creating text that is absent from the chunk (#301).
+
+    Consecutive sentences are joined as in the source: no space after a CJK sentence end,
+    one space otherwise. A gap between non-adjacent picks gets ``" " + _SEAM`` so no span
+    can match across it.
+    """
+    out = ""
+    prev: int | None = None
+    for i in indices:
+        if prev is None:
+            out = sentences[i]
+        elif i == prev + 1:
+            out += ("" if sentences[prev].endswith(tuple(_CJK_ENDS)) else " ") + sentences[i]
+        else:
+            out += f" {_SEAM}{sentences[i]}"
+        prev = i
+    return out
 
 
 def _rank_chunks(chunks: list[dict], query: str) -> list[dict]:
@@ -52,14 +81,14 @@ def retrieve_nuggets(
         results = []
         for chunk in ranked_chunks:
             sentences = split_sentences(chunk["text"])
-            nugget_sents = top_nuggets(
+            nugget_idx = top_nugget_indices(
                 query,
                 sentences,
                 top_k=nuggets_per_chunk,
                 embed_weight=embed_weight,
                 window=window,
             )
-            results.append({**chunk, "nugget": " ".join(nugget_sents)})
+            results.append({**chunk, "nugget": _join_nuggets(sentences, nugget_idx)})
         return results
 
     # Hybrid path — one batch embed call for query + all chunk sentences
@@ -84,7 +113,7 @@ def retrieve_nuggets(
         n = len(sentences)
         sent_vecs = flat_sent_vecs[offset : offset + n]
         offset += n
-        nugget_sents = top_nuggets(
+        nugget_idx = top_nugget_indices(
             query,
             sentences,
             top_k=nuggets_per_chunk,
@@ -93,5 +122,5 @@ def retrieve_nuggets(
             sent_vecs=sent_vecs if sentences else None,
             window=window,
         )
-        results.append({**chunk, "nugget": " ".join(nugget_sents)})
+        results.append({**chunk, "nugget": _join_nuggets(sentences, nugget_idx)})
     return results
