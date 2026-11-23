@@ -81,7 +81,7 @@ def test_each_unique_text_is_embedded_exactly_once_across_all_weights():
     before = len(calls)
     res = sw.sweep(by, {"g": GOLD}, weights, sw.cached_embed_fn(cache), match="exact")
     assert len(calls) == before  # the sweep never touches the network
-    assert set(res) == {f"g_w{w}" for w in weights}
+    assert set(res) == {("g", w) for w in weights}
 
 
 def test_resume_embeds_only_what_is_missing(tmp_path):
@@ -137,9 +137,9 @@ def test_embed_weight_actually_changes_the_nugget_that_is_chosen():
     # query and the answer sentence point the same way; every other sentence is orthogonal
     cache = {t: [1.0, 0.0] if t in ("alpha one", "Zeta six closes.") else [0.0, 1.0] for t in texts}
     res = sw.sweep(by, {"g": gold}, [0.0, 1.0], sw.cached_embed_fn(cache), match="exact")
-    assert res["g_w0.0"]["nugget"]["recall"] == 0.0
-    assert res["g_w1.0"]["nugget"]["recall"] == 1.0
-    assert res["g_w0.0"]["full_chunk"] == res["g_w1.0"]["full_chunk"]  # full-chunk ignores w
+    assert res[("g", 0.0)]["nugget"]["recall"] == 0.0
+    assert res[("g", 1.0)]["nugget"]["recall"] == 1.0
+    assert res[("g", 0.0)]["full_chunk"] == res[("g", 1.0)]["full_chunk"]  # full-chunk ignores w
 
 
 def test_format_table_lists_every_run():
