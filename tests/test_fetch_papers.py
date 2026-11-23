@@ -837,3 +837,17 @@ def test_retry_5xx_closes_http_error_before_retry_and_on_exhaustion(mock_open, m
     with pytest.raises(HTTPError):
         _urlopen_with_retry("http://api", timeout=5, max_retries=2)
     assert all(e.close.call_count >= 1 for e in errors)
+
+
+@patch("scripts.fetch_papers.time.sleep")
+@patch("scripts.fetch_papers.urlopen")
+def test_non_retryable_4xx_closes_http_error_before_raising(mock_open, mock_sleep):
+    """再試行しない 4xx の HTTPError も close してから raise する（FD リーク防止, #313）。"""
+    err = _http_error(404)
+    err.close = MagicMock()
+    mock_open.side_effect = err
+    with pytest.raises(HTTPError):
+        _urlopen_with_retry("http://api", timeout=5, max_retries=2)
+    assert mock_open.call_count == 1
+    err.close.assert_called_once()
+    mock_sleep.assert_not_called()
