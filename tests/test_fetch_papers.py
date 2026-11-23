@@ -221,6 +221,30 @@ def test_combine_no_arxiv_id_if_unknown_paper():
     assert "arxiv_id" not in result[0]
 
 
+def test_combine_sorts_by_chunk_index_before_merging():
+    """スコア順で渡されても chunk_index 昇順(文書順)に整列して結合する (#247)。"""
+    chunks = [
+        _make_chunk(3, "three", score=0.9),
+        _make_chunk(40, "forty", score=0.8),
+        _make_chunk(4, "four", score=0.1),
+    ]
+    snapshot = [dict(c) for c in chunks]
+    result = combine_large_chunks(chunks, paper_id=1, target_tokens=100)
+    assert len(result) == 1
+    assert result[0]["chunk_indices"] == [3, 4, 40]
+    assert result[0]["text"] == "three four forty"
+    assert result[0]["score"] == 0.9
+    assert chunks == snapshot  # 入力は破壊しない
+
+
+def test_combine_sorts_before_overflow_split():
+    """整列は結合前に行うので、オーバーフローの切れ目も文書順で決まる (#247)。"""
+    chunks = [_make_chunk(2, "c c c"), _make_chunk(0, "a a a"), _make_chunk(1, "b b b")]
+    result = combine_large_chunks(chunks, paper_id=1, target_tokens=6)
+    assert [r["chunk_indices"] for r in result] == [[0, 1], [2]]
+    assert result[0]["text"] == "a a a b b b"
+
+
 def test_combine_empty_input():
     assert combine_large_chunks([], paper_id=1, target_tokens=512) == []
 
@@ -320,10 +344,23 @@ def test_fetch_per_query_large_shared_chunk_appears_once(mock_fetch):
     all_indices = [i for c in result for i in c["chunk_indices"]]
     assert sorted(all_indices) == [3, 5, 7]
     assert sum(c["text"].split().count("body3") for c in result) == 1
-    # 固定: 重複排除後の和集合を 1 回で結合する (初出順 3,5,7)。
+    # 固定: 重複排除後の和集合を 1 回で結合する (文書順 3,5,7)。
     assert len(result) == 1
     assert result[0]["chunk_indices"] == [3, 5, 7]
     assert result[0]["text"] == "body3 body5 body7"
+
+
+@patch("scripts.fetch_papers.fetch_chunks_for_paper")
+def test_fetch_per_query_large_orders_by_chunk_index_across_queries(mock_fetch):
+    """large: クエリ1=[3,40]・クエリ2=[4] でも文書順 3,4,40 で結合する (#247)。"""
+    mock_fetch.side_effect = [[_raw(1, 3), _raw(1, 40)], [_raw(1, 4)]]
+    gold = [
+        {"paper_id": 1, "query": "q1", "answer_spans": ["x"]},
+        {"paper_id": 1, "query": "q2", "answer_spans": ["x"]},
+    ]
+    result, _ = fetch_per_query("http://api", gold, chunk_mode="large", target_tokens=512)
+    assert [c["chunk_indices"] for c in result] == [[3, 4, 40]]
+    assert result[0]["text"] == "body3 body4 body40"
 
 
 @patch("scripts.fetch_papers.fetch_chunks_for_paper")
