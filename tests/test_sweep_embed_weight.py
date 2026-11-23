@@ -7,6 +7,7 @@ import json
 import pytest
 
 from eval.evaluate import build_chunks_index
+from nugget_rag.embedder import EmbedError
 from nugget_rag.paper_registry import ARXIV_MAP
 from scripts import sweep_embed_weight as sw
 
@@ -112,6 +113,15 @@ def test_warm_cache_batches_and_reports_progress():
 def test_warm_cache_rejects_a_short_response():
     with pytest.raises(RuntimeError, match="returned 1 vectors for 2"):
         sw.warm_cache(["a", "b"], lambda ts: [[0.0]], {}, log=lambda *_: None)
+
+
+@pytest.mark.parametrize("bad", [None, ["a"], [], [True], [float("nan")], [float("inf")]])
+def test_warm_cache_does_not_persist_invalid_vectors(tmp_path, bad):
+    """#326: a malformed vector must not reach the cache file (load_cache would then exit)."""
+    path = tmp_path / "cache.json"
+    with pytest.raises(EmbedError, match="vector 1"):
+        sw.warm_cache(["a", "b"], lambda ts: [[1.0], bad], {}, path, log=lambda *_: None)
+    assert not path.exists()
 
 
 def test_cached_embed_fn_fails_loudly_on_a_missing_text():
