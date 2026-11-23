@@ -50,4 +50,14 @@ Required check on `main`: `gitleaks`. The other jobs (`markdownlint`, `test`, `e
 Closes #<issue>
 ```
 
-Types: `feat`, `fix`, `refactor`, `test`, `chore`, `docs`.
+Types: `feat`, `fix`, `refactor`, `test`, `chore`, `docs`, `ci`.
+
+## Pull request titles
+
+Use the same `<type>(<scope>): <summary>` form for the PR title. Merges are squashed, and
+`CHANGELOG.md` is generated from the PR titles, so the title should make the change clear on its own.
+Only `feat`, `fix` and `refactor` PRs are listed there; see the header of `CHANGELOG.md`.
+
+## Baseline updates
+
+Update `eval/baseline_hard.json` only for an intended change, and write the new values in the PR body.

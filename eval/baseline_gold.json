@@ -1,0 +1,14 @@
+{
+  "_comment": "Recall@5 baseline for eval/gold_set.json (19 items), recorded 2026-11-23 from eval/evaluate.py output (Recall is saturated at 1.0, so any drop is a regression). Update only on an intended change, with the new numbers in the PR body.",
+  "gold": "eval/gold_set.json",
+  "pool": "data/chunks_large.json (22 chunks)",
+  "top_k": 5,
+  "nugget_window": 0,
+  "full_chunk": {
+    "recall": 1.0
+  },
+  "nugget": {
+    "recall": 1.0
+  },
+  "n": 19
+}

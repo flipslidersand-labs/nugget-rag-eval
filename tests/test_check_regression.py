@@ -491,6 +491,30 @@ def test_real_baseline_hard_matches_current_run_settings(monkeypatch):
     assert failures == [] and note == ""
 
 
+def test_ci_gold_gate_passes_with_baseline_gold(monkeypatch):
+    """CI の実データゲート (--baseline eval/baseline_gold.json --max-drop 0.0) が現在の実測で通る。"""
+    import pathlib
+
+    repo_root = pathlib.Path(__file__).parent.parent
+    monkeypatch.chdir(repo_root)  # CI と同じくリポジトリルートから実行する
+    result = _run_main(
+        [
+            "--chunks",
+            "data/chunks_large.json",
+            "--gold",
+            "eval/gold_set.json",
+            "--threshold",
+            "0.95",
+            "--baseline",
+            "eval/baseline_gold.json",
+            "--max-drop",
+            "0.0",
+        ]
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "[PASS]" in result.stdout
+
+
 def _gold_check(baseline_gold, gold_path, tmp_path):
     from eval.check_regression import check_baseline
 

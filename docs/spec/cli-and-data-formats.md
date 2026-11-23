@@ -64,8 +64,19 @@ JSON 配列。各要素は次を持つ。
 | `--embedding-collection` | `search-engine` | 埋め込みサービスのコレクション名 |
 | `--verbose` | off | 失敗クエリの詳細を出す |
 
-出力の例は [README の出力フォーマット](../../README.md#出力フォーマット)。JSON は `n_queries`・モードごとの
-`recall`/`mrr`/`avg_tokens`・`hits`・`latency_ms`・`comparison` を持つ。
+出力の例は [README の出力フォーマット](../../README.md#出力フォーマット)。JSON は次のキーを持つ。
+
+| キー | 内容 |
+| --- | --- |
+| `match` | 使った照合方式（`exact` か `normalized`） |
+| `n_queries` | gold のクエリ数 |
+| `n_queries_without_chunks` | gold の論文キーに対応するチャンクが `--chunks` に無いクエリ数。そのクエリは静かに Recall 0 になるので、0 でなければ標準エラーに `[WARN]` も出る。全クエリが該当なしのときは Recall 0 を出さず `[ERROR]` で終了コード 1 |
+| `modes` | 評価したモード名の配列（`full_chunk`, `nugget`） |
+| `hits` | モードごとの正解クエリ数（丸め前） |
+| `full_chunk`, `nugget` | モードごとの `recall`・`mrr`・`avg_tokens` |
+| `latency_ms` | モードごとのレイテンシ（`p50`・`p95`） |
+| `comparison` | full-chunk と nugget の対応あり比較 |
+| `pool` | `--pool-label` を指定したときだけ出る。指定した文字列そのまま |
 
 入力の検証エラーは `[ERROR] ...` を標準エラーに出して終了コード 1。
 
@@ -129,3 +140,9 @@ Recall が下がっていないかを見る CI 用のゲート。
 
 埋め込みサービス（`--embedding-url`）は `POST /embed/batch` に `{"texts": [...], "collection": "<name>"}` を受け、
 `{"vectors": [[...]]}`（または `{"embeddings": [[...]]}`）を返す想定。リモートへの `http://` は鍵が平文で流れるため警告が出る。
+
+クライアント（`nugget_rag/embedder.py`）の制約:
+
+- URL は `http`・`https` のみで、ホストが必須。`user:pass@host` 形式は拒否する（鍵は `EMBEDDING_API_KEY` で渡す）。リダイレクトは辿らない。
+- `texts` は 256 件ずつに分けて送る（`MAX_BATCH_SIZE`）。
+- 応答本文が 32 MiB を超えたら、パースせずに `EmbedError` で止める（`MAX_RESPONSE_BYTES`）。

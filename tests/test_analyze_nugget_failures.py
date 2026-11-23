@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 import sys
 
+import pytest
+
 from eval.evaluate import build_chunks_index
 from nugget_rag.paper_registry import ARXIV_MAP
 from scripts import analyze_nugget_failures as af
@@ -56,6 +58,26 @@ def test_C_when_the_answer_sentence_is_ranked_below_the_cut_and_reports_its_rank
     by = _by(text)
     classes, c_rank = af.classify_all(by, _gold("alpha beta", "Zeta omega closes"), per_chunk=3)
     assert classes == {"C": 1} and c_rank == {"<=5": 1}
+
+
+@pytest.mark.parametrize(
+    "rank, bucket",
+    [(5, "<=5"), (6, "<=8"), (8, "<=8"), (9, ">8")],
+)
+def test_C_rank_bucket_boundaries(rank, bucket):
+    # rank-1 decoy sentences share the query words (score > 0); the answer sentence shares none
+    # (score 0) and comes last, so its BM25 rank among its chunk's sentences is exactly `rank`.
+    decoys = [f"Alpha beta number{i}." for i in range(rank - 1)]
+    text = " ".join([*decoys, "Zeta omega closes."])
+    by = _by(text)
+    gold = _gold("alpha beta", "Zeta omega closes")
+
+    # guard: the synthetic chunk really puts the answer sentence at the intended rank
+    cls, got_rank = af.classify(by[PID], "alpha beta", gold[0]["answer_spans"], 5, 3, False)
+    assert (cls, got_rank) == ("C", rank)
+
+    classes, c_rank = af.classify_all(by, gold, per_chunk=3)
+    assert classes == {"C": 1} and c_rank == {bucket: 1}
 
 
 def test_only_the_gold_paper_is_searched():
