@@ -168,7 +168,7 @@ def _run_main(monkeypatch, tmp_path, gold_data, embed):
     import nugget_rag.embedder as embedder
 
     class FakeClient:
-        def __init__(self, url):
+        def __init__(self, url, collection="search-engine"):
             self.embed = embed
 
     monkeypatch.setattr(embedder, "EmbedClient", FakeClient)
