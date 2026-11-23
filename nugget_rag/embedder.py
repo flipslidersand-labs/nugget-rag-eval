@@ -201,7 +201,9 @@ class EmbedClient:
                     raise EmbedError(
                         f"Unexpected embedding response format: expected object, got {type(resp).__name__}"
                     )
-                vecs = resp.get("vectors") or resp.get("embeddings")
+                # Select by key presence, not truthiness: an empty "vectors" list is a
+                # count mismatch, not a missing key (#329).
+                vecs = resp["vectors"] if "vectors" in resp else resp.get("embeddings")
                 if vecs is None:
                     raise EmbedError(
                         f"Expected 'vectors' or 'embeddings' key in response, got: {list(resp)}"
