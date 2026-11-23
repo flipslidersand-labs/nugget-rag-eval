@@ -36,8 +36,7 @@ def test_evaluate_reports_raw_hit_counts_and_keeps_rounded_recall():
 
 def _run_main(monkeypatch, capsys, result, extra=()):
     monkeypatch.setattr(check_regression, "evaluate", lambda *a, **k: result)
-    monkeypatch.setattr(check_regression, "validate_chunks", lambda c: None)
-    monkeypatch.setattr(check_regression, "load_json", lambda p, n: [])
+    monkeypatch.setattr(check_regression, "load_inputs", lambda c, g: ({}, []))
     monkeypatch.setattr(check_regression, "existing_file", lambda p: p)
     monkeypatch.setattr(
         sys, "argv", ["x", "--chunks", "c", "--gold", "g", "--threshold", "0.95", *extra]

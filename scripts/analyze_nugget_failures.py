@@ -23,15 +23,13 @@ import argparse
 import sys
 from collections import Counter
 
-from eval.cli_helpers import existing_file, load_json, positive_int
+from eval.cli_helpers import existing_file, positive_int
 from eval.evaluate import (
     _span_in,
     avg_tokens,
-    build_chunks_index,
     check_gold_chunk_coverage,
+    load_inputs,
     recall_at_k,
-    validate_chunks,
-    validate_gold,
 )
 from nugget_rag.paper_registry import resolve_paper_key
 from nugget_rag.retriever import retrieve_nuggets, select_nuggets
@@ -152,13 +150,8 @@ def main() -> None:
     ap.add_argument("--sweep", action="store_true", help="also sweep nuggets_per_chunk x window")
     args = ap.parse_args()
 
-    chunks, gold = load_json(args.chunks, "--chunks"), load_json(args.gold, "--gold")
-    try:
-        validate_chunks(chunks)
-        validate_gold(gold)
-    except ValueError as exc:
-        sys.exit(f"[ERROR] {exc}")
-    by_paper, normalize = build_chunks_index(chunks), args.match == "normalized"
+    by_paper, gold = load_inputs(args.chunks, args.gold)
+    normalize = args.match == "normalized"
     try:
         n_no_chunks, warnings = check_gold_chunk_coverage(by_paper, gold)
     except ValueError as exc:

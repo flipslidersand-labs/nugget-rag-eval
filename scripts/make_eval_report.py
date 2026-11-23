@@ -19,14 +19,13 @@ import argparse
 import sys
 from pathlib import Path
 
-from eval.cli_helpers import load_json, non_negative_int, write_json_atomic
+from eval.cli_helpers import non_negative_int, write_json_atomic
 from eval.evaluate import (
-    build_chunks_index,
     evaluate,
     format_diagnostics,
+    load_chunks_index,
+    load_gold,
     pop_diagnostics,
-    validate_chunks,
-    validate_gold,
 )
 
 
@@ -137,23 +136,14 @@ def main() -> None:
             name, path, match = parse_named(spec, "--pool")
             if name in pools:
                 raise ValueError(f"pool name '{name}' is used twice")
-            chunks = load_json(path, f"--pool {name}")
-            try:
-                validate_chunks(chunks)
-            except ValueError as exc:
-                raise ValueError(f"pool={name}: {exc}") from exc
-            pools[name] = (build_chunks_index(chunks), match or "exact")
+            index = load_chunks_index(path, f"--pool {name}", error_prefix=f"pool={name}: ")
+            pools[name] = (index, match or "exact")
         golds = {}
         for spec in args.gold:
             name, path, _ = parse_named(spec, "--gold")
             if name in golds:
                 raise ValueError(f"gold name '{name}' is used twice")
-            gold = load_json(path, f"--gold {name}")
-            try:
-                validate_gold(gold)
-            except ValueError as exc:
-                raise ValueError(f"gold={name}: {exc}") from exc
-            golds[name] = gold
+            golds[name] = load_gold(path, f"--gold {name}", error_prefix=f"gold={name}: ")
     except ValueError as exc:
         sys.exit(f"[ERROR] {exc}")
 
