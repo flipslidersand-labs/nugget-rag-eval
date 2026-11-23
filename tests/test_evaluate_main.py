@@ -291,7 +291,7 @@ def test_main_invalid_top_k_negative(minimal_data, monkeypatch):
 
 def test_float_between_0_1_valid():
     """_float_between_0_1 accepts values in [0, 1]."""
-    from eval.evaluate import _float_between_0_1
+    from eval.cli_helpers import float_between_0_1 as _float_between_0_1
 
     assert _float_between_0_1("0.0") == 0.0
     assert _float_between_0_1("0.5") == 0.5
@@ -302,7 +302,7 @@ def test_float_between_0_1_invalid():
     """_float_between_0_1 raises ArgumentTypeError for out-of-range values."""
     import argparse
 
-    from eval.evaluate import _float_between_0_1
+    from eval.cli_helpers import float_between_0_1 as _float_between_0_1
 
     with pytest.raises(argparse.ArgumentTypeError):
         _float_between_0_1("-0.1")
@@ -546,6 +546,37 @@ def test_main_embedding_url_warns_when_api_key_missing(hybrid_data, monkeypatch,
     err = capsys.readouterr().err
     assert "[WARN] EMBEDDING_API_KEY not set" in err
     assert f"Embedding: {_EMBED_URL}  weight=0.5" in err
+
+
+@pytest.mark.parametrize("url", ["ftp://x", "not-a-url", "http://user:pw@host:9092"])
+def test_main_invalid_embedding_url_exits_with_error_not_traceback(
+    hybrid_data, monkeypatch, capsys, url
+):
+    """A bad --embedding-url must end as '[ERROR] ...' (SystemExit), not a ValueError traceback."""
+    with pytest.raises(SystemExit) as exc:
+        _run_main(monkeypatch, *hybrid_data, "--embedding-url", url)
+    assert exc.value.code not in (0, None)
+    assert str(exc.value.code).startswith("[ERROR] --embedding-url:")
+    assert "pw" not in capsys.readouterr().err
+
+
+def test_main_embedding_collection_is_passed_to_client(hybrid_data, monkeypatch):
+    from nugget_rag.embedder import EmbedClient
+
+    seen = []
+    monkeypatch.setenv("EMBEDDING_API_KEY", "dummy-for-test")
+    monkeypatch.setattr(EmbedClient, "embed", _fake_embed([]))
+    orig = EmbedClient.__init__
+
+    def spy(self, base_url, collection="search-engine", **kw):
+        seen.append(collection)
+        orig(self, base_url, collection=collection, **kw)
+
+    monkeypatch.setattr(EmbedClient, "__init__", spy)
+    _run_main(
+        monkeypatch, *hybrid_data, "--embedding-url", _EMBED_URL, "--embedding-collection", "c2"
+    )
+    assert seen == ["c2"]
 
 
 def test_main_embedding_url_no_warn_when_api_key_set(hybrid_data, monkeypatch, capsys):
