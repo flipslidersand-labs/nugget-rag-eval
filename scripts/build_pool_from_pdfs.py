@@ -20,8 +20,10 @@ from pathlib import Path
 from eval.cli_helpers import positive_int, write_json_atomic
 from nugget_rag.paper_registry import ARXIV_MAP
 
-# Split only where whitespace follows the terminator, so decimals such as "0.5"
-# stay intact (nugget_rag.chunker.split_sentences also splits inside "0.5").
+# Simpler than nugget_rag.chunker.split_sentences: split only after an ASCII terminator
+# followed by whitespace, so decimals such as "0.5" stay intact (as in the chunker), but
+# there is no CJK terminator handling and no abbreviation handling ("et al.", "Fig. 3").
+# Pool chunks are cut at a ~300-word target, so exact sentence boundaries do not matter here.
 _SENT_BOUNDARY = re.compile(r"(?<=[.!?])\s+")
 PDFTOTEXT_TIMEOUT_SEC = 120
 
