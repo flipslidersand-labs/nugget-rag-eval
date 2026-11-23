@@ -163,8 +163,11 @@ def main() -> None:
     try:
         validate_chunks(chunks)
         golds = {Path(p).stem: load_json(p, "--gold") for p in args.gold}
-        for g in golds.values():
-            validate_gold(g)
+        for gname, g in golds.items():
+            try:
+                validate_gold(g)
+            except ValueError as exc:
+                raise ValueError(f"gold={gname}: {exc}") from exc
     except ValueError as exc:
         sys.exit(f"[ERROR] {exc}")
     by_paper = build_chunks_index(chunks)
@@ -189,6 +192,8 @@ def main() -> None:
         warm_cache(list(texts), client.embed, cache, cache_path)
     except EmbedError as exc:
         sys.exit(f"[ERROR] embedding service failed: {exc}")
+    except RuntimeError as exc:  # warm_cache: vector count != batch size
+        sys.exit(f"[ERROR] {exc}")
 
     # collect_texts embeds with dummy 1-dim vectors, so a real dimension mismatch
     # (mixed-model cache, inconsistent service) only surfaces in sweep().

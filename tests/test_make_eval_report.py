@@ -131,3 +131,23 @@ def test_main_error_names_the_failing_pool_and_gold(monkeypatch, tmp_path):
     with pytest.raises(SystemExit) as exc:
         mr.main()
     assert str(exc.value.code).startswith("[ERROR] pool=P gold=G: no gold paper key found")
+
+
+def test_main_invalid_pool_error_names_the_pool(monkeypatch, tmp_path):
+    c, g = tmp_path / "c.json", tmp_path / "g.json"
+    c.write_text(json.dumps([{"arxiv_id": "2410.10071", "text": ""}]))
+    g.write_text(json.dumps(GOLD))
+    monkeypatch.setattr(sys, "argv", ["rep", "--pool", f"PoolX={c}", "--gold", f"G={g}"])
+    with pytest.raises(SystemExit) as exc:
+        mr.main()
+    assert str(exc.value.code).startswith("[ERROR] pool=PoolX: chunks[0]")
+
+
+def test_main_invalid_gold_error_names_the_gold(monkeypatch, tmp_path):
+    c, g = tmp_path / "c.json", tmp_path / "g.json"
+    c.write_text(json.dumps(CHUNKS))
+    g.write_text(json.dumps([{"arxiv_id": "2410.10071"}]))
+    monkeypatch.setattr(sys, "argv", ["rep", "--pool", f"P={c}", "--gold", f"GoldX={g}"])
+    with pytest.raises(SystemExit) as exc:
+        mr.main()
+    assert str(exc.value.code).startswith("[ERROR] gold=GoldX: gold[0] missing required fields")
