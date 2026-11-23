@@ -535,3 +535,18 @@ def test_validate_chunks_non_string_or_blank_text_raises(text):
 def test_validate_gold_non_string_query_raises(query):
     with pytest.raises(ValueError, match="'query'"):
         validate_gold([_valid_item(query=query)])
+
+
+def test_validate_gold_blank_query_message_says_blank_not_type():
+    with pytest.raises(ValueError, match="'query'") as exc:
+        validate_gold([_valid_item(query="   ")])
+    msg = str(exc.value)
+    assert "blank" in msg
+    assert "got 'str'" not in msg
+
+
+@pytest.mark.parametrize("query", [123, ["q"], None])
+def test_validate_gold_non_string_query_message_names_type(query):
+    with pytest.raises(ValueError, match="'query'") as exc:
+        validate_gold([_valid_item(query=query)])
+    assert f"got {type(query).__name__!r}" in str(exc.value)

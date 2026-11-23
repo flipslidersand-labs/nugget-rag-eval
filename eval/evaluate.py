@@ -54,7 +54,8 @@ def validate_chunks(chunks: list[dict]) -> None:
     Checks:
     - ``chunks`` is a list (not a dict or other type).
     - Each chunk has at least one of ``arxiv_id`` or ``paper_id``.
-    - Each chunk has a non-empty ``text`` field.
+    - Each chunk has a ``text`` field that is a string with at least one
+      non-whitespace character (blank-only and non-string values are rejected).
 
     Raises:
         ValueError: On the first violation, with a descriptive message listing
@@ -97,6 +98,8 @@ def validate_gold(gold: list[dict]) -> None:
     Checks:
     - Each item has at least one of ``arxiv_id`` or ``paper_id``.
     - Each item has ``query`` and ``answer_spans``.
+    - ``query`` is a string (type check) with at least one non-whitespace
+      character; the two failures are reported with distinct messages.
     - ``answer_spans`` is a non-empty list of strings.
 
     Raises:
@@ -116,10 +119,10 @@ def validate_gold(gold: list[dict]) -> None:
             raise ValueError(f"gold[{i}] must have 'arxiv_id' or 'paper_id' (both absent or falsy)")
 
         query = item["query"]
-        if not isinstance(query, str) or not query.strip():
-            raise ValueError(
-                f"gold[{i}] 'query' must be a non-empty string, got {type(query).__name__!r}"
-            )
+        if not isinstance(query, str):
+            raise ValueError(f"gold[{i}] 'query' must be a string, got {type(query).__name__!r}")
+        if not query.strip():
+            raise ValueError(f"gold[{i}] 'query' is blank (whitespace only); it must have text")
 
         spans = item["answer_spans"]
         if not isinstance(spans, list):

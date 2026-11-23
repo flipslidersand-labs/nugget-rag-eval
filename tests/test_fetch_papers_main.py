@@ -173,3 +173,18 @@ def test_read_timeout_with_fail_fast_errors_and_writes_nothing(monkeypatch, tmp_
     assert exc.value.code == 1
     assert "[ERROR]" in capsys.readouterr().err
     assert not out.exists()
+
+
+def test_query_path_small_mode_drops_blank_snippets(monkeypatch, tmp_path):
+    """--gold-set なしの --query 経路でも、small モードは空白だけの snippet を出力しない。"""
+    out = tmp_path / "out" / "chunks.json"
+    monkeypatch.setattr(fp, "fetch_papers", lambda api: [{"id": 1}])
+    monkeypatch.setattr(
+        fp,
+        "fetch_chunks_for_paper",
+        lambda api, pid, query, *a, **kw: [_chunk(pid, 0, "  \n "), _chunk(pid, 1)],
+    )
+    monkeypatch.setattr(sys, "argv", ["fetch_papers.py", "--out", str(out)])
+    fp.main()
+    data = json.loads(out.read_text(encoding="utf-8"))
+    assert [c["chunk_index"] for c in data] == [1]
