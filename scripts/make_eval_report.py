@@ -16,11 +16,10 @@ A pool is NAME=PATH[:MATCH] with MATCH exact (default) or normalized.
 from __future__ import annotations
 
 import argparse
-import json
 import sys
 from pathlib import Path
 
-from eval.cli_helpers import load_json, non_negative_int
+from eval.cli_helpers import load_json, non_negative_int, write_json_atomic
 from eval.evaluate import build_chunks_index, evaluate, validate_chunks, validate_gold
 
 
@@ -122,13 +121,19 @@ def main() -> None:
         for spec in args.pool:
             name, path, match = parse_named(spec, "--pool")
             chunks = load_json(path, f"--pool {name}")
-            validate_chunks(chunks)
+            try:
+                validate_chunks(chunks)
+            except ValueError as exc:
+                raise ValueError(f"pool={name}: {exc}") from exc
             pools[name] = (build_chunks_index(chunks), match or "exact")
         golds = {}
         for spec in args.gold:
             name, path, _ = parse_named(spec, "--gold")
             gold = load_json(path, f"--gold {name}")
-            validate_gold(gold)
+            try:
+                validate_gold(gold)
+            except ValueError as exc:
+                raise ValueError(f"gold={name}: {exc}") from exc
             golds[name] = gold
     except ValueError as exc:
         sys.exit(f"[ERROR] {exc}")
@@ -139,7 +144,7 @@ def main() -> None:
         sys.exit(f"[ERROR] {exc}")
     print(format_markdown(rows))
     if args.json:
-        args.json.write_text(json.dumps(rows, ensure_ascii=False, indent=1), encoding="utf-8")
+        write_json_atomic(args.json, rows, indent=1)
 
 
 if __name__ == "__main__":

@@ -42,6 +42,7 @@ JSON 配列。各要素は次を持つ。
 `eval/baseline_hard.json` の形。`full_chunk.recall` と `nugget.recall`（モードごとの記録値）に加えて、
 `top_k`・`gold`・`n`・`nugget_window`・`pool`・`_comment` を持つ。
 モード名が 1 つも一致しない、または `top_k`・`gold`・`n` が今回の実行と違うときは FAIL（キーが無い古い形式は照合しない）。
+`--advisory` のときは FAIL ではなく `[WARN]`（終了コード 0）で、「比較不能」と出す。
 ファイルが無いときは低下チェックを飛ばす。
 
 ## CLI
@@ -79,10 +80,10 @@ Recall が下がっていないかを見る CI 用のゲート。
 | `--top-k` | 5 | |
 | `--baseline` | なし | 記録した Recall の JSON |
 | `--max-drop` | 0.05 | 基準値からの許容低下幅 |
-| `--advisory` | off | 基準値からの低下を `[WARN]` で出して終了コード 0 |
+| `--advisory` | off | 基準値からの低下を `[WARN]` で出して終了コード 0。基準の `top_k`・`gold`・`n` が今回と違う、またはモード名が 1 つも一致しない場合も `[WARN]`（終了コード 0）で、「比較不能」と併記する |
 | `--verbose`, `-v` | off | 失敗クエリの詳細を標準エラーに出す |
 
-終了コード: 閾値未満 → 1（`[FAIL]`）。基準値からの低下 → 1（`--advisory` なら 0）。入力不正 → 1（`[ERROR]`）。通れば `[PASS]` で 0。
+終了コード: 閾値未満 → 1（`[FAIL]`）。基準値からの低下、または基準の `top_k`・`gold`・`n` の不一致、またはモード名が 1 つも一致しない → 1（`--advisory` なら 0。不一致は比較不能なので数値の差は意味を持たない）。入力不正 → 1（`[ERROR]`）。通れば `[PASS]` で 0。
 閾値の判定は丸め前の Recall で行う。
 
 ### `scripts/fetch_papers.py`
