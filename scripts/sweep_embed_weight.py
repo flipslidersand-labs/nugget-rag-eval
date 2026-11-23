@@ -124,20 +124,19 @@ def sweep(
     embed_fn: Callable[[list[str]], list[list[float]]],
     top_k: int = 5,
     match: str = "normalized",
-) -> dict[str, dict]:
+) -> dict[tuple[str, float], dict]:
     out = {}
     for gname, gold in golds.items():
         for w in weights:
-            out[f"{gname}_w{w}"] = evaluate(
+            out[(gname, w)] = evaluate(
                 chunks_by_paper, gold, top_k=top_k, embed_fn=embed_fn, embed_weight=w, match=match
             )
     return out
 
 
-def format_table(results: dict[str, dict]) -> str:
+def format_table(results: dict[tuple[str, float], dict]) -> str:
     lines = ["gold | w | full R/MRR | nugget R/MRR | nugget tok | 判別 p"]
-    for key, d in results.items():
-        g, w = key.rsplit("_w", 1)
+    for (g, w), d in results.items():
         f, n, c = d["full_chunk"], d["nugget"], d["comparison"]
         lines.append(
             f"{g} | {w} | {f['recall']}/{f['mrr']} | {n['recall']}/{n['mrr']} | "
@@ -162,7 +161,12 @@ def main() -> None:
     chunks = load_json(args.chunks, "--chunks")
     try:
         validate_chunks(chunks)
-        golds = {Path(p).stem: load_json(p, "--gold") for p in args.gold}
+        golds = {}
+        for p in args.gold:
+            gname = Path(p).stem
+            if gname in golds:
+                raise ValueError(f"gold name '{gname}' is used twice ({p})")
+            golds[gname] = load_json(p, "--gold")
         for gname, g in golds.items():
             try:
                 validate_gold(g)
@@ -203,7 +207,8 @@ def main() -> None:
         )
     except ValueError as exc:
         sys.exit(f"[ERROR] {exc}")
-    write_json_atomic(args.out_dir / "summary.json", results, indent=1)
+    summary = {f"{g}_w{w}": d for (g, w), d in results.items()}  # on-disk key format unchanged
+    write_json_atomic(args.out_dir / "summary.json", summary, indent=1)
     print("\n" + format_table(results))
     print(f"\nresults: {args.out_dir / 'summary.json'}  (no API key inside)")
 
