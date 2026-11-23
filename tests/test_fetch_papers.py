@@ -14,10 +14,10 @@ from urllib.error import HTTPError, URLError
 
 import pytest
 
+from nugget_rag.paper_registry import PAPER_ID_TO_ARXIV
 from scripts.fetch_papers import (
     _MAX_RETRIES,
     ARXIV_TO_PAPER_ID,
-    PAPER_ID_TO_ARXIV,
     FetchError,
     _sanitize_query,
     _urlopen_with_retry,

@@ -27,7 +27,7 @@ from urllib.parse import urlencode
 from eval.cli_helpers import load_json, non_negative_int, positive_int
 from nugget_rag.embedder import _is_retryable_http, _retry_delay, _validate_url, urlopen
 from nugget_rag.paper_registry import ARXIV_MAP as ARXIV_TO_PAPER_ID
-from nugget_rag.paper_registry import PAPER_ID_TO_ARXIV
+from nugget_rag.schema import make_chunk
 
 # Unified timeout constants
 _TIMEOUT_PAPERS = 15
@@ -139,7 +139,6 @@ def fetch_chunks_for_paper(
         body = _urlopen_with_retry(url, timeout=_TIMEOUT_CHUNKS)
     except _FETCH_ERRORS as exc:
         raise FetchError(f"Failed to fetch chunks for paper {paper_id}: {exc}") from exc
-    arxiv_id = PAPER_ID_TO_ARXIV.get(paper_id)
     chunks = []
     try:
         results = json.loads(body)["results"]
@@ -157,15 +156,7 @@ def fetch_chunks_for_paper(
                 or isinstance(score, bool)
             ):
                 raise ValueError("chunk_index must be int, snippet str, score number")
-            chunk = {
-                "paper_id": paper_id,
-                "chunk_index": idx,
-                "text": snippet,
-                "score": score,
-            }
-            if arxiv_id is not None:
-                chunk["arxiv_id"] = arxiv_id
-            chunks.append(chunk)
+            chunks.append(make_chunk(paper_id, snippet, score, chunk_index=idx))
     except (ValueError, KeyError, TypeError) as exc:
         raise FetchError(f"Malformed search response for paper {paper_id}: {exc!r}") from exc
     return chunks
@@ -177,21 +168,15 @@ def combine_large_chunks(chunks: list[dict], paper_id: int, target_tokens: int) 
     入力は検索スコア順でもよい。chunk_index 昇順に整列してから結合する (#247)。
     入力リストは変更しない。単独で target を超えるチャンクは分割せずそのまま 1 件として出す。
     """
-    arxiv_id = PAPER_ID_TO_ARXIV.get(paper_id)
     combined = []
     current = None
     current_size = 0
     for chunk in sorted(chunks, key=lambda c: c["chunk_index"]):
         chunk_size = len(chunk["text"].split())
         if current is None:
-            current = {
-                "paper_id": paper_id,
-                "chunk_indices": [chunk["chunk_index"]],
-                "text": chunk["text"],
-                "score": chunk["score"],
-            }
-            if arxiv_id is not None:
-                current["arxiv_id"] = arxiv_id
+            current = make_chunk(
+                paper_id, chunk["text"], chunk["score"], chunk_indices=[chunk["chunk_index"]]
+            )
             current_size = chunk_size
         elif current_size + chunk_size <= target_tokens:
             current["text"] += " " + chunk["text"]
@@ -200,14 +185,9 @@ def combine_large_chunks(chunks: list[dict], paper_id: int, target_tokens: int) 
             current_size += chunk_size
         else:
             combined.append(current)
-            current = {
-                "paper_id": paper_id,
-                "chunk_indices": [chunk["chunk_index"]],
-                "text": chunk["text"],
-                "score": chunk["score"],
-            }
-            if arxiv_id is not None:
-                current["arxiv_id"] = arxiv_id
+            current = make_chunk(
+                paper_id, chunk["text"], chunk["score"], chunk_indices=[chunk["chunk_index"]]
+            )
             current_size = chunk_size
     if current:
         combined.append(current)
