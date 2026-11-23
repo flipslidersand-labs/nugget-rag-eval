@@ -48,12 +48,29 @@ def has_paper_id(item: dict) -> bool:
     return bool(item.get("arxiv_id")) or item.get("paper_id") is not None
 
 
+def check_id_types(item: dict, label: str) -> None:
+    """Raise ValueError if ``arxiv_id`` / ``paper_id`` have the wrong type.
+
+    ``arxiv_id`` must be a str and ``paper_id`` an int (bool excluded); ``None``
+    or absent is allowed (the other field may carry the id). Wrong types such as
+    a list would otherwise crash ``resolve_paper_key`` with a TypeError, and a
+    hashable one (``paper_id: "3"``) would silently never match.
+    """
+    arxiv_id = item.get("arxiv_id")
+    if arxiv_id is not None and not isinstance(arxiv_id, str):
+        raise ValueError(f"{label} 'arxiv_id' must be a string, got {type(arxiv_id).__name__!r}")
+    paper_id = item.get("paper_id")
+    if paper_id is not None and (isinstance(paper_id, bool) or not isinstance(paper_id, int)):
+        raise ValueError(f"{label} 'paper_id' must be an int, got {type(paper_id).__name__!r}")
+
+
 def validate_chunks(chunks: list[dict]) -> None:
     """Validate chunks list, raising ValueError on schema violations.
 
     Checks:
     - ``chunks`` is a list (not a dict or other type).
-    - Each chunk has at least one of ``arxiv_id`` or ``paper_id``.
+    - Each chunk has at least one of ``arxiv_id`` or ``paper_id``, and they are
+      a str / an int respectively (see :func:`check_id_types`).
     - Each chunk has a ``text`` field that is a string with at least one
       non-whitespace character (blank-only and non-string values are rejected).
 
@@ -66,6 +83,7 @@ def validate_chunks(chunks: list[dict]) -> None:
     for i, chunk in enumerate(chunks):
         if not isinstance(chunk, dict):
             raise ValueError(f"chunks[{i}] must be a dict, got {type(chunk).__name__!r}")
+        check_id_types(chunk, f"chunks[{i}]")
         if not has_paper_id(chunk):
             raise ValueError(
                 f"chunks[{i}] must have 'arxiv_id' or 'paper_id' (both absent or falsy)"
@@ -97,7 +115,8 @@ def validate_gold(gold: list[dict]) -> None:
 
     Checks:
     - ``gold`` is a non-empty list (an empty gold would evaluate nothing).
-    - Each item has at least one of ``arxiv_id`` or ``paper_id``.
+    - Each item has at least one of ``arxiv_id`` or ``paper_id``, and they are
+      a str / an int respectively (see :func:`check_id_types`).
     - Each item has ``query`` and ``answer_spans``.
     - ``query`` is a string (type check) with at least one non-whitespace
       character; the two failures are reported with distinct messages.
@@ -118,6 +137,7 @@ def validate_gold(gold: list[dict]) -> None:
         if missing:
             raise ValueError(f"gold[{i}] missing required fields: {sorted(missing)}")
 
+        check_id_types(item, f"gold[{i}]")
         if not has_paper_id(item):
             raise ValueError(f"gold[{i}] must have 'arxiv_id' or 'paper_id' (both absent or falsy)")
 

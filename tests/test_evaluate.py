@@ -551,3 +551,45 @@ def test_validate_gold_non_string_query_message_names_type(query):
     with pytest.raises(ValueError, match="'query'") as exc:
         validate_gold([_valid_item(query=query)])
     assert f"got {type(query).__name__!r}" in str(exc.value)
+
+
+# ── #324: arxiv_id / paper_id の型検査 ───────────────────────────────────────
+
+
+@pytest.mark.parametrize("arxiv_id", [["x"], {"a": 1}, 123, 1.5, True])
+def test_validate_gold_non_string_arxiv_id_raises(arxiv_id):
+    item = {"arxiv_id": arxiv_id, "query": "q", "answer_spans": ["a"]}
+    with pytest.raises(ValueError, match=r"gold\[0\] 'arxiv_id' must be a string") as exc:
+        validate_gold([item])
+    assert f"got {type(arxiv_id).__name__!r}" in str(exc.value)
+
+
+@pytest.mark.parametrize("paper_id", ["3", ["x"], {"a": 1}, 1.5, True])
+def test_validate_gold_non_int_paper_id_raises(paper_id):
+    item = {"paper_id": paper_id, "query": "q", "answer_spans": ["a"]}
+    with pytest.raises(ValueError, match=r"gold\[0\] 'paper_id' must be an int") as exc:
+        validate_gold([item])
+    assert f"got {type(paper_id).__name__!r}" in str(exc.value)
+
+
+@pytest.mark.parametrize("arxiv_id", [["x"], {"a": 1}, 123])
+def test_validate_chunks_non_string_arxiv_id_raises(arxiv_id):
+    with pytest.raises(ValueError, match=r"chunks\[1\] 'arxiv_id' must be a string"):
+        validate_chunks([{"paper_id": 1, "text": "t"}, {"arxiv_id": arxiv_id, "text": "t"}])
+
+
+@pytest.mark.parametrize("paper_id", ["3", ["x"], True])
+def test_validate_chunks_non_int_paper_id_raises(paper_id):
+    with pytest.raises(ValueError, match=r"chunks\[0\] 'paper_id' must be an int"):
+        validate_chunks([{"paper_id": paper_id, "text": "t"}])
+
+
+def test_validate_gold_bad_paper_id_type_raises_even_with_valid_arxiv_id():
+    item = _valid_item(arxiv_id="2410.10071", paper_id="3")
+    with pytest.raises(ValueError, match="'paper_id' must be an int"):
+        validate_gold([item])
+
+
+def test_validate_ids_none_and_empty_string_arxiv_id_still_allowed_with_paper_id():
+    validate_gold([{"arxiv_id": None, "paper_id": 1, "query": "q", "answer_spans": ["a"]}])
+    validate_chunks([{"arxiv_id": "", "paper_id": 1, "text": "t"}])

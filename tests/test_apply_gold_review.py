@@ -120,7 +120,7 @@ def test_main_error_exits_without_writing(monkeypatch, tmp_path):
 
 
 LEGACY_GOLD = [
-    {"paper_id": "legacy-1", "query": "q one", "answer_spans": ["a"]},
+    {"paper_id": 1, "query": "q one", "answer_spans": ["a"]},
     {"arxiv_id": "2508.11836", "query": "q two", "answer_spans": ["b"]},
 ]
 LEGACY_SHEET = "1. 2410.10071 ○\n2. 2508.11836 ○\n"
