@@ -200,6 +200,27 @@ def test_embed_count_mismatch_raises_embed_error():
             _client().embed(["only one text"])
 
 
+def test_embed_empty_vectors_reports_count_mismatch_not_missing_key():
+    """`{"vectors": []}` for a non-empty batch is a count mismatch, not a missing key (#329)."""
+    from nugget_rag.embedder import EmbedError
+
+    with patch("nugget_rag.embedder.urlopen", _make_cm_mock(b'{"vectors": []}')):
+        with pytest.raises(EmbedError) as excinfo:
+            _client().embed(["hello"])
+    assert "Embedding count mismatch: sent 1 texts, got 0 vectors" in str(excinfo.value)
+    assert "key in response" not in str(excinfo.value)
+
+
+def test_embed_vectors_key_takes_precedence_over_embeddings_even_if_empty():
+    """When both keys exist, 'vectors' wins even if empty (-> count mismatch) (#329)."""
+    from nugget_rag.embedder import EmbedError
+
+    body = b'{"vectors": [], "embeddings": [[0.1]]}'
+    with patch("nugget_rag.embedder.urlopen", _make_cm_mock(body)):
+        with pytest.raises(EmbedError, match="count mismatch: sent 1 texts, got 0 vectors"):
+            _client().embed(["hello"])
+
+
 def test_embed_invalid_json_raises():
     from nugget_rag.embedder import EmbedError
 
