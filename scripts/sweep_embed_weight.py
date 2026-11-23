@@ -33,7 +33,14 @@ from eval.cli_helpers import (
     positive_int,
     write_json_atomic,
 )
-from eval.evaluate import build_chunks_index, evaluate, validate_chunks, validate_gold
+from eval.evaluate import (
+    build_chunks_index,
+    evaluate,
+    format_diagnostics,
+    pop_diagnostics,
+    validate_chunks,
+    validate_gold,
+)
 
 BATCH = 128  # texts per embedding request (the client allows up to 256)
 
@@ -127,10 +134,14 @@ def sweep(
 ) -> dict[tuple[str, float], dict]:
     out = {}
     for gname, gold in golds.items():
-        for w in weights:
+        for i, w in enumerate(weights):
             out[(gname, w)] = evaluate(
                 chunks_by_paper, gold, top_k=top_k, embed_fn=embed_fn, embed_weight=w, match=match
             )
+            if i == 0:  # coverage does not depend on the weight: show it once per gold
+                for line in format_diagnostics(out[(gname, w)], prefix=f"[gold={gname}] "):
+                    print(line, file=sys.stderr)
+            pop_diagnostics(out[(gname, w)])
     return out
 
 

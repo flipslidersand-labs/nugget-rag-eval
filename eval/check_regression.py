@@ -28,7 +28,14 @@ import sys
 from pathlib import Path
 
 from eval.cli_helpers import existing_file, float_between_0_1, load_json, positive_int
-from eval.evaluate import build_chunks_index, evaluate, mode_label, validate_chunks
+from eval.evaluate import (
+    build_chunks_index,
+    evaluate,
+    format_diagnostics,
+    mode_label,
+    pop_diagnostics,
+    validate_chunks,
+)
 
 
 def raw_recall(result: dict, mode: str) -> float:
@@ -182,9 +189,13 @@ def main() -> None:
     chunks_by_paper = build_chunks_index(chunks_data)
 
     try:
-        result = evaluate(chunks_by_paper, gold, top_k=args.top_k, verbose=args.verbose)
+        result = evaluate(chunks_by_paper, gold, top_k=args.top_k)
     except ValueError as exc:
         sys.exit(f"[ERROR] {exc}")
+
+    for line in format_diagnostics(result, verbose=args.verbose):
+        print(line, file=sys.stderr)
+    pop_diagnostics(result)
 
     threshold = args.threshold
 

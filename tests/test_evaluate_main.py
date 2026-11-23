@@ -17,41 +17,65 @@ def _chunks_for(paper_id: int, text: str, nugget: str) -> dict[int, list[dict]]:
     return {paper_id: [{"text": text, "nugget": nugget}]}
 
 
-def test_evaluate_verbose_prints_miss_to_stderr(capsys):
-    """verbose=True with a nugget miss must print to stderr."""
+def test_evaluate_never_prints_but_returns_misses(capsys):
+    """evaluate() は stderr に出さず、miss は result["misses"] に返す (#391)。"""
     chunks_by_paper = {1: [{"text": "irrelevant", "nugget": "irrelevant"}]}
     gold = [{"paper_id": 1, "query": "missing span", "answer_spans": ["target answer"]}]
-    evaluate(chunks_by_paper, gold, top_k=5, verbose=True)
-    captured = capsys.readouterr()
-    assert "Nugget Recall Misses" in captured.err
+    result = evaluate(chunks_by_paper, gold, top_k=5)
+    assert capsys.readouterr().err == ""
+    assert result["misses"]["nugget"] == [
+        {"index": 0, "query": "missing span", "span": "target answer"}
+    ]
 
 
-def test_evaluate_verbose_no_miss_is_silent(capsys):
-    """verbose=True with all nuggets hitting must not print to stderr."""
+def test_evaluate_no_miss_means_empty_misses():
     chunks_by_paper = {1: [{"text": "target answer text", "nugget": "target answer"}]}
     gold = [{"paper_id": 1, "query": "q", "answer_spans": ["target answer"]}]
-    evaluate(chunks_by_paper, gold, top_k=5, verbose=True)
-    captured = capsys.readouterr()
-    assert captured.err == ""
+    result = evaluate(chunks_by_paper, gold, top_k=5)
+    assert result["misses"] == {"full_chunk": [], "nugget": []}
+    assert result["warnings"] == []
 
 
-def test_evaluate_verbose_false_is_silent_on_miss(capsys):
-    """verbose=False (default) must never print to stderr."""
-    chunks_by_paper = {1: [{"text": "irrelevant", "nugget": "irrelevant"}]}
-    gold = [{"paper_id": 1, "query": "q", "answer_spans": ["missing"]}]
-    evaluate(chunks_by_paper, gold, top_k=5, verbose=False)
-    captured = capsys.readouterr()
-    assert captured.err == ""
+def _run_cli(monkeypatch, capsys, tmp_path, n_miss, extra=()):
+    from eval.evaluate import main
+
+    paper_id = ARXIV_MAP["2410.10071"]
+    chunks = [{"paper_id": paper_id, "text": "unrelated words", "nugget": "unrelated words"}]
+    gold = [
+        {"arxiv_id": "2410.10071", "query": f"q{i}", "answer_spans": ["target answer"]}
+        for i in range(n_miss)
+    ] + [{"arxiv_id": "2508.11836", "query": "no chunks", "answer_spans": ["x"]}]
+    c_path, g_path = tmp_path / "c.json", tmp_path / "g.json"
+    _write_json(c_path, chunks)
+    _write_json(g_path, gold)
+    argv = ["evaluate.py", "--chunks", str(c_path), "--gold", str(g_path), *extra]
+    monkeypatch.setattr(sys, "argv", argv)
+    main()
+    return capsys.readouterr()
 
 
-def test_evaluate_verbose_caps_at_5_misses(capsys):
-    """verbose output shows at most 5 misses even if more exist."""
-    chunks_by_paper = {i: [{"text": "x", "nugget": "x"}] for i in range(1, 9)}
-    gold = [{"paper_id": i, "query": f"q{i}", "answer_spans": ["miss"]} for i in range(1, 9)]
-    evaluate(chunks_by_paper, gold, top_k=5, verbose=True)
-    captured = capsys.readouterr()
-    lines = [line for line in captured.err.splitlines() if line.startswith("  [")]
-    assert len(lines) <= 5
+def test_main_verbose_prints_warn_once_and_caps_misses_at_5(monkeypatch, capsys, tmp_path):
+    cap = _run_cli(monkeypatch, capsys, tmp_path, 8, extra=["--verbose"])
+    assert cap.err.count("[WARN]") == 1
+    assert "[WARN] 1/9 gold queries have no chunks" in cap.err
+    assert cap.err.count("## Nugget Recall Misses:") == 1
+    assert "Full-chunk Recall Misses" not in cap.err
+    lines = [line for line in cap.err.splitlines() if line.startswith("  [")]
+    assert lines == [f"  [{i}] q{i}... → target answer..." for i in range(5)]
+
+
+def test_main_without_verbose_prints_warn_but_no_misses(monkeypatch, capsys, tmp_path):
+    cap = _run_cli(monkeypatch, capsys, tmp_path, 3)
+    assert cap.err.count("[WARN]") == 1
+    assert "Recall Misses" not in cap.err
+
+
+def test_main_stdout_json_keeps_its_keys(monkeypatch, capsys, tmp_path):
+    """warnings / misses は stderr 用の追加キー。stdout の JSON には混ぜない (#391)。"""
+    cap = _run_cli(monkeypatch, capsys, tmp_path, 3, extra=["--verbose"])
+    result = json.loads(cap.out[cap.out.index("{") :])
+    assert "warnings" not in result and "misses" not in result
+    assert result["n_queries_without_chunks"] == 1
 
 
 # ── avg_tokens estimator ─────────────────────────────────────────────────────

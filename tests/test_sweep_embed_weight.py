@@ -180,3 +180,14 @@ def test_main_reports_a_short_embedding_response_as_error(monkeypatch, tmp_path)
 def test_main_invalid_gold_error_names_the_gold(monkeypatch, tmp_path):
     msg = _run_main(monkeypatch, tmp_path, [{"arxiv_id": "2410.10071"}], lambda ts: [])
     assert msg.startswith("[ERROR] gold=my_gold: gold[0] missing required fields")
+
+
+def test_sweep_shows_a_coverage_warning_once_per_gold(capsys):
+    gold = GOLD + [{"arxiv_id": "2512.00001", "query": "x", "answer_spans": ["y"]}]
+    by_paper = build_chunks_index(CHUNKS)
+    embed, _ = _fake_embedder()
+    results = sw.sweep(by_paper, {"G": gold}, [0.0, 0.5, 1.0], embed, match="exact")
+    err = capsys.readouterr().err
+    assert err.count("[WARN]") == 1
+    assert err.startswith("[gold=G] [WARN] 1/3 gold queries have no chunks")
+    assert all("warnings" not in r and "misses" not in r for r in results.values())

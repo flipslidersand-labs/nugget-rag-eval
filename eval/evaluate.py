@@ -168,10 +168,13 @@ def validate_gold(gold: list[dict]) -> None:
             )
 
 
-def check_gold_chunk_coverage(chunks_by_paper: dict[str, list[dict]], gold: list[dict]) -> int:
-    """Warn about gold keys missing from chunks_by_paper; return the count of affected queries.
+def check_gold_chunk_coverage(
+    chunks_by_paper: dict[str, list[dict]], gold: list[dict]
+) -> tuple[int, list[str]]:
+    """Check gold keys against chunks_by_paper; return (affected query count, warning lines).
 
-    Prints a ``[WARN]`` line to stderr with the count and up to 5 example keys.
+    Pure: nothing is printed. The warning (count plus up to 5 example keys) is for the
+    caller to show, so a driver calling evaluate() many times can show it once.
 
     Raises:
         ValueError: If *gold* is non-empty and no gold key resolves to any chunks
@@ -179,7 +182,7 @@ def check_gold_chunk_coverage(chunks_by_paper: dict[str, list[dict]], gold: list
     """
     missing = [key for item in gold if (key := resolve_paper_key(item)) not in chunks_by_paper]
     if not missing:
-        return 0
+        return 0, []
 
     examples = sorted({str(k) for k in missing})[:5]
     if len(missing) == len(gold):
@@ -187,12 +190,11 @@ def check_gold_chunk_coverage(chunks_by_paper: dict[str, list[dict]], gold: list
             f"no gold paper key found in chunks — all {len(gold)} queries would score "
             f"recall 0 (wrong --chunks file or unregistered arxiv_id?); examples: {examples}"
         )
-    print(
+    warning = (
         f"[WARN] {len(missing)}/{len(gold)} gold queries have no chunks "
-        f"(keys not in chunks data): {examples}",
-        file=sys.stderr,
+        f"(keys not in chunks data): {examples}"
     )
-    return len(missing)
+    return len(missing), [warning]
 
 
 _NON_WORD = re.compile(r"[\W_]+")
@@ -286,11 +288,36 @@ def mode_label(name: str, embed_weight: float | None = None) -> str:
     return label
 
 
+def format_diagnostics(result: dict, verbose: bool = False, prefix: str = "") -> list[str]:
+    """Stderr lines for ``result["warnings"]`` and, if *verbose*, the first 5 recall misses.
+
+    *prefix* is put before each warning (e.g. ``"[pool=A gold=B] "``) so a driver that
+    evaluates many pool/gold pairs can say which one a warning belongs to.
+    """
+    lines = [prefix + w for w in result.get("warnings", [])]
+    if verbose:
+        for mode in MODES:
+            misses = result.get("misses", {}).get(mode.name, [])
+            if mode.show_misses and misses:
+                lines.append(f"\n## {mode.label.capitalize()} Recall Misses:")
+                lines += [f"  [{m['index']}] {m['query']}... → {m['span']}..." for m in misses[:5]]
+    return lines
+
+
+def pop_diagnostics(result: dict) -> dict:
+    """Remove the stderr-only keys (``warnings``, ``misses``) from *result* and return it.
+
+    Keeps JSON the tools write out (stdout, --json, summary.json) free of the extra keys.
+    """
+    result.pop("warnings", None)
+    result.pop("misses", None)
+    return result
+
+
 def evaluate(
     chunks_by_paper: dict[str, list[dict]],
     gold: list[dict],
     top_k: int = 5,
-    verbose: bool = False,
     embed_fn: Callable[[list[str]], list[list[float]]] | None = None,
     embed_weight: float = 0.5,
     estimator: str = "words",
@@ -301,7 +328,7 @@ def evaluate(
         raise ValueError(f"match must be 'exact' or 'normalized', got {match!r}")
     normalize = match == "normalized"
     validate_gold(gold)
-    n_queries_without_chunks = check_gold_chunk_coverage(chunks_by_paper, gold)
+    n_queries_without_chunks, warnings = check_gold_chunk_coverage(chunks_by_paper, gold)
 
     embed_spent = 0.0
     timed_embed_fn = embed_fn
@@ -333,7 +360,7 @@ def evaluate(
     mrr_sum = {m.name: 0.0 for m in MODES}
     times: dict[str, list[float]] = {m.name: [] for m in MODES}
     flags: dict[str, list[bool]] = {m.name: [] for m in MODES}
-    misses: dict[str, list[tuple[int, str, str]]] = {m.name: [] for m in MODES}
+    misses: dict[str, list[dict]] = {m.name: [] for m in MODES}
     embed_times: list[float] = []
 
     for i, item in enumerate(gold):
@@ -356,18 +383,11 @@ def evaluate(
             if hit:
                 hits[mode.name] += 1
             else:
-                misses[mode.name].append((i, query[:40], spans[0][:50]))
+                misses[mode.name].append({"index": i, "query": query[:40], "span": spans[0][:50]})
             mrr_sum[mode.name] += mrr_at_k(results, spans, mode.field, normalize)
             tokens[mode.name] += avg_tokens(results, mode.field, estimator)
 
     n = len(gold)
-    if verbose:
-        for mode in MODES:
-            if mode.show_misses and misses[mode.name]:
-                print(f"\n## {mode.label.capitalize()} Recall Misses:", file=sys.stderr)
-                for idx, q, span in misses[mode.name][:5]:
-                    print(f"  [{idx}] {q}... → {span}...", file=sys.stderr)
-
     latency: dict[str, dict] = {m.name: _latency_summary(times[m.name]) for m in MODES}
     if embed_fn is not None:
         latency["nugget_embed_calls"] = _latency_summary(embed_times)
@@ -376,6 +396,9 @@ def evaluate(
         "match": match,
         "n_queries": n,
         "n_queries_without_chunks": n_queries_without_chunks,
+        # Diagnostics for the caller to show (evaluate() prints nothing); see format_diagnostics.
+        "warnings": warnings,
+        "misses": misses,
         "modes": [m.name for m in MODES],
         # Unrounded hit counts per mode: gates compare hits / n_queries, not the rounded recall.
         "hits": {m.name: hits[m.name] for m in MODES},
@@ -480,7 +503,6 @@ def main():
             chunks_by_paper,
             gold,
             top_k=args.top_k,
-            verbose=args.verbose,
             embed_fn=embed_fn,
             embed_weight=args.embed_weight,
             estimator=args.token_estimator,
@@ -491,6 +513,10 @@ def main():
         sys.exit(f"[ERROR] {exc}")
     except EmbedError as exc:
         sys.exit(f"[ERROR] embedding service failed: {exc}")
+
+    for line in format_diagnostics(result, verbose=args.verbose):
+        print(line, file=sys.stderr)
+    pop_diagnostics(result)
 
     if args.pool_label:
         result["pool"] = args.pool_label
