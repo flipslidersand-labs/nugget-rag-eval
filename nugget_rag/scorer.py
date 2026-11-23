@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+import re
 import unicodedata
 from collections import Counter
 from functools import cache
@@ -51,6 +52,14 @@ def _is_bigram_char(ch: str) -> bool:
     return any(sc in name for sc in _BIGRAM_SCRIPTS)
 
 
+@cache
+def _char_kind(ch: str) -> str:
+    """Classify one char for _tokenize: "c" bigram char, "w" word char, "m" mark, "-" separator."""
+    if ch.isalnum():
+        return "c" if _is_bigram_char(ch) else "w"
+    return "m" if unicodedata.category(ch)[0] == "M" else "-"
+
+
 def _tokenize(text: str) -> list[str]:
     """Hybrid tokenizer that handles mixed-language text uniformly.
 
@@ -71,35 +80,16 @@ def _tokenize(text: str) -> list[str]:
     cross-language pairs.
     """
     text = unicodedata.normalize("NFKC", text).lower()
+    kinds = "".join(_char_kind(ch) for ch in text)
     tokens: list[str] = []
-    word_buf: list[str] = []
-    cjk_run: list[str] = []
-
-    def _flush() -> None:
-        if word_buf:
-            tokens.append("".join(word_buf))
-            word_buf.clear()
-        if cjk_run:
-            tokens.extend(_char_ngrams("".join(cjk_run)))
-            cjk_run.clear()
-
-    for ch in text:
-        if ch.isalnum():
-            if _is_bigram_char(ch):
-                if word_buf:
-                    _flush()
-                cjk_run.append(ch)
-            else:  # ASCII/Latin/Greek/Cyrillic/... letters and digits: word token
-                if cjk_run:
-                    _flush()
-                word_buf.append(ch)
-        elif unicodedata.category(ch)[0] == "M" and (word_buf or cjk_run):
-            # combining mark stays with its base: letter, or e.g. U+3099/309A that NFKC cannot compose
-            (word_buf or cjk_run).append(ch)
-        else:  # whitespace, punctuation, symbols, format chars: separator
-            _flush()
-    _flush()
-
+    # A combining mark stays with the base char before it (letter, or e.g. U+3099/309A that
+    # NFKC cannot compose); a mark after a separator matches nothing and is dropped.
+    for m in re.finditer(r"c[cm]*|w[wm]*", kinds):
+        run = text[m.start() : m.end()]
+        if kinds[m.start()] == "c":
+            tokens.extend(_char_ngrams(run))
+        else:
+            tokens.append(run)
     return tokens
 
 
