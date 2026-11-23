@@ -27,8 +27,8 @@ GOLD = [{"arxiv_id": "2410.10071", "query": "alpha one", "answer_spans": ["Gamma
 class FakeClient:
     instances: list[FakeClient] = []
 
-    def __init__(self, url):
-        self.url, self.calls = url, []
+    def __init__(self, url, collection="search-engine"):
+        self.url, self.collection, self.calls = url, collection, []
         FakeClient.instances.append(self)
 
     def embed(self, texts):
@@ -227,6 +227,41 @@ def test_main_bad_embedding_url_exits_without_traceback_or_out_dir(env, monkeypa
         _run(monkeypatch, tmp_path, chunks, gold, "--embedding-url", "ftp://x")
     assert str(exc.value.code).startswith("[ERROR]")
     assert not (tmp_path / "out").exists()
+
+
+def test_main_embedding_collection_is_passed_to_client(env, monkeypatch):
+    tmp_path, chunks, gold = env
+    _run(monkeypatch, tmp_path, chunks, gold, "--embedding-collection", "my-coll")
+    assert FakeClient.instances[0].collection == "my-coll"
+
+
+def test_main_embedding_collection_defaults_to_search_engine(env, monkeypatch):
+    tmp_path, chunks, gold = env
+    _run(monkeypatch, tmp_path, chunks, gold)
+    assert FakeClient.instances[0].collection == "search-engine"
+
+
+def test_main_warns_when_api_key_missing(env, monkeypatch, capsys):
+    tmp_path, chunks, gold = env
+    monkeypatch.delenv("EMBEDDING_API_KEY", raising=False)
+    _run(monkeypatch, tmp_path, chunks, gold)
+    assert "[WARN] EMBEDDING_API_KEY not set" in capsys.readouterr().err
+
+
+def test_main_no_warning_when_api_key_set(env, monkeypatch, capsys):
+    tmp_path, chunks, gold = env
+    monkeypatch.setenv("EMBEDDING_API_KEY", "dummy-for-test")
+    _run(monkeypatch, tmp_path, chunks, gold)
+    assert "[WARN] EMBEDDING_API_KEY not set" not in capsys.readouterr().err
+
+
+def test_sweep_has_no_embed_weight_option(env, monkeypatch, capsys):
+    """--weights is the sweep's own axis; the shared helper must not add --embed-weight."""
+    tmp_path, chunks, gold = env
+    with pytest.raises(SystemExit) as exc:
+        _run(monkeypatch, tmp_path, chunks, gold, "--embed-weight", "0.3")
+    assert exc.value.code == 2
+    assert "--embed-weight" in capsys.readouterr().err
 
 
 def test_main_embed_error_exits_with_error_line(env, monkeypatch):

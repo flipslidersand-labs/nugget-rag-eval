@@ -12,6 +12,10 @@ import json
 import os
 import sys
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from nugget_rag.embedder import EmbedClient
 
 
 def float_between_0_1(v: str) -> float:
@@ -43,6 +47,51 @@ def existing_file(value: str) -> str:
     if not Path(value).is_file():
         raise argparse.ArgumentTypeError(f"file not found: {value}")
     return value
+
+
+def add_embedding_args(
+    parser: argparse.ArgumentParser, *, weight: bool = True, url_required: bool = False
+) -> None:
+    """Add the embedding-service options shared by ``evaluate.py`` and the sweep (#334).
+
+    ``weight=False`` omits ``--embed-weight`` (the sweep has its own ``--weights``).
+    ``url_required`` makes ``--embedding-url`` mandatory (the sweep cannot run without it).
+    """
+    parser.add_argument(
+        "--embedding-url",
+        default=None,
+        required=url_required,
+        help="Embedding service URL (e.g. http://<internal-host>:9092). "
+        "When set, nugget scoring uses BM25 + embedding hybrid.",
+    )
+    if weight:
+        parser.add_argument(
+            "--embed-weight",
+            type=float_between_0_1,
+            default=0.5,
+            help="Embedding weight in hybrid score: 0=BM25-only, 1=embed-only (default: 0.5)",
+        )
+    parser.add_argument(
+        "--embedding-collection",
+        default="search-engine",
+        help="Embedding collection name (default: search-engine)",
+    )
+
+
+def build_embed_client(args: argparse.Namespace) -> EmbedClient:
+    """Build the EmbedClient from ``add_embedding_args`` options.
+
+    Warns on stderr when ``EMBEDDING_API_KEY`` is unset; an invalid URL becomes
+    ``sys.exit("[ERROR] --embedding-url: ...")`` instead of a ValueError traceback.
+    """
+    from nugget_rag.embedder import EmbedClient  # lazy: keeps plain BM25 runs import-light
+
+    if not os.environ.get("EMBEDDING_API_KEY"):
+        print("[WARN] EMBEDDING_API_KEY not set", file=sys.stderr)
+    try:
+        return EmbedClient(args.embedding_url, collection=args.embedding_collection)
+    except ValueError as exc:
+        sys.exit(f"[ERROR] --embedding-url: {exc}")
 
 
 def load_json(path: str, label: str) -> list[dict]:

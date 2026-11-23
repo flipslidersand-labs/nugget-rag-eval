@@ -19,6 +19,7 @@ from pathlib import Path
 
 from eval.cli_helpers import positive_int, write_json_atomic
 from nugget_rag.paper_registry import ARXIV_MAP
+from nugget_rag.schema import make_chunk
 
 # Simpler than nugget_rag.chunker.split_sentences: split only after an ASCII terminator
 # followed by whitespace, so decimals such as "0.5" stay intact (as in the chunker), but
@@ -88,13 +89,9 @@ def build_pool(pdf_dir: Path, target_words: int) -> list[dict]:
         pieces = chunk_text(text, target_words)
         for i, piece in enumerate(pieces):
             pool.append(
-                {
-                    "paper_id": paper_id,
-                    "arxiv_id": arxiv_id,
-                    "chunk_indices": [i],
-                    "text": piece,
-                    "score": 0.0,
-                }
+                make_chunk(
+                    paper_id, piece, 0.0, chunk_indices=[i], arxiv_id=arxiv_id, arxiv_id_first=True
+                )
             )
         print(f"  {arxiv_id} (paper {paper_id}): {len(pieces)} chunks", file=sys.stderr)
     return pool

@@ -53,6 +53,16 @@ def test_baseline_invalid_file_exits(tmp_path):
     assert "invalid baseline" in str(exc.value.code)
 
 
+@pytest.mark.parametrize("bad", [float("nan"), float("inf"), float("-inf"), -0.1, 1.5])
+def test_baseline_non_finite_or_out_of_range_recall_exits(tmp_path, bad):
+    # json.dumps emits NaN/Infinity by default; NaN would make `drop > max_drop` always False (#389).
+    p = tmp_path / "bad.json"
+    p.write_text(json.dumps({"full_chunk": {"recall": bad}, "nugget": {"recall": 0.2}}))
+    with pytest.raises(SystemExit) as exc:
+        check_baseline(RESULT, str(p), max_drop=0.05)
+    assert "invalid baseline" in str(exc.value.code)
+
+
 def _write_main_inputs(tmp_path):
     pid = ARXIV_MAP["2410.10071"]
     chunks = [{"paper_id": pid, "text": "alpha beta gamma", "nugget": "alpha beta gamma"}]
