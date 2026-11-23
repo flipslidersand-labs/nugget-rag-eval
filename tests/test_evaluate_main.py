@@ -82,14 +82,6 @@ def test_evaluate_chars_estimator_produces_result():
     assert result["full_chunk"]["avg_tokens"] > 0
 
 
-def test_evaluate_empty_gold_returns_zeros():
-    result = evaluate({}, [], top_k=5)
-    assert result["n_queries"] == 0
-    assert result["full_chunk"]["recall"] == 0
-    assert result["nugget"]["recall"] == 0
-    assert result["full_chunk"]["mrr"] == 0
-
-
 # ── main() CLI via subprocess ─────────────────────────────────────────────────
 
 
@@ -430,14 +422,14 @@ def test_main_invalid_json_gold_exits_with_message(tmp_path, monkeypatch):
 # ── validate_chunks in main() CLI (#149) ─────────────────────────────────────
 
 
-def test_main_chunks_dict_instead_of_list_exits_with_error(tmp_path, monkeypatch):
+def test_main_chunks_dict_instead_of_list_exits_with_error(tmp_path, monkeypatch, minimal_data):
     """chunks が JSON オブジェクト（dict）の場合は [ERROR] + SystemExit。"""
     from eval.evaluate import main
 
     c_path = tmp_path / "chunks.json"
     c_path.write_text('{"paper_id": 1, "text": "x"}')
-    g_path = tmp_path / "gold.json"
-    _write_json(g_path, [])
+    # gold は非空にする (空だと validate_chunks を外しても gold 側のエラーで通る)
+    _, g_path = minimal_data
     monkeypatch.setattr(
         sys, "argv", ["evaluate.py", "--chunks", str(c_path), "--gold", str(g_path)]
     )
@@ -446,30 +438,31 @@ def test_main_chunks_dict_instead_of_list_exits_with_error(tmp_path, monkeypatch
     assert "[ERROR]" in str(exc_info.value.code)
 
 
-def test_main_chunks_missing_id_exits_with_error(tmp_path, monkeypatch):
+def test_main_chunks_missing_id_exits_with_error(tmp_path, monkeypatch, minimal_data):
     """ID フィールドが両方欠落した chunk は [ERROR] + SystemExit。"""
     from eval.evaluate import main
 
     c_path = tmp_path / "chunks.json"
     _write_json(c_path, [{"text": "some text without id"}])
-    g_path = tmp_path / "gold.json"
-    _write_json(g_path, [])
+    # gold は非空にする (空だと validate_chunks を外しても gold 側のエラーで通る)
+    _, g_path = minimal_data
     monkeypatch.setattr(
         sys, "argv", ["evaluate.py", "--chunks", str(c_path), "--gold", str(g_path)]
     )
     with pytest.raises(SystemExit) as exc_info:
         main()
     assert "[ERROR]" in str(exc_info.value.code)
+    assert "chunks[0]" in str(exc_info.value.code)  # validate_chunks 由来のメッセージ
 
 
-def test_main_chunks_missing_text_exits_with_error(tmp_path, monkeypatch):
+def test_main_chunks_missing_text_exits_with_error(tmp_path, monkeypatch, minimal_data):
     """text フィールドが欠落した chunk は [ERROR] + SystemExit。"""
     from eval.evaluate import main
 
     c_path = tmp_path / "chunks.json"
     _write_json(c_path, [{"paper_id": 1}])
-    g_path = tmp_path / "gold.json"
-    _write_json(g_path, [])
+    # gold は非空にする (空だと validate_chunks を外しても gold 側のエラーで通る)
+    _, g_path = minimal_data
     monkeypatch.setattr(
         sys, "argv", ["evaluate.py", "--chunks", str(c_path), "--gold", str(g_path)]
     )
@@ -478,14 +471,14 @@ def test_main_chunks_missing_text_exits_with_error(tmp_path, monkeypatch):
     assert "[ERROR]" in str(exc_info.value.code)
 
 
-def test_main_chunks_empty_text_exits_with_error(tmp_path, monkeypatch):
+def test_main_chunks_empty_text_exits_with_error(tmp_path, monkeypatch, minimal_data):
     """text が空文字列の chunk は [ERROR] + SystemExit（サイレント recall 低下を防ぐ）。"""
     from eval.evaluate import main
 
     c_path = tmp_path / "chunks.json"
     _write_json(c_path, [{"paper_id": 1, "text": ""}])
-    g_path = tmp_path / "gold.json"
-    _write_json(g_path, [])
+    # gold は非空にする (空だと validate_chunks を外しても gold 側のエラーで通る)
+    _, g_path = minimal_data
     monkeypatch.setattr(
         sys, "argv", ["evaluate.py", "--chunks", str(c_path), "--gold", str(g_path)]
     )
@@ -694,3 +687,16 @@ def test_main_dict_gold_exits_with_error(minimal_data, tmp_path, monkeypatch):
     with pytest.raises(SystemExit) as exc_info:
         main()
     assert "[ERROR]" in str(exc_info.value)
+
+
+def test_main_empty_gold_exits_with_error(tmp_path, monkeypatch, minimal_data):
+    """gold が [] のとき recall 0 の表を出さず [ERROR] で非 0 終了する (#323)。"""
+    c_path, _ = minimal_data
+    g_path = tmp_path / "empty_gold.json"
+    _write_json(g_path, [])
+    with pytest.raises(SystemExit) as exc_info:
+        _run_main(monkeypatch, c_path, g_path)
+    # sys.exit("[ERROR] ...") carries the message in .code (non-zero, non-None)
+    assert isinstance(exc_info.value.code, str)
+    assert exc_info.value.code.startswith("[ERROR]")
+    assert "gold is empty" in exc_info.value.code
