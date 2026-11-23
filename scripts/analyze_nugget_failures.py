@@ -5,7 +5,8 @@ For every gold item (searching only the gold paper's chunks, like evaluate.py):
   A retrieval miss   no top-k chunk contains the answer span (full-chunk misses too)
   B split miss       a top-k chunk contains the span but no single sentence does
   C extraction miss  a sentence has the span but is not among the nugget sentences
-  D hit              the nugget text contains the span
+  D hit              a selected sentence contains the span (a span split across two selected
+                     adjacent sentences is still B here; evaluate counts it as a hit)
 
 The sweep re-runs retrieve_nuggets with several nuggets_per_chunk / window values.
 Selection logic comes from nugget_rag itself, nothing is re-implemented here.
@@ -51,6 +52,8 @@ def classify(
 
     Every top-k chunk containing a span is examined, as evaluate's nugget hit does (#327).
     Priority: D if any holder is a hit, else C (smallest rank over holders), else B, else A.
+    Judged per sentence: when two adjacent selected sentences together hold the span, evaluate
+    counts a hit (it joins them) but this stays B, so the D total can be below hits['nugget'].
     """
     top = retrieve_full_chunk(chunks, query, top_k)
     holders = [c for c in top if _span_in(c.get("text", ""), spans, normalize)]
