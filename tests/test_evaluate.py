@@ -206,13 +206,6 @@ def test_evaluate_no_warning_when_all_keys_present(capsys):
     assert result["n_queries_without_chunks"] == 0
 
 
-def test_evaluate_empty_gold_no_error():
-    """gold が空でも ValueError にならない（既存挙動維持）。"""
-    result = evaluate({}, [], top_k=5)
-    assert result["n_queries"] == 0
-    assert result["n_queries_without_chunks"] == 0
-
-
 def test_evaluate_warn_examples_capped_at_five(capsys):
     """未解決 key の例は最大5件まで。"""
     chunks_by_paper = {1: [{"text": "answer here", "nugget": "answer here"}]}
@@ -240,8 +233,16 @@ def test_validate_gold_passes_on_valid_items():
     validate_gold(gold)  # must not raise
 
 
-def test_validate_gold_passes_on_empty_list():
-    validate_gold([])  # empty gold is valid (evaluate() returns zeros)
+def test_validate_gold_empty_list_raises():
+    """空の gold は評価対象 0 件で全指標 0 になるため拒否する (#323)。"""
+    with pytest.raises(ValueError, match="gold is empty"):
+        validate_gold([])
+
+
+def test_evaluate_empty_gold_raises():
+    """evaluate() も空 gold を n=0 の成功結果として返さない (#323)。"""
+    with pytest.raises(ValueError, match="gold is empty"):
+        evaluate({}, [])
 
 
 def test_validate_gold_missing_query_raises():

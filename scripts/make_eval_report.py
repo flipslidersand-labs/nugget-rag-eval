@@ -120,6 +120,8 @@ def main() -> None:
         pools = {}
         for spec in args.pool:
             name, path, match = parse_named(spec, "--pool")
+            if name in pools:
+                raise ValueError(f"pool name '{name}' is used twice")
             chunks = load_json(path, f"--pool {name}")
             try:
                 validate_chunks(chunks)
@@ -129,6 +131,8 @@ def main() -> None:
         golds = {}
         for spec in args.gold:
             name, path, _ = parse_named(spec, "--gold")
+            if name in golds:
+                raise ValueError(f"gold name '{name}' is used twice")
             gold = load_json(path, f"--gold {name}")
             try:
                 validate_gold(gold)

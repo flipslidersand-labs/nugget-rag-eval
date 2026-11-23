@@ -114,6 +114,7 @@ def validate_gold(gold: list[dict]) -> None:
     """Validate gold set items, raising ValueError on schema violations.
 
     Checks:
+    - ``gold`` is a non-empty list (an empty gold would evaluate nothing).
     - Each item has at least one of ``arxiv_id`` or ``paper_id``, and they are
       a str / an int respectively (see :func:`check_id_types`).
     - Each item has ``query`` and ``answer_spans``.
@@ -127,6 +128,8 @@ def validate_gold(gold: list[dict]) -> None:
     """
     if not isinstance(gold, list):
         raise ValueError(f"gold must be a JSON array (list), got {type(gold).__name__!r}")
+    if not gold:
+        raise ValueError("gold is empty — nothing to evaluate")
     for i, item in enumerate(gold):
         if not isinstance(item, dict):
             raise ValueError(f"gold[{i}] must be a dict, got {type(item).__name__!r}")

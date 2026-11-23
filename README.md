@@ -37,6 +37,10 @@ python eval/check_regression.py --chunks data/chunks_large.json --gold eval/gold
 - [Architecture decision records](docs/adr/README.md)
 - [CHANGELOG](CHANGELOG.md) · [CONTRIBUTING](CONTRIBUTING.md)
 
+### License
+
+MIT — see [LICENSE](LICENSE).
+
 ## 日本語
 
 CoinRAG ([arxiv 2608.07458](https://arxiv.org/abs/2608.07458)) のコアアイデア —
@@ -50,6 +54,10 @@ academic-paper-system に導入する前に定量評価するためのリポジ�
 - [仕様: CLI とデータ形式](docs/spec/cli-and-data-formats.md) — 引数・入力ファイル・終了コード
 - [設計](docs/design.md) — データの流れとモジュールの責務
 - [CONTRIBUTING](CONTRIBUTING.md) — 開発の流れ・CI・コミット規約
+
+## ライセンス
+
+MIT — [LICENSE](LICENSE) を参照。
 
 ## 設計判断（ADR）/ Design decisions
 
@@ -153,7 +161,9 @@ full-chunk         0.514        0.373        281.4
 nugget             0.216        0.128        78.7
 
 {
+  "match": "exact",
   "n_queries": 37,
+  "n_queries_without_chunks": 0,
   "full_chunk": {"recall": 0.514, "mrr": 0.373, "avg_tokens": 281.4},
   "nugget":     {"recall": 0.216,   "mrr": 0.128, "avg_tokens": 78.7},
   "hits": {"full_chunk": 19, "nugget": 8},
@@ -166,7 +176,10 @@ nugget             0.216        0.128        78.7
 }
 ```
 
-（`hits` はモードごとの正解クエリ数（丸め前）。`recall` は `hits / n_queries` を 3 桁に丸めた値。
+（`match` は照合方式（`--match`）。`n_queries_without_chunks` は gold の論文キーに対応するチャンクが無いクエリ数で、
+そのクエリは静かに Recall 0 になる（0 でなければ標準エラーに `[WARN]`、全件該当なしならエラー終了）。
+実際の出力には `modes`（モード名の配列）もあり、`--pool-label` を指定したときだけ `pool` が付く。
+`hits` はモードごとの正解クエリ数（丸め前）。`recall` は `hits / n_queries` を 3 桁に丸めた値。
 例は難問セット・PDF プール・BM25 のみ。`comparison` の判別条件は `mcnemar_p < 0.05` かつ
 `recall_diff_ci95` が 0 を含まないこと。`nugget_only` は構造上常に 0。
 この出力例は #252（トークナイザの句読点修正）より前の実行で、現在の基準値の Recall は full 0.595 / nugget 0.270 〔`eval/baseline_hard.json`〕。）

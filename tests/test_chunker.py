@@ -106,3 +106,38 @@ def test_split_keeps_parenthesized_abbreviations_intact():
         "Scores (e.g. BM25) vary.",
         "See [Fig. 3] for details.",
     ]
+
+
+def test_split_keeps_closing_quote_with_cjk_sentence_end():
+    # #304: the closing 」 belongs to the sentence whose 。 sits inside the quote.
+    assert split_sentences("結果は「改善した。」と述べた。") == [
+        "結果は「改善した。」",
+        "と述べた。",
+    ]
+
+
+def test_split_closing_bracket_stays_before_next_sentence():
+    assert split_sentences("結果は「改善した。」次に進む。") == [
+        "結果は「改善した。」",
+        "次に進む。",
+    ]
+    assert split_sentences("精度は高い（改善した。）次に進む。") == [
+        "精度は高い（改善した。）",
+        "次に進む。",
+    ]
+
+
+def test_split_closers_after_each_terminator_and_bracket_kind():
+    for closer in "」』）)】]〕》〉｝}”’":
+        for end in "。！？":
+            text = f"A{end}{closer}B。"
+            assert split_sentences(text) == [f"A{end}{closer}", "B。"], text
+
+
+def test_split_keeps_stacked_closers():
+    assert split_sentences("「彼は行く。」）次だ。") == ["「彼は行く。」）", "次だ。"]
+
+
+def test_split_closer_only_tail_is_not_a_sentence():
+    assert split_sentences("「改善した。」") == ["「改善した。」"]
+    assert split_sentences("一文目。二文目。」") == ["一文目。", "二文目。」"]

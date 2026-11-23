@@ -5,7 +5,8 @@ For every gold item (searching only the gold paper's chunks, like evaluate.py):
   A retrieval miss   no top-k chunk contains the answer span (full-chunk misses too)
   B split miss       a top-k chunk contains the span but no single sentence does
   C extraction miss  a sentence has the span but is not among the nugget sentences
-  D hit              the nugget text contains the span
+  D hit              a selected sentence contains the span (a span split across two selected
+                     adjacent sentences is still B here; evaluate counts it as a hit)
 
 The sweep re-runs retrieve_nuggets with several nuggets_per_chunk / window values.
 Selection logic comes from nugget_rag itself, nothing is re-implemented here.
@@ -47,21 +48,31 @@ LABELS = {
 def classify(
     chunks: list[dict], query: str, spans: list[str], top_k: int, per_chunk: int, normalize: bool
 ) -> tuple[str, int | None]:
-    """Return (class, rank of the best sentence holding the span among its chunk's sentences)."""
+    """Return (class, best rank of a sentence holding the span, for C only).
+
+    Every top-k chunk containing a span is examined, as evaluate's nugget hit does (#327).
+    Priority: D if any holder is a hit, else C (smallest rank over holders), else B, else A.
+    Judged per sentence: when two adjacent selected sentences together hold the span, evaluate
+    counts a hit (it joins them) but this stays B, so the D total can be below hits['nugget'].
+    """
     top = retrieve_full_chunk(chunks, query, top_k)
     holders = [c for c in top if _span_in(c.get("text", ""), spans, normalize)]
     if not holders:
         return "A", None
-    sentences = split_sentences(holders[0]["text"])
-    holding = [i for i, s in enumerate(sentences) if _span_in(s, spans, normalize)]
-    if not holding:
-        return "B", None
-    chosen = top_nuggets(query, sentences, top_k=per_chunk)
-    if any(_span_in(s, spans, normalize) for s in chosen):
-        return "D", None
-    scores = bm25_scores(query, sentences)
-    order = sorted(range(len(sentences)), key=lambda i: scores[i], reverse=True)
-    return "C", min(order.index(i) for i in holding) + 1
+    best_rank: int | None = None
+    for holder in holders:
+        sentences = split_sentences(holder["text"])
+        holding = [i for i, s in enumerate(sentences) if _span_in(s, spans, normalize)]
+        if not holding:
+            continue  # B in this chunk; a later holder may still be C or D
+        chosen = top_nuggets(query, sentences, top_k=per_chunk)
+        if any(_span_in(s, spans, normalize) for s in chosen):
+            return "D", None
+        scores = bm25_scores(query, sentences)
+        order = sorted(range(len(sentences)), key=lambda i: scores[i], reverse=True)
+        rank = min(order.index(i) for i in holding) + 1
+        best_rank = rank if best_rank is None else min(best_rank, rank)
+    return ("B", None) if best_rank is None else ("C", best_rank)
 
 
 def classify_all(

@@ -172,15 +172,16 @@ def fetch_chunks_for_paper(
 
 
 def combine_large_chunks(chunks: list[dict], paper_id: int, target_tokens: int) -> list[dict]:
-    """Merge consecutive chunks up to target_tokens words.
+    """Merge chunks up to target_tokens words, in document order.
 
-    単独で target を超えるチャンクは分割せずそのまま 1 件として出す。
+    入力は検索スコア順でもよい。chunk_index 昇順に整列してから結合する (#247)。
+    入力リストは変更しない。単独で target を超えるチャンクは分割せずそのまま 1 件として出す。
     """
     arxiv_id = PAPER_ID_TO_ARXIV.get(paper_id)
     combined = []
     current = None
     current_size = 0
-    for chunk in chunks:
+    for chunk in sorted(chunks, key=lambda c: c["chunk_index"]):
         chunk_size = len(chunk["text"].split())
         if current is None:
             current = {
