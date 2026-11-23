@@ -32,6 +32,7 @@ Merged after v2.0.0 (2026-08-21).
 
 ### Changed
 
+- **cli_helpers**: write_json_atomic を足し 4 つのスクリプトで使う ([#361](https://github.com/flipslidersand-labs/nugget-rag-eval/pull/361))
 - cosine/embed_scores を vectors.py に移し scorer の embedder 依存を解消 ([#213](https://github.com/flipslidersand-labs/nugget-rag-eval/pull/213))
 - evaluate の2モード直書きを MODES 表のループに一般化 ([#210](https://github.com/flipslidersand-labs/nugget-rag-eval/pull/210))
 - CLI ヘルパーを eval/cli_helpers.py に集約し重複を解消 ([#209](https://github.com/flipslidersand-labs/nugget-rag-eval/pull/209))
@@ -41,6 +42,11 @@ Merged after v2.0.0 (2026-08-21).
 
 ### Fixed
 
+- **scripts**: sweep の RuntimeError 捕捉・validate_* にpool/gold名・4xx の close ([#363](https://github.com/flipslidersand-labs/nugget-rag-eval/pull/363))
+- **check_regression**: --advisory の metadata 不一致の WARN に「比較不能」を明記する ([#360](https://github.com/flipslidersand-labs/nugget-rag-eval/pull/360))
+- **embedder**: 応答サイズの上限と URL userinfo の拒否を足す ([#358](https://github.com/flipslidersand-labs/nugget-rag-eval/pull/358))
+- **fetch_papers**: large モードで同じ物理チャンクの重複を排除する ([#356](https://github.com/flipslidersand-labs/nugget-rag-eval/pull/356))
+- **retriever**: nugget 結合が原文にない継ぎ目・空白を作らないようにする ([#320](https://github.com/flipslidersand-labs/nugget-rag-eval/pull/320))
 - **check_regression**: baseline のモード不一致と top_k/gold/n の不一致を FAIL にする ([#312](https://github.com/flipslidersand-labs/nugget-rag-eval/pull/312))
 - **embedder**: 制御文字を含む API キーをキー値を出さずに EmbedError で止める ([#311](https://github.com/flipslidersand-labs/nugget-rag-eval/pull/311))
 - **fetch_papers**: 5xx 再試行で HTTPError を close し main の部分書き出しをテスト ([#310](https://github.com/flipslidersand-labs/nugget-rag-eval/pull/310))

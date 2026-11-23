@@ -17,7 +17,7 @@ python eval/check_regression.py --chunks tests/fixtures/chunks_test.json --gold 
 - CLI（`python eval/evaluate.py` など）は **editable install が前提**。入れないと `No module named 'eval'`。`python -I` でも同じ。
 - worktree で動かすときは、editable install が本体のチェックアウトを指す。`PYTHONPATH=<worktree の絶対パス>` を付けるか worktree の中で入れ直す。付けないと本体の旧コードを測る。
 - 整形は **line-length 100**。自動整形ツールの既定（88）で全体を書き直す PR が出たことがある（#315 を close）。
-- `eval/baseline_hard.json` は意図した変更のときだけ更新し、新しい値を PR 本文に書く。
+- `eval/baseline_hard.json` と `eval/baseline_gold.json`（CI の実データゲートが読む）は意図した変更のときだけ更新し、新しい値を PR 本文に書く。
 - `data/` は `chunks_large.json` 以外 gitignore（PDF 由来のプールは入れない）。CI の回帰ゲートがこのファイルを読む。
 - 論文を足すときは `nugget_rag/paper_registry.py` の `ARXIV_MAP`（arxiv_id → paper_id の唯一の正本）。
 
