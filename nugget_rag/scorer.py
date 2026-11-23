@@ -148,7 +148,7 @@ def _normalize(scores: list[float]) -> list[float]:
     return [(s - lo) / (hi - lo) for s in scores]
 
 
-def top_nuggets(
+def top_nugget_indices(
     query: str,
     sentences: list[str],
     top_k: int = 2,
@@ -157,8 +157,8 @@ def top_nuggets(
     query_vec: list[float] | None = None,
     sent_vecs: list[list[float]] | None = None,
     window: int = 0,
-) -> list[str]:
-    """Return top-k sentences most relevant to query.
+) -> list[int]:
+    """Return indices (document order) of the top-k sentences most relevant to query.
 
     ``window`` adds that many neighbouring sentences on each side of every
     selected sentence (0 = off, behaviour unchanged). Output stays in document order.
@@ -204,4 +204,9 @@ def top_nuggets(
     selected = set(top_indices)
     for i in top_indices:
         selected.update(j for j in range(i - window, i + window + 1) if 0 <= j < len(sentences))
-    return [sentences[i] for i in sorted(selected)]
+    return sorted(selected)
+
+
+def top_nuggets(query: str, sentences: list[str], *args, **kwargs) -> list[str]:
+    """Return top-k sentences most relevant to query (see :func:`top_nugget_indices`)."""
+    return [sentences[i] for i in top_nugget_indices(query, sentences, *args, **kwargs)]
