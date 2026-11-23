@@ -140,3 +140,9 @@ Recall が下がっていないかを見る CI 用のゲート。
 
 埋め込みサービス（`--embedding-url`）は `POST /embed/batch` に `{"texts": [...], "collection": "<name>"}` を受け、
 `{"vectors": [[...]]}`（または `{"embeddings": [[...]]}`）を返す想定。リモートへの `http://` は鍵が平文で流れるため警告が出る。
+
+クライアント（`nugget_rag/embedder.py`）の制約:
+
+- URL は `http`・`https` のみで、ホストが必須。`user:pass@host` 形式は拒否する（鍵は `EMBEDDING_API_KEY` で渡す）。リダイレクトは辿らない。
+- `texts` は 256 件ずつに分けて送る（`MAX_BATCH_SIZE`）。
+- 応答本文が 32 MiB を超えたら、パースせずに `EmbedError` で止める（`MAX_RESPONSE_BYTES`）。
