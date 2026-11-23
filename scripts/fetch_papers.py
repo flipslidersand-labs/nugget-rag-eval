@@ -169,7 +169,10 @@ def fetch_chunks_for_paper(
 
 
 def combine_large_chunks(chunks: list[dict], paper_id: int, target_tokens: int) -> list[dict]:
-    """Merge consecutive chunks up to target_tokens words."""
+    """Merge consecutive chunks up to target_tokens words.
+
+    単独で target を超えるチャンクは分割せずそのまま 1 件として出す。
+    """
     arxiv_id = PAPER_ID_TO_ARXIV.get(paper_id)
     combined = []
     current = None
