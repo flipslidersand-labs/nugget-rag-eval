@@ -71,6 +71,7 @@ def _urlopen_with_retry(
                 return http_resp.read()
         except HTTPError as exc:
             if not _is_retryable_http(exc.code):
+                exc.close()  # release the response socket before re-raising (#313)
                 raise
             last_exc = exc
             delay = _retry_delay(exc, delay)
@@ -260,7 +261,14 @@ def fetch_per_query(
             failure_count += 1
             continue
 
-        for c in raw:
+        if chunk_mode == "large":
+            candidates = raw
+        else:
+            # A whitespace-only snippet would make validate_chunks reject the whole
+            # chunks file, so drop it at the source (small mode only).
+            candidates = [c for c in raw if c["text"].strip()]
+
+        for c in candidates:
             k = (c["paper_id"], c["chunk_index"])
             if k not in seen or c["score"] > seen[k]["score"]:
                 seen[k] = c
@@ -402,7 +410,8 @@ def main():
                 chunks = combine_large_chunks(raw, pid, args.large_chunk_target)
                 print(f"  paper {pid}: {len(raw)} → {len(chunks)} large chunks", file=sys.stderr)
             else:
-                chunks = raw
+                # Same small-mode rule as fetch_per_query: drop whitespace-only snippets.
+                chunks = [c for c in raw if c["text"].strip()]
                 print(f"  paper {pid}: {len(chunks)} chunks", file=sys.stderr)
             all_chunks.extend(chunks)
 

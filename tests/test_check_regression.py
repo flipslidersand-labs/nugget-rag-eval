@@ -6,6 +6,8 @@ import json
 import subprocess
 import sys
 
+import pytest
+
 from nugget_rag.paper_registry import ARXIV_MAP
 
 
@@ -334,11 +336,13 @@ def test_real_data_gate_passes_threshold():
 # ── #269: non-string text / query exit 1 with [ERROR], no traceback ──────────
 
 
-def test_chunks_non_string_text_exits_with_error(tmp_path):
-    c_path = tmp_path / "chunks.json"
-    _write_json(c_path, [{"paper_id": 1, "text": 123}])
-    g_path = tmp_path / "gold.json"
-    _write_json(g_path, [])
+@pytest.mark.parametrize("text", [123, "   "])
+def test_chunks_non_string_or_blank_text_exits_with_error(tmp_path, text):
+    # gold は空でない (paper_id=1 に当たる) ものを使う。gold が空だと chunks が
+    # 評価されず、検証が無くてもトレースバックが出ないため検出力がなくなる。
+    _, g_path = _passing_data(tmp_path)
+    c_path = tmp_path / "bad_chunks.json"
+    _write_json(c_path, [{"paper_id": 1, "text": text}])
     result = _run_main(["--chunks", str(c_path), "--gold", str(g_path)])
     assert result.returncode == 1
     assert "[ERROR]" in result.stderr

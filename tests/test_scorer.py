@@ -102,7 +102,7 @@ def test_top_nuggets_uniform_bm25_returns_k_items():
     """全スコア均一時は k 件返る（先頭 k 件）。"""
     sentences = ["A", "B", "C", "D", "E"]
     result = top_nuggets("xyznotinany", sentences, top_k=2)
-    assert len(result) == 2
+    assert result == ["A", "B"]
 
 
 # ── bm25_scores 空クエリ・空センテンス (#49) ──────────────────────────────
@@ -474,3 +474,37 @@ def test_tokenize_combining_voiced_mark_keeps_bigram_run(text):
     # NFKC cannot compose these; the mark must stay in the run, not split it.
     run = "".join(text.split())
     assert _tokenize(text) == _char_ngrams(run)
+
+
+# ── 同点時の選択順 (#353) ─────────────────────────────────────────────────
+# 仕様: スコアが同点なら入力で先に出た文が選ばれる（sorted の安定性に依存）。
+
+
+def test_top_nuggets_all_tied_selects_first_k_in_input_order():
+    sentences = ["A", "B", "C", "D", "E"]
+    assert bm25_scores("xyznotinany", sentences) == [0.0] * 5
+    assert top_nuggets("xyznotinany", sentences, top_k=2) == ["A", "B"]
+
+
+def test_top_nuggets_all_tied_with_window_expands_from_first_k():
+    sentences = ["A", "B", "C", "D", "E"]
+    assert top_nuggets("xyznotinany", sentences, top_k=2, window=1) == ["A", "B", "C"]
+
+
+def test_top_nuggets_nonzero_tie_prefers_earlier_sentence():
+    # 同一文が 2 回: 同点(非 0)。window で選ばれた位置を判別できるようにする。
+    sentences = ["foo", "KV cache", "bar", "baz", "KV cache"]
+    scores = bm25_scores("KV cache", sentences)
+    assert scores[1] == scores[4] > 0
+    assert top_nuggets("KV cache", sentences, top_k=1, window=1) == ["foo", "KV cache", "bar"]
+
+
+def test_top_nuggets_hybrid_tie_prefers_earlier_sentence():
+    # 埋め込みが全文同一 -> 正規化後に BM25・埋め込みとも同値 -> 合成スコアも同点。
+    sentences = ["A", "B", "C", "D", "E"]
+
+    def const_embed(texts):
+        return [[1.0, 0.0] for _ in texts]
+
+    result = top_nuggets("xyznotinany", sentences, top_k=2, embed_fn=const_embed, embed_weight=0.5)
+    assert result == ["A", "B"]
