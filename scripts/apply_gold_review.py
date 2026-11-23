@@ -20,12 +20,11 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import json
 import re
 import sys
 from pathlib import Path
 
-from eval.cli_helpers import existing_file, load_json
+from eval.cli_helpers import existing_file, load_json, write_json_atomic
 from eval.evaluate import validate_gold
 
 VERDICTS = {"○": "ok", "△": "fix", "×": "ng", "未判定": "none"}
@@ -130,9 +129,7 @@ def main() -> None:
     if target is None:
         print("\n(dry run: pass --write or --out to save)")
         return
-    tmp = target.with_suffix(".tmp")
-    tmp.write_text(json.dumps(kept, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    tmp.replace(target)
+    write_json_atomic(target, kept, trailing_newline=True)
     print(f"\nwrote {len(kept)} items to {target}")
 
 

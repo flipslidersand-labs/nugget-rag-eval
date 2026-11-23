@@ -218,7 +218,9 @@ def fetch_per_query(
 
     Returns a tuple of (deduplicated chunks, failure_count). A chunk is keyed
     by (paper_id, chunk_index) so the same physical chunk fetched by multiple
-    queries is stored only once — the highest-scoring copy wins.
+    queries is stored only once — the highest-scoring copy wins. In ``large``
+    mode this dedup happens on the raw chunks, before they are combined once
+    per paper, so a physical chunk never appears in two combined chunks.
 
     Gold items may use ``arxiv_id`` (preferred) or ``paper_id`` (legacy).
     Unregistered ``arxiv_id`` values are skipped and also counted in
@@ -228,16 +230,8 @@ def fetch_per_query(
     logged as warnings and skipped so partial results are preserved.  When
     *fail_fast* is ``True``, the first ``FetchError`` is re-raised immediately.
     """
-    if chunk_mode == "large":
-
-        def key_field(c: dict) -> tuple:
-            return (c["paper_id"], tuple(c["chunk_indices"]))
-
-    else:
-
-        def key_field(c: dict) -> tuple:
-            return (c["paper_id"], c["chunk_index"])
-
+    # Raw chunks are deduplicated by (paper_id, chunk_index) in both modes; in large
+    # mode they are combined per paper once, after all queries (#266).
     seen: dict[tuple, dict] = {}
     failure_count = 0
     for item in gold:
@@ -267,23 +261,34 @@ def fetch_per_query(
             continue
 
         if chunk_mode == "large":
-            chunks = combine_large_chunks(raw, pid, target_tokens)
+            candidates = raw
         else:
             # A whitespace-only snippet would make validate_chunks reject the whole
             # chunks file, so drop it at the source (small mode only).
-            chunks = [c for c in raw if c["text"].strip()]
+            candidates = [c for c in raw if c["text"].strip()]
 
-        for c in chunks:
-            k = key_field(c)
+        for c in candidates:
+            k = (c["paper_id"], c["chunk_index"])
             if k not in seen or c["score"] > seen[k]["score"]:
                 seen[k] = c
 
         print(
-            f"  paper {pid} | query '{query[:40]}': {len(raw)} → {len(chunks)} chunks",
+            f"  paper {pid} | query '{query[:40]}': {len(raw)} chunks",
             file=sys.stderr,
         )
 
-    return list(seen.values()), failure_count
+    if chunk_mode != "large":
+        return list(seen.values()), failure_count
+
+    by_paper: dict[int, list[dict]] = {}
+    for c in seen.values():
+        by_paper.setdefault(c["paper_id"], []).append(c)
+    combined: list[dict] = []
+    for pid, paper_chunks in by_paper.items():
+        merged = combine_large_chunks(paper_chunks, pid, target_tokens)
+        print(f"  paper {pid}: {len(paper_chunks)} → {len(merged)} large chunks", file=sys.stderr)
+        combined.extend(merged)
+    return combined, failure_count
 
 
 def _api_url_type(v: str) -> str:
