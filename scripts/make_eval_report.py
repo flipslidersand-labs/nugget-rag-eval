@@ -20,7 +20,14 @@ import sys
 from pathlib import Path
 
 from eval.cli_helpers import load_json, non_negative_int, write_json_atomic
-from eval.evaluate import build_chunks_index, evaluate, validate_chunks, validate_gold
+from eval.evaluate import (
+    build_chunks_index,
+    evaluate,
+    format_diagnostics,
+    pop_diagnostics,
+    validate_chunks,
+    validate_gold,
+)
 
 
 def parse_named(spec: str, what: str) -> tuple[str, str, str | None]:
@@ -44,6 +51,7 @@ def run_matrix(
 ) -> list[dict]:
     """One row per (pool, gold, window, scope); each row is the evaluate() result plus its keys."""
     rows = []
+    shown: set[str] = set()  # the same warning recurs across scope x window: show it once
     for pname, (by_paper, match) in pools.items():
         for gname, gold in golds.items():
             for scope in scopes:
@@ -56,6 +64,11 @@ def run_matrix(
                         res = evaluate(chunks, gold, match=match, nugget_window=w)
                     except ValueError as exc:
                         raise ValueError(f"pool={pname} gold={gname}: {exc}") from exc
+                    for line in format_diagnostics(res, prefix=f"[pool={pname} gold={gname}] "):
+                        if line not in shown:
+                            shown.add(line)
+                            print(line, file=sys.stderr)
+                    pop_diagnostics(res)
                     rows.append(
                         {
                             "pool": pname,

@@ -4,7 +4,9 @@ import pytest
 
 from eval.evaluate import (
     build_chunks_index,
+    check_gold_chunk_coverage,
     evaluate,
+    format_diagnostics,
     mrr_at_k,
     recall_at_k,
     validate_chunks,
@@ -172,17 +174,18 @@ def test_evaluate_unknown_arxiv_id_returns_zero_recall():
 
 
 def test_evaluate_warns_on_partially_missing_keys(capsys):
-    """chunks に無い gold key があれば stderr に [WARN] と件数・例が出る。"""
+    """chunks に無い gold key があれば result["warnings"] に [WARN] 文が入り、stderr には出さない (#391)。"""
     chunks_by_paper = {1: [{"text": "answer here", "nugget": "answer here"}]}
     gold = [
         {"paper_id": 1, "query": "q", "answer_spans": ["answer here"]},
         {"paper_id": 999, "query": "q2", "answer_spans": ["answer here"]},
     ]
     result = evaluate(chunks_by_paper, gold, top_k=5)
-    err = capsys.readouterr().err
-    assert "[WARN]" in err
-    assert "1/2" in err
-    assert "999" in err
+    assert capsys.readouterr().err == ""
+    (warning,) = result["warnings"]
+    assert "[WARN]" in warning
+    assert "1/2" in warning
+    assert "999" in warning
     assert result["n_queries_without_chunks"] == 1
 
 
@@ -202,7 +205,8 @@ def test_evaluate_no_warning_when_all_keys_present(capsys):
     chunks_by_paper = {1: [{"text": "answer here", "nugget": "answer here"}]}
     gold = [{"paper_id": 1, "query": "q", "answer_spans": ["answer here"]}]
     result = evaluate(chunks_by_paper, gold, top_k=5)
-    assert "[WARN]" not in capsys.readouterr().err
+    assert capsys.readouterr().err == ""
+    assert result["warnings"] == []
     assert result["n_queries_without_chunks"] == 0
 
 
@@ -213,10 +217,57 @@ def test_evaluate_warn_examples_capped_at_five(capsys):
         {"paper_id": 900 + i, "query": f"q{i}", "answer_spans": ["x"]} for i in range(7)
     ]
     result = evaluate(chunks_by_paper, gold, top_k=5)
-    err = capsys.readouterr().err
-    assert "7/8" in err
-    assert err.count("90") <= 5  # 900..906 のうち例示は5件まで
+    assert capsys.readouterr().err == ""
+    (warning,) = result["warnings"]
+    assert "7/8" in warning
+    assert warning.count("90") <= 5  # 900..906 のうち例示は5件まで
     assert result["n_queries_without_chunks"] == 7
+
+
+def test_check_gold_chunk_coverage_is_pure(capsys):
+    """check_gold_chunk_coverage は (件数, 警告文のリスト) を返し、何も出力しない (#391)。"""
+    chunks_by_paper = {1: [{"text": "a", "nugget": "a"}]}
+    gold = [
+        {"paper_id": 1, "query": "q", "answer_spans": ["a"]},
+        {"paper_id": 999, "query": "q2", "answer_spans": ["a"]},
+    ]
+    n, warnings = check_gold_chunk_coverage(chunks_by_paper, gold)
+    assert n == 1
+    assert len(warnings) == 1 and warnings[0].startswith("[WARN] 1/2 gold queries have no chunks")
+    assert check_gold_chunk_coverage(chunks_by_paper, gold[:1]) == (0, [])
+    assert capsys.readouterr().err == ""
+    with pytest.raises(ValueError, match="no gold paper key found in chunks"):
+        check_gold_chunk_coverage(chunks_by_paper, gold[1:])
+
+
+def test_evaluate_returns_misses_per_mode_without_printing(capsys):
+    """miss は (index, query[:40], span[:50]) として result["misses"][mode] に全件入る (#391)。"""
+    chunks_by_paper = {i: [{"text": "x", "nugget": "x"}] for i in range(1, 9)}
+    gold = [{"paper_id": i, "query": f"q{i}", "answer_spans": ["miss"]} for i in range(1, 9)]
+    gold[3]["answer_spans"] = ["x"]  # hit
+    result = evaluate(chunks_by_paper, gold, top_k=5)
+    assert capsys.readouterr().err == ""
+    assert set(result["misses"]) == {"full_chunk", "nugget"}
+    assert len(result["misses"]["nugget"]) == 7  # 件数の上限は表示側 (CLI) で掛ける
+    assert result["misses"]["nugget"][0] == {"index": 0, "query": "q1", "span": "miss"}
+    assert all(m["index"] != 3 for m in result["misses"]["nugget"])
+
+
+def test_format_diagnostics_matches_the_old_stderr_text():
+    result = {
+        "warnings": ["[WARN] w"],
+        "misses": {
+            "full_chunk": [{"index": 9, "query": "hidden", "span": "s"}],
+            "nugget": [{"index": i, "query": f"q{i}", "span": "sp"} for i in range(7)],
+        },
+    }
+    assert format_diagnostics(result) == ["[WARN] w"]
+    lines = format_diagnostics(result, verbose=True)
+    assert lines[:3] == ["[WARN] w", "\n## Nugget Recall Misses:", "  [0] q0... → sp..."]
+    assert len(lines) == 3 + 4  # 5 件まで。full_chunk は show_misses=False なので出さない
+    assert format_diagnostics(result, verbose=False, prefix="[pool=P gold=G] ") == [
+        "[pool=P gold=G] [WARN] w"
+    ]
 
 
 # ── validate_gold (#108) ──────────────────────────────────────────────────────

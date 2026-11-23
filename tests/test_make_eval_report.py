@@ -54,6 +54,18 @@ def test_run_matrix_has_one_row_per_combination():
     assert all(r["pool"] == "P" and r["gold"] == "G" for r in rows)
 
 
+def test_run_matrix_shows_a_coverage_warning_once_with_pool_and_gold(capsys):
+    """scope x window で評価は複数回走るが、警告は (pool, gold) ごとに 1 回・名前付き (#391)。"""
+    gold = GOLD + [{"arxiv_id": "2512.00001", "query": "x", "answer_spans": ["y"]}]
+    pools = {"P": (build_chunks_index(CHUNKS), "exact")}
+    rows = mr.run_matrix(pools, {"G": gold}, windows=[0, 1])
+    assert len(rows) == 4
+    err = capsys.readouterr().err
+    assert err.count("[WARN]") == 1
+    assert err.startswith("[pool=P gold=G] [WARN] 1/2 gold queries have no chunks")
+    assert all("warnings" not in r and "misses" not in r for r in rows)
+
+
 def test_all_papers_scope_really_widens_the_search_range():
     """The answer lives only in another paper's chunk: invisible in 'paper' scope, found in 'all'."""
     gold = [

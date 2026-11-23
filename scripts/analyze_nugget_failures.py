@@ -160,9 +160,11 @@ def main() -> None:
         sys.exit(f"[ERROR] {exc}")
     by_paper, normalize = build_chunks_index(chunks), args.match == "normalized"
     try:
-        n_no_chunks = check_gold_chunk_coverage(by_paper, gold)
+        n_no_chunks, warnings = check_gold_chunk_coverage(by_paper, gold)
     except ValueError as exc:
         sys.exit(f"[ERROR] {exc}")
+    for warning in warnings:
+        print(warning, file=sys.stderr)
 
     classes, c_rank = classify_all(by_paper, gold, args.top_k, args.nuggets_per_chunk, normalize)
     print(format_report(classes, c_rank, len(gold), n_no_chunks))
