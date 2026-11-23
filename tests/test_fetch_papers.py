@@ -932,3 +932,33 @@ def test_non_retryable_4xx_closes_http_error_before_raising(mock_open, mock_slee
     assert mock_open.call_count == 1
     err.close.assert_called_once()
     mock_sleep.assert_not_called()
+
+
+_SMALL_KEYS = ["paper_id", "chunk_index", "text", "score", "arxiv_id"]
+_LARGE_KEYS = ["paper_id", "chunk_indices", "text", "score", "arxiv_id"]
+
+
+@pytest.mark.parametrize(
+    ("pid", "drop_arxiv"), [(1, False), (9999, True)], ids=["known", "unknown"]
+)
+@patch("scripts.fetch_papers.urlopen")
+def test_fetch_chunks_key_order(mock_open, pid, drop_arxiv):
+    """small モードのキー順は出力 JSON の一部。arxiv_id は末尾 (#336)。"""
+    mock_open.return_value = _cm(
+        json.dumps({"results": [{"chunk_index": 0, "snippet": "x", "score": 0.5}]}).encode()
+    ).return_value
+    chunks = fetch_chunks_for_paper("http://api", paper_id=pid, query="q")
+    assert list(chunks[0]) == (_SMALL_KEYS[:-1] if drop_arxiv else _SMALL_KEYS)
+
+
+@pytest.mark.parametrize(
+    ("pid", "drop_arxiv"), [(1, False), (9999, True)], ids=["known", "unknown"]
+)
+def test_combine_key_order_first_and_after_split(pid, drop_arxiv):
+    """large モードのキー順: 先頭チャンクと区切り後のチャンクの両方で同一 (#336)。"""
+    chunks = [_make_chunk(0, "a b c"), _make_chunk(1, "d e f"), _make_chunk(2, "g h i")]
+    result = combine_large_chunks(chunks, paper_id=pid, target_tokens=4)
+    assert len(result) == 3
+    expected = _LARGE_KEYS[:-1] if drop_arxiv else _LARGE_KEYS
+    for chunk in result:
+        assert list(chunk) == expected
