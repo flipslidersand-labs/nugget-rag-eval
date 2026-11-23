@@ -14,6 +14,7 @@ from urllib.error import HTTPError, URLError
 
 import pytest
 
+from nugget_rag.http_util import validate_url
 from nugget_rag.paper_registry import PAPER_ID_TO_ARXIV
 from scripts.fetch_papers import (
     _MAX_RETRIES,
@@ -21,7 +22,6 @@ from scripts.fetch_papers import (
     FetchError,
     _sanitize_query,
     _urlopen_with_retry,
-    _validate_url,
     combine_large_chunks,
     fetch_chunks_for_paper,
     fetch_papers,
@@ -44,30 +44,30 @@ def _cm(data: bytes) -> MagicMock:
     return MagicMock(return_value=cm)
 
 
-# ── _validate_url (SSRF 対策) ────────────────────────────────────────────────
+# ── validate_url (SSRF 対策) ────────────────────────────────────────────────
 
 
-def test_fetch_validate_url_allows_http():
-    _validate_url("http://localhost:8020")  # should not raise
+def test_fetchvalidate_url_allows_http():
+    validate_url("http://localhost:8020")  # should not raise
 
 
-def test_fetch_validate_url_allows_https():
-    _validate_url("https://api.example.com")  # should not raise
+def test_fetchvalidate_url_allows_https():
+    validate_url("https://api.example.com")  # should not raise
 
 
-def test_fetch_validate_url_rejects_file_scheme():
+def test_fetchvalidate_url_rejects_file_scheme():
     with pytest.raises(ValueError, match="file"):
-        _validate_url("file:///etc/passwd")
+        validate_url("file:///etc/passwd")
 
 
-def test_fetch_validate_url_rejects_ftp_scheme():
+def test_fetchvalidate_url_rejects_ftp_scheme():
     with pytest.raises(ValueError, match="ftp"):
-        _validate_url("ftp://internal/resource")
+        validate_url("ftp://internal/resource")
 
 
-def test_fetch_validate_url_rejects_empty_netloc():
+def test_fetchvalidate_url_rejects_empty_netloc():
     with pytest.raises(ValueError, match="no host"):
-        _validate_url("http:///path")
+        validate_url("http:///path")
 
 
 def test_fetch_papers_302_redirect_raises_fetch_error():
@@ -511,7 +511,7 @@ def test_fetch_per_query_returns_all_unique_chunks(mock_fetch):
 
 
 @patch("scripts.fetch_papers.MAX_RESPONSE_BYTES", 10)
-@patch("scripts.fetch_papers.time.sleep")
+@patch("nugget_rag.http_util.time.sleep")
 @patch("scripts.fetch_papers.urlopen")
 def test_oversized_response_raises_fetch_error_without_retry(mock_open, mock_sleep):
     cm = _cm(b"x" * 11)
@@ -546,7 +546,7 @@ def test_fetch_chunks_oversized_response_is_fetch_error(mock_open):
         fetch_chunks_for_paper("http://localhost:8020", 1, "q")
 
 
-@patch("scripts.fetch_papers.time.sleep")
+@patch("nugget_rag.http_util.time.sleep")
 @patch("scripts.fetch_papers.urlopen")
 def test_truncated_body_is_retried_when_content_length_not_met(mock_open, mock_sleep):
     """read(amt) does not raise IncompleteRead on a short body; keep retrying (#232)."""
@@ -557,7 +557,7 @@ def test_truncated_body_is_retried_when_content_length_not_met(mock_open, mock_s
     assert mock_open.call_count == 2
 
 
-@patch("scripts.fetch_papers.time.sleep")
+@patch("nugget_rag.http_util.time.sleep")
 @patch("scripts.fetch_papers.urlopen")
 def test_retry_succeeds_after_transient_urlerror(mock_open, mock_sleep):
     """transient エラー（1〜2 回失敗後成功）でボディが返る＝chunk 欠落なし。"""
@@ -568,7 +568,7 @@ def test_retry_succeeds_after_transient_urlerror(mock_open, mock_sleep):
     assert mock_sleep.call_count == 2
 
 
-@patch("scripts.fetch_papers.time.sleep")
+@patch("nugget_rag.http_util.time.sleep")
 @patch("scripts.fetch_papers.urlopen")
 def test_retry_succeeds_after_transient_5xx(mock_open, mock_sleep):
     """5xx はリトライ対象。"""
@@ -578,7 +578,7 @@ def test_retry_succeeds_after_transient_5xx(mock_open, mock_sleep):
     assert mock_open.call_count == 2
 
 
-@patch("scripts.fetch_papers.time.sleep")
+@patch("nugget_rag.http_util.time.sleep")
 @patch("scripts.fetch_papers.urlopen")
 def test_retry_4xx_raises_immediately(mock_open, mock_sleep):
     """4xx は恒久失敗として即 raise（リトライ・sleep なし）。"""
@@ -589,7 +589,7 @@ def test_retry_4xx_raises_immediately(mock_open, mock_sleep):
     mock_sleep.assert_not_called()
 
 
-@patch("scripts.fetch_papers.time.sleep")
+@patch("nugget_rag.http_util.time.sleep")
 @patch("scripts.fetch_papers.urlopen")
 def test_retry_exhaustion_raises_last_error(mock_open, mock_sleep):
     """リトライ上限まで失敗したら最後のエラーが raise される。"""
@@ -600,7 +600,7 @@ def test_retry_exhaustion_raises_last_error(mock_open, mock_sleep):
     assert mock_sleep.call_count == 2
 
 
-@patch("scripts.fetch_papers.time.sleep")
+@patch("nugget_rag.http_util.time.sleep")
 @patch("scripts.fetch_papers.urlopen")
 def test_retry_backoff_is_exponential(mock_open, mock_sleep):
     """バックオフは retry_backoff * 2**attempt で伸びる。"""
@@ -610,7 +610,7 @@ def test_retry_backoff_is_exponential(mock_open, mock_sleep):
     assert [c.args[0] for c in mock_sleep.call_args_list] == [1.0, 2.0]
 
 
-@patch("scripts.fetch_papers.time.sleep")
+@patch("nugget_rag.http_util.time.sleep")
 @patch("scripts.fetch_papers.urlopen")
 def test_fetch_chunks_recovers_from_transient_error(mock_open, mock_sleep):
     """fetch_chunks_for_paper は transient エラー後にリトライで chunks を返す。"""
@@ -622,7 +622,7 @@ def test_fetch_chunks_recovers_from_transient_error(mock_open, mock_sleep):
     assert len(chunks) == 1
 
 
-@patch("scripts.fetch_papers.time.sleep")
+@patch("nugget_rag.http_util.time.sleep")
 @patch("scripts.fetch_papers.urlopen")
 def test_fetch_papers_4xx_raises_fetch_error_without_retry(mock_open, mock_sleep):
     """fetch_papers は 4xx を即 FetchError に変換する。"""
@@ -636,7 +636,7 @@ def test_fetch_papers_4xx_raises_fetch_error_without_retry(mock_open, mock_sleep
 # ── FetchError / partial-failure behaviour ───────────────────────────────────
 
 
-@patch("scripts.fetch_papers.time.sleep")
+@patch("nugget_rag.http_util.time.sleep")
 @patch("scripts.fetch_papers.urlopen")
 def test_fetch_chunks_raises_fetch_error_on_network_failure(mock_open, mock_sleep):
     """URLError が（リトライ枯渇後）FetchError に変換されて raise される（sys.exit しない）。"""
@@ -881,7 +881,7 @@ _READ_ERRORS = [
 
 
 @pytest.mark.parametrize("make_exc", _READ_ERRORS)
-@patch("scripts.fetch_papers.time.sleep")
+@patch("nugget_rag.http_util.time.sleep")
 @patch("scripts.fetch_papers.urlopen")
 def test_retry_succeeds_after_read_error(mock_open, mock_sleep, make_exc):
     """read() 中の例外は再試行され、次の試行で成功すればボディが返る。"""
@@ -893,7 +893,7 @@ def test_retry_succeeds_after_read_error(mock_open, mock_sleep, make_exc):
 
 
 @pytest.mark.parametrize("make_exc", _READ_ERRORS)
-@patch("scripts.fetch_papers.time.sleep")
+@patch("nugget_rag.http_util.time.sleep")
 @patch("scripts.fetch_papers.urlopen")
 def test_fetch_chunks_read_error_exhaustion_raises_fetch_error(mock_open, mock_sleep, make_exc):
     """再試行を使い切ったら FetchError（traceback で止まらない）。"""
@@ -905,7 +905,7 @@ def test_fetch_chunks_read_error_exhaustion_raises_fetch_error(mock_open, mock_s
 
 
 @pytest.mark.parametrize("make_exc", _READ_ERRORS)
-@patch("scripts.fetch_papers.time.sleep")
+@patch("nugget_rag.http_util.time.sleep")
 @patch("scripts.fetch_papers.urlopen")
 def test_fetch_papers_read_error_exhaustion_raises_fetch_error(mock_open, mock_sleep, make_exc):
     mock_open.side_effect = lambda *a, **k: _read_raises_cm(make_exc())
@@ -927,7 +927,7 @@ def _http_error_ra(code: int, retry_after: str | None) -> HTTPError:
 
 
 @pytest.mark.parametrize("code", [408, 429])
-@patch("scripts.fetch_papers.time.sleep")
+@patch("nugget_rag.http_util.time.sleep")
 @patch("scripts.fetch_papers.urlopen")
 def test_retry_408_429_then_success(mock_open, mock_sleep, code):
     ok = _cm(b"payload").return_value
@@ -948,7 +948,7 @@ def test_retry_408_429_then_success(mock_open, mock_sleep, code):
         ("9" * 5000, 1.0),
     ],
 )
-@patch("scripts.fetch_papers.time.sleep")
+@patch("nugget_rag.http_util.time.sleep")
 @patch("scripts.fetch_papers.urlopen")
 def test_retry_after_is_capped_and_invalid_ignored(mock_open, mock_sleep, header, expected):
     ok = _cm(b"payload").return_value
@@ -957,7 +957,7 @@ def test_retry_after_is_capped_and_invalid_ignored(mock_open, mock_sleep, header
     assert [c.args[0] for c in mock_sleep.call_args_list] == [expected]
 
 
-@patch("scripts.fetch_papers.time.sleep")
+@patch("nugget_rag.http_util.time.sleep")
 @patch("scripts.fetch_papers.urlopen")
 def test_retry_5xx_closes_http_error_before_retry_and_on_exhaustion(mock_open, mock_sleep):
     """5xx の HTTPError は再試行前・最終 raise 前に close される（FD リーク防止, #280）。"""
@@ -970,7 +970,7 @@ def test_retry_5xx_closes_http_error_before_retry_and_on_exhaustion(mock_open, m
     assert all(e.close.call_count >= 1 for e in errors)
 
 
-@patch("scripts.fetch_papers.time.sleep")
+@patch("nugget_rag.http_util.time.sleep")
 @patch("scripts.fetch_papers.urlopen")
 def test_non_retryable_4xx_closes_http_error_before_raising(mock_open, mock_sleep):
     """再試行しない 4xx の HTTPError も close してから raise する（FD リーク防止, #313）。"""

@@ -60,7 +60,7 @@ flowchart LR
 
 | ディレクトリ | 責務 | 依存 |
 | --- | --- | --- |
-| `nugget_rag/` | 検索と文選びのコア。`retriever`・`chunker`・`scorer`・`vectors`・`embedder`・`paper_registry` | 標準ライブラリのみ |
+| `nugget_rag/` | 検索と文選びのコア。`retriever`・`chunker`・`scorer`・`vectors`・`embedder`・`http_util`（URL 検証・redirect 拒否・再試行の共通部品）・`paper_registry` | 標準ライブラリのみ |
 | `eval/` | 評価 CLI、比較統計、ゴールドと基準値、CLI 共通の引数型（`cli_helpers.py`） | `nugget_rag` |
 | `scripts/` | データ取得・プール作成・分析・レポート生成。`eval/cli_helpers.py` を import する | `nugget_rag`・`eval`、`pdftotext`（プール作成のみ） |
 | `tests/` | pytest。`tests/fixtures/` は CI の回帰ゲート用の最小データ | |
