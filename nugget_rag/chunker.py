@@ -6,6 +6,10 @@ import re
 # so decimals ("0.5", "88.3%") and "Fig.2" are not cut.
 _SENT_RE = re.compile(r"(?<=[。！？])\s*|(?<=[.!?])\s+")
 
+# Closing brackets/quotes that follow a CJK terminator belong to that sentence: the split at
+# "。" would otherwise leave "」と述べた。" as a fragment (#304).
+_LEADING_CLOSERS = re.compile(r"[」』）)】\]〕》〉｝}”’]+")
+
 # A segment ending in one of these (case-insensitive) + "." is not a sentence end (#283).
 _ABBREVIATIONS = frozenset({"al", "e.g", "i.e", "fig", "eq", "sec", "vs", "cf", "etc"})
 # "No." is an abbreviation only before a number ("No. 5"); "answer is no." ends a sentence.
@@ -27,6 +31,12 @@ def split_sentences(text: str) -> list[str]:
     pieces = [s.strip() for s in _SENT_RE.split(text.strip()) if s.strip()]
     sentences: list[str] = []
     for piece in pieces:
+        closers = _LEADING_CLOSERS.match(piece)
+        if closers and sentences:
+            sentences[-1] += closers.group()
+            piece = piece[closers.end() :].strip()
+            if not piece:
+                continue
         if sentences and _ends_with_abbreviation(sentences[-1], piece):
             sentences[-1] = f"{sentences[-1]} {piece}"
         else:
