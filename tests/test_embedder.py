@@ -501,6 +501,40 @@ def test_non_list_vectors_raises_embed_error(mock_open, vecs):
         EmbedClient("http://localhost:9092").embed(["a"])
 
 
+@pytest.mark.parametrize(
+    "body",
+    [
+        b'{"vectors": [null]}',
+        b'{"vectors": [["a"]]}',
+        b'{"vectors": [[]]}',
+        b'{"vectors": [[true]]}',
+        b'{"vectors": [[NaN]]}',
+        b'{"vectors": [[Infinity]]}',
+        b'{"vectors": [[0.1, null]]}',
+        b'{"vectors": [1.0]}',
+        b'{"embeddings": [[]]}',
+    ],
+)
+@patch("nugget_rag.embedder.time.sleep")
+@patch("nugget_rag.embedder.urlopen")
+def test_malformed_vector_elements_raise_embed_error_without_retry(mock_open, mock_sleep, body):
+    """#326: each vector must be a non-empty list of finite numbers; no retry, no value echo."""
+    mock_open.return_value = _make_cm_mock(body).return_value
+    with pytest.raises(EmbedError, match="vector 0") as ei:
+        EmbedClient("http://localhost:9092").embed(["a"])
+    assert mock_open.call_count == 1
+    mock_sleep.assert_not_called()
+    assert "Infinity" not in str(ei.value) and "'a'" not in str(ei.value)
+
+
+@patch("nugget_rag.embedder.urlopen")
+def test_well_formed_vectors_still_accepted(mock_open):
+    mock_open.return_value = _make_cm_mock(
+        b'{"vectors": [[1, 0.5, -2.0e-3], [0, 0, 1]]}'
+    ).return_value
+    assert EmbedClient("http://localhost:9092").embed(["a", "b"]) == [[1, 0.5, -2.0e-3], [0, 0, 1]]
+
+
 # --- 平文 http:// + 非ループバックでの X-API-Key 警告 (#245) ---
 
 

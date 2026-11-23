@@ -14,6 +14,7 @@ from __future__ import annotations
 import http.client
 import ipaddress
 import json
+import math
 import os
 import sys
 import time
@@ -120,6 +121,32 @@ class EmbedError(RuntimeError):
     """Raised when the embedding service call fails."""
 
 
+def validate_vectors(vecs: list) -> None:
+    """Raise EmbedError unless every vector is a non-empty list of finite int/float (#326).
+
+    Messages carry only positions and type names, never the offending values.
+    Dimension agreement across vectors is checked downstream (#251).
+    """
+    for i, vec in enumerate(vecs):
+        if not isinstance(vec, list):
+            raise EmbedError(
+                f"Unexpected embedding response format: vector {i} must be a list, "
+                f"got {type(vec).__name__}"
+            )
+        if not vec:
+            raise EmbedError(f"Unexpected embedding response format: vector {i} is empty")
+        for j, x in enumerate(vec):
+            if isinstance(x, bool) or not isinstance(x, (int, float)):
+                raise EmbedError(
+                    f"Unexpected embedding response format: vector {i} element {j} "
+                    f"must be a number, got {type(x).__name__}"
+                )
+            if not math.isfinite(x):
+                raise EmbedError(
+                    f"Unexpected embedding response format: vector {i} element {j} is not finite"
+                )
+
+
 def _check_api_key(api_key: str) -> None:
     """Reject keys with control or non-ASCII chars, without echoing the key (#303).
 
@@ -216,6 +243,7 @@ class EmbedClient:
                     raise EmbedError(
                         f"Embedding count mismatch: sent {len(texts)} texts, got {len(vecs)} vectors"
                     )
+                validate_vectors(vecs)
                 return vecs
             except HTTPError as exc:
                 if not _is_retryable_http(exc.code):
