@@ -39,6 +39,10 @@ _TIMEOUT_CHUNKS = 30
 _MAX_RETRIES = 3
 _RETRY_BACKOFF = 1.0
 
+# Upper bound on one response body (same value and name as nugget_rag.embedder; #305).
+# A larger body is a FetchError, not retried.
+MAX_RESPONSE_BYTES = 32 * 1024 * 1024
+
 # Errors raised by read() after the headers arrived (timeout / disconnect /
 # truncated body). Same set embedder retries (#232).
 _READ_ERRORS = (TimeoutError, ConnectionError, http.client.HTTPException)
@@ -64,6 +68,7 @@ def _urlopen_with_retry(
     immediately without retrying (permanent failures).
 
     Raises:
+        FetchError: the body is larger than MAX_RESPONSE_BYTES (not retried).
         HTTPError | URLError | TimeoutError | ConnectionError | HTTPException: on non-retryable errors or after retries exhausted.
     """
     last_exc: Exception | None = None
@@ -71,7 +76,21 @@ def _urlopen_with_retry(
         delay = retry_backoff * (2**attempt)
         try:
             with urlopen(url, timeout=timeout) as http_resp:
-                return http_resp.read()
+                raw = http_resp.read(MAX_RESPONSE_BYTES + 1)
+                # read(amt) does not raise IncompleteRead on a short body (read() does),
+                # so keep the retry-on-truncation behaviour (#232) explicitly.
+                declared = http_resp.headers.get("Content-Length")
+                if (
+                    isinstance(declared, str)
+                    and declared.isascii()
+                    and declared.isdigit()
+                    and len(declared) <= 12
+                    and len(raw) < int(declared) <= MAX_RESPONSE_BYTES
+                ):
+                    raise http.client.IncompleteRead(raw, int(declared) - len(raw))
+            if len(raw) > MAX_RESPONSE_BYTES:
+                raise FetchError(f"Response exceeds {MAX_RESPONSE_BYTES} bytes; refusing to parse")
+            return raw
         except HTTPError as exc:
             if not _is_retryable_http(exc.code):
                 exc.close()  # release the response socket before re-raising (#313)

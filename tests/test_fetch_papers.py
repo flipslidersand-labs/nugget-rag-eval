@@ -507,6 +507,56 @@ def test_fetch_per_query_returns_all_unique_chunks(mock_fetch):
 # ── _urlopen_with_retry ──────────────────────────────────────────────────────
 
 
+# ── 応答サイズ上限 (#305) ────────────────────────────────────────────────────
+
+
+@patch("scripts.fetch_papers.MAX_RESPONSE_BYTES", 10)
+@patch("scripts.fetch_papers.time.sleep")
+@patch("scripts.fetch_papers.urlopen")
+def test_oversized_response_raises_fetch_error_without_retry(mock_open, mock_sleep):
+    cm = _cm(b"x" * 11)
+    mock_open.return_value = cm.return_value
+    with pytest.raises(FetchError, match="exceeds 10 bytes"):
+        _urlopen_with_retry("http://api", timeout=5)
+    assert mock_open.call_count == 1
+    mock_sleep.assert_not_called()
+    cm.return_value.__enter__.return_value.read.assert_called_once_with(11)
+
+
+@patch("scripts.fetch_papers.MAX_RESPONSE_BYTES", 10)
+@patch("scripts.fetch_papers.urlopen")
+def test_response_at_size_limit_is_accepted(mock_open):
+    mock_open.return_value = _cm(b"x" * 10).return_value
+    assert _urlopen_with_retry("http://api", timeout=5) == b"x" * 10
+
+
+@patch("scripts.fetch_papers.MAX_RESPONSE_BYTES", 10)
+@patch("scripts.fetch_papers.urlopen")
+def test_fetch_papers_oversized_response_is_fetch_error(mock_open):
+    mock_open.return_value = _cm(b" " * 11).return_value
+    with pytest.raises(FetchError, match="exceeds"):
+        fetch_papers("http://localhost:8020")
+
+
+@patch("scripts.fetch_papers.MAX_RESPONSE_BYTES", 10)
+@patch("scripts.fetch_papers.urlopen")
+def test_fetch_chunks_oversized_response_is_fetch_error(mock_open):
+    mock_open.return_value = _cm(b" " * 11).return_value
+    with pytest.raises(FetchError, match="exceeds"):
+        fetch_chunks_for_paper("http://localhost:8020", 1, "q")
+
+
+@patch("scripts.fetch_papers.time.sleep")
+@patch("scripts.fetch_papers.urlopen")
+def test_truncated_body_is_retried_when_content_length_not_met(mock_open, mock_sleep):
+    """read(amt) does not raise IncompleteRead on a short body; keep retrying (#232)."""
+    short = _cm(b"par")
+    short.return_value.__enter__.return_value.headers = {"Content-Length": "7"}
+    mock_open.side_effect = [short.return_value, _cm(b"payload").return_value]
+    assert _urlopen_with_retry("http://api", timeout=5) == b"payload"
+    assert mock_open.call_count == 2
+
+
 @patch("scripts.fetch_papers.time.sleep")
 @patch("scripts.fetch_papers.urlopen")
 def test_retry_succeeds_after_transient_urlerror(mock_open, mock_sleep):
