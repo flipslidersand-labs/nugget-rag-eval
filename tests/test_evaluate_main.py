@@ -428,7 +428,8 @@ def test_main_chunks_dict_instead_of_list_exits_with_error(tmp_path, monkeypatch
 
     c_path = tmp_path / "chunks.json"
     c_path.write_text('{"paper_id": 1, "text": "x"}')
-    _, g_path = minimal_data  # gold は非空にする (空だと gold チェックが先に発火し検出力が落ちる)
+    # gold は非空にする (空だと validate_chunks を外しても gold 側のエラーで通る)
+    _, g_path = minimal_data
     monkeypatch.setattr(
         sys, "argv", ["evaluate.py", "--chunks", str(c_path), "--gold", str(g_path)]
     )
@@ -443,7 +444,8 @@ def test_main_chunks_missing_id_exits_with_error(tmp_path, monkeypatch, minimal_
 
     c_path = tmp_path / "chunks.json"
     _write_json(c_path, [{"text": "some text without id"}])
-    _, g_path = minimal_data  # gold は非空にする (空だと gold チェックが先に発火し検出力が落ちる)
+    # gold は非空にする (空だと validate_chunks を外しても gold 側のエラーで通る)
+    _, g_path = minimal_data
     monkeypatch.setattr(
         sys, "argv", ["evaluate.py", "--chunks", str(c_path), "--gold", str(g_path)]
     )
@@ -459,7 +461,8 @@ def test_main_chunks_missing_text_exits_with_error(tmp_path, monkeypatch, minima
 
     c_path = tmp_path / "chunks.json"
     _write_json(c_path, [{"paper_id": 1}])
-    _, g_path = minimal_data  # gold は非空にする (空だと gold チェックが先に発火し検出力が落ちる)
+    # gold は非空にする (空だと validate_chunks を外しても gold 側のエラーで通る)
+    _, g_path = minimal_data
     monkeypatch.setattr(
         sys, "argv", ["evaluate.py", "--chunks", str(c_path), "--gold", str(g_path)]
     )
@@ -474,7 +477,8 @@ def test_main_chunks_empty_text_exits_with_error(tmp_path, monkeypatch, minimal_
 
     c_path = tmp_path / "chunks.json"
     _write_json(c_path, [{"paper_id": 1, "text": ""}])
-    _, g_path = minimal_data  # gold は非空にする (空だと gold チェックが先に発火し検出力が落ちる)
+    # gold は非空にする (空だと validate_chunks を外しても gold 側のエラーで通る)
+    _, g_path = minimal_data
     monkeypatch.setattr(
         sys, "argv", ["evaluate.py", "--chunks", str(c_path), "--gold", str(g_path)]
     )

@@ -265,7 +265,8 @@ def test_chunks_dict_instead_of_list_exits_with_error(tmp_path):
     """chunks が JSON オブジェクト（dict）の場合は [ERROR] + exit 1。"""
     c_path = tmp_path / "bad_chunks.json"
     c_path.write_text(json.dumps({"paper_id": 1, "text": "x"}))
-    _, g_path = _passing_data(tmp_path)  # gold は非空 (空だと gold チェックが先に発火する)
+    # gold は非空にする (空だと validate_chunks を外しても gold 側のエラーで通る)
+    _, g_path = _passing_data(tmp_path)
     result = _run_main(["--chunks", str(c_path), "--gold", str(g_path)])
     assert result.returncode != 0
     assert "[ERROR]" in result.stderr
@@ -275,7 +276,8 @@ def test_chunks_missing_id_exits_with_error(tmp_path):
     """ID フィールドが両方欠落した chunk は [ERROR] + exit 1。"""
     c_path = tmp_path / "bad_chunks.json"
     _write_json(c_path, [{"text": "some content"}])
-    _, g_path = _passing_data(tmp_path)  # gold は非空 (空だと gold チェックが先に発火する)
+    # gold は非空にする (空だと validate_chunks を外しても gold 側のエラーで通る)
+    _, g_path = _passing_data(tmp_path)
     result = _run_main(["--chunks", str(c_path), "--gold", str(g_path)])
     assert result.returncode != 0
     assert "[ERROR]" in result.stderr
@@ -286,7 +288,8 @@ def test_chunks_missing_text_exits_with_error(tmp_path):
     """text フィールドが欠落した chunk は [ERROR] + exit 1。"""
     c_path = tmp_path / "bad_chunks.json"
     _write_json(c_path, [{"paper_id": 1}])
-    _, g_path = _passing_data(tmp_path)  # gold は非空 (空だと gold チェックが先に発火する)
+    # gold は非空にする (空だと validate_chunks を外しても gold 側のエラーで通る)
+    _, g_path = _passing_data(tmp_path)
     result = _run_main(["--chunks", str(c_path), "--gold", str(g_path)])
     assert result.returncode != 0
     assert "[ERROR]" in result.stderr
@@ -296,7 +299,8 @@ def test_chunks_empty_text_exits_with_error(tmp_path):
     """text が空文字列の chunk は [ERROR] + exit 1（サイレント recall 低下を防ぐ）。"""
     c_path = tmp_path / "bad_chunks.json"
     _write_json(c_path, [{"paper_id": 1, "text": ""}])
-    _, g_path = _passing_data(tmp_path)  # gold は非空 (空だと gold チェックが先に発火する)
+    # gold は非空にする (空だと validate_chunks を外しても gold 側のエラーで通る)
+    _, g_path = _passing_data(tmp_path)
     result = _run_main(["--chunks", str(c_path), "--gold", str(g_path)])
     assert result.returncode != 0
     assert "[ERROR]" in result.stderr
