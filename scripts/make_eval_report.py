@@ -111,10 +111,12 @@ def format_markdown(rows: list[dict]) -> str:
         c = r["comparison"]
         ci = c["recall_diff_ci95"]
         ci_s = f"[{ci[0]:.3f}, {ci[1]:.3f}]" if ci else "-"
+        ratio_s = "-" if c["token_ratio"] is None else c["token_ratio"]
+        retained_s = "-" if c["recall_retained"] is None else c["recall_retained"]
         scope = "正解論文のみ" if r["scope"] == "paper" else "全論文"
         out.append(
             f"| {r['pool']} | {r['gold']} | {scope} | {r['window']} | {c['recall_diff']:.3f} {ci_s} | "
-            f"{c['mcnemar_p']} | {c['token_ratio']} | {c['recall_retained']} | "
+            f"{c['mcnemar_p']} | {ratio_s} | {retained_s} | "
             f"{'できる' if c['distinguishable'] else 'できない'} |"
         )
     return "\n".join(out)

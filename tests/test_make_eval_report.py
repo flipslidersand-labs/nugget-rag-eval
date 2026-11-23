@@ -89,6 +89,41 @@ def test_markdown_has_both_tables_and_every_row():
     assert ("できる" in md) or ("できない" in md)  # every comparison row states a verdict
 
 
+def _comparison_cells(md: str) -> list[list[str]]:
+    """Cells of every row in the paired-comparison table (after its header)."""
+    lines = md.split("### full-chunk と nugget の差（paired）")[1].splitlines()
+    return [[c.strip() for c in ln.strip("|").split("|")] for ln in lines if ln.startswith("| P |")]
+
+
+def test_markdown_shows_dash_not_None_when_recall_retained_is_undefined():
+    """full-chunk Recall 0 makes compare() return recall_retained=None; the table must show '-'."""
+    gold = [{"arxiv_id": "2410.10071", "query": "alpha one", "answer_spans": ["no such text"]}]
+    pools = {"P": (build_chunks_index(CHUNKS), "exact")}
+    rows = mr.run_matrix(pools, {"G": gold}, [0], scopes=("paper",))
+    assert rows[0]["full_chunk"]["recall"] == 0.0
+    assert rows[0]["comparison"]["recall_retained"] is None
+    md = mr.format_markdown(rows)
+    assert "None" not in md
+    (cells,) = _comparison_cells(md)
+    assert cells[7] == "-"  # 保持率
+
+
+def test_markdown_shows_dash_for_every_undefined_comparison_value():
+    """token_ratio / recall_retained / CI95 are each None -> '-'; defined values stay as-is."""
+    pools = {"P": (build_chunks_index(CHUNKS), "exact")}
+    row = mr.run_matrix(pools, {"G": GOLD}, [0], scopes=("paper",))[0]
+    defined = _comparison_cells(mr.format_markdown([row]))[0]
+    assert not defined[4].endswith(" -") and "-" not in defined[5:8]  # nothing missing here
+
+    comp = dict(row["comparison"], token_ratio=None, recall_retained=None, recall_diff_ci95=None)
+    md = mr.format_markdown([dict(row, comparison=comp)])
+    assert "None" not in md
+    cells = _comparison_cells(md)[0]
+    assert cells[4].endswith(" -")  # Recall 差と 95% 区間: diff then '-' for the missing CI
+    assert cells[6] == "-" and cells[7] == "-"  # 語数/full, 保持率
+    assert cells[5] == defined[5] and cells[8] == defined[8]  # p and verdict untouched
+
+
 def test_main_writes_markdown_and_json(monkeypatch, tmp_path, capsys):
     c, g, j = tmp_path / "c.json", tmp_path / "g.json", tmp_path / "r.json"
     c.write_text(json.dumps(CHUNKS))

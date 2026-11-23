@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import sys
 from pathlib import Path
 
@@ -102,6 +103,10 @@ def check_baseline(
         base = {
             mode: float(baseline[mode]["recall"]) for mode in result["modes"] if mode in baseline
         }
+        for mode, value in base.items():
+            # NaN makes `drop > max_drop` always False, so the gate would pass silently (#389).
+            if not (math.isfinite(value) and 0.0 <= value <= 1.0):
+                raise ValueError(f"{mode} recall must be a finite number in [0, 1], got {value}")
     except (OSError, ValueError, KeyError, TypeError) as exc:
         sys.exit(f"[ERROR] invalid baseline file {baseline_path}: {exc!r}")
 

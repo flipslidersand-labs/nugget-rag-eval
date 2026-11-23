@@ -1,6 +1,12 @@
 import pytest
 
-from nugget_rag.retriever import retrieve_full_chunk, retrieve_nuggets
+from nugget_rag.chunker import split_sentences
+from nugget_rag.retriever import (
+    _join_nuggets,
+    retrieve_full_chunk,
+    retrieve_nuggets,
+    select_nuggets,
+)
 
 CHUNKS = [
     {
@@ -366,3 +372,20 @@ def test_hybrid_offset_slices_follow_content_across_empty_chunk():
     embed_fn, _ = _make_content_embed_fn()
     got = _hybrid_nuggets(chunks, embed_fn)
     assert got == {0: "Good two.", 10: "", 1: "Good three.", 11: "", 2: "Good six."}
+
+
+def _fake_embed(texts):
+    return [[float(len(t) % 7), float(t.count("e")), 1.0] for t in texts]
+
+
+@pytest.mark.parametrize("window", [0, 1])
+@pytest.mark.parametrize("embed_fn", [None, _fake_embed])
+def test_select_nuggets_matches_retrieve_nuggets(embed_fn, window):
+    """#248: retrieve_nuggets is the join of select_nuggets' picks (BM25, hybrid, window)."""
+    kw = {"top_k": 3, "nuggets_per_chunk": 2, "embed_fn": embed_fn, "window": window}
+    sels = select_nuggets(CHUNKS, "nugget span extraction", **kw)
+    results = retrieve_nuggets(CHUNKS, "nugget span extraction", **kw)
+    assert len(sels) == len(results) == 3
+    for sel, res in zip(sels, results):
+        assert sel.sentences == split_sentences(sel.chunk["text"])
+        assert res == {**sel.chunk, "nugget": _join_nuggets(sel.sentences, sel.indices)}

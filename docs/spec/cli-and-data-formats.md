@@ -128,7 +128,7 @@ Recall が下がっていないかを見る CI 用のゲート。
 | スクリプト | 役割 |
 | --- | --- |
 | `scripts/analyze_nugget_failures.py` | nugget が外した理由を A 検索ミス / B 分割ミス / C 抽出ミス / D ヒットに分類し、`--sweep` で `nuggets_per_chunk` × 窓を掃引する |
-| `scripts/sweep_embed_weight.py` | `--embed-weight` を振って再評価する。文の埋め込みは 1 回だけ計算してキャッシュする。`--embedding-url` と `--out-dir` が必須 |
+| `scripts/sweep_embed_weight.py` | `--embed-weight` を振って再評価する。文の埋め込みは 1 回だけ計算してキャッシュする。`--embedding-url` と `--out-dir` が必須。`--embedding-collection`（既定 `search-engine`）で `evaluate.py` と同じくコレクションを指定できる |
 | `scripts/make_eval_report.py` | README の評価表を測定から生成する。`--pool NAME=PATH[:exact\|normalized]` と `--gold NAME=PATH` を複数指定する |
 | `scripts/apply_gold_review.py` | 人の確認シートの判定（○△×）を難問ゴールドに適用する。既定は dry run で、`--write` か `--out` で書く |
 

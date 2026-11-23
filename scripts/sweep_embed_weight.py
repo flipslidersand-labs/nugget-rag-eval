@@ -27,6 +27,8 @@ from collections.abc import Callable
 from pathlib import Path
 
 from eval.cli_helpers import (
+    add_embedding_args,
+    build_embed_client,
     existing_file,
     float_between_0_1,
     load_json,
@@ -41,6 +43,7 @@ from eval.evaluate import (
     validate_chunks,
     validate_gold,
 )
+from nugget_rag.embedder import validate_vectors
 
 BATCH = 128  # texts per embedding request (the client allows up to 256)
 
@@ -103,6 +106,7 @@ def warm_cache(
         vecs = embed(batch)
         if len(vecs) != len(batch):
             raise RuntimeError(f"embedding service returned {len(vecs)} vectors for {len(batch)}")
+        validate_vectors(vecs)  # never cache a vector load_cache() would reject (#326)
         cache.update(zip(batch, vecs))
         save_cache(cache_path, cache)  # resumable if interrupted
         done = min(i + BATCH, len(todo))
@@ -160,7 +164,7 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
     ap.add_argument("--chunks", required=True, type=existing_file)
     ap.add_argument("--gold", required=True, nargs="+", type=existing_file)
-    ap.add_argument("--embedding-url", required=True)
+    add_embedding_args(ap, weight=False, url_required=True)
     ap.add_argument(
         "--weights", nargs="+", type=float_between_0_1, default=[0.0, 0.3, 0.5, 0.7, 1.0]
     )
@@ -194,14 +198,11 @@ def main() -> None:
         except ValueError as exc:
             sys.exit(f"[ERROR] gold={gname}: {exc}")
 
-    from nugget_rag.embedder import EmbedClient, EmbedError
+    from nugget_rag.embedder import EmbedError
 
     cache_path = args.out_dir / "embed_cache.json"
     cache = load_cache(cache_path)
-    try:
-        client = EmbedClient(args.embedding_url)
-    except ValueError as exc:
-        sys.exit(f"[ERROR] --embedding-url: {exc}")
+    client = build_embed_client(args)
     args.out_dir.mkdir(parents=True, exist_ok=True)
     try:
         warm_cache(list(texts), client.embed, cache, cache_path)

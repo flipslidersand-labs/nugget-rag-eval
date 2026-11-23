@@ -10,6 +10,7 @@ import pytest
 
 from eval.evaluate import build_chunks_index, evaluate
 from nugget_rag.paper_registry import ARXIV_MAP
+from nugget_rag.retriever import NuggetSelection, retrieve_full_chunk
 from scripts import analyze_nugget_failures as af
 
 PID = ARXIV_MAP["2410.10071"]
@@ -98,7 +99,7 @@ B_D_GOLD = _gold_spans("zebra crossing rule", "gamma. Delta", "zebra crossing ru
 
 def test_D_when_a_later_holder_chunk_hits_even_if_the_first_is_B():
     by = _by(B_CHUNK, D_CHUNK)
-    top = af.retrieve_full_chunk(by[PID], "zebra crossing rule", 5)
+    top = retrieve_full_chunk(by[PID], "zebra crossing rule", 5)
     # guard: both chunks hold a span and the B chunk ranks first (the old holders[0])
     assert [c["text"] for c in top] == [B_CHUNK, D_CHUNK]
     classes, _ = af.classify_all(by, B_D_GOLD)
@@ -226,3 +227,18 @@ def test_main_prints_report_and_sweep(monkeypatch, tmp_path, capsys):
     af.main()
     out = capsys.readouterr().out
     assert "D 成功: 1" in out and "k  window  Recall" in out
+
+
+def test_classify_uses_the_retriever_selection(monkeypatch):
+    # #248: the verdict follows retriever.select_nuggets, not a private copy of its logic.
+    by = _by(D_CHUNK)
+    spans = ["zebra crossing rule is key"]
+    assert af.classify(by[PID], "zebra crossing rule", spans, 5, 3, False) == ("D", None)
+    real = af.select_nuggets
+
+    def pick_nothing(*a, **kw):
+        return [NuggetSelection(s.chunk, s.sentences, []) for s in real(*a, **kw)]
+
+    monkeypatch.setattr(af, "select_nuggets", pick_nothing)
+    cls, rank = af.classify(by[PID], "zebra crossing rule", spans, 5, 3, False)
+    assert cls == "C" and rank == 1

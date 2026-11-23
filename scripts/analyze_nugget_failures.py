@@ -9,7 +9,8 @@ For every gold item (searching only the gold paper's chunks, like evaluate.py):
                      adjacent sentences is still B here; evaluate counts it as a hit)
 
 The sweep re-runs retrieve_nuggets with several nuggets_per_chunk / window values.
-Selection logic comes from nugget_rag itself, nothing is re-implemented here.
+Selection logic comes from nugget_rag itself (retriever.select_nuggets), nothing is
+re-implemented here.
 
 Usage:
     python scripts/analyze_nugget_failures.py --chunks pool.json --gold eval/gold_set_hard.json \\
@@ -32,10 +33,9 @@ from eval.evaluate import (
     validate_chunks,
     validate_gold,
 )
-from nugget_rag.chunker import split_sentences
 from nugget_rag.paper_registry import resolve_paper_key
-from nugget_rag.retriever import retrieve_full_chunk, retrieve_nuggets
-from nugget_rag.scorer import bm25_scores, top_nuggets
+from nugget_rag.retriever import retrieve_nuggets, select_nuggets
+from nugget_rag.scorer import bm25_scores
 
 LABELS = {
     "A": "A 検索の失敗（根拠チャンクが上位に入らない）",
@@ -55,23 +55,24 @@ def classify(
     Judged per sentence: when two adjacent selected sentences together hold the span, evaluate
     counts a hit (it joins them) but this stays B, so the D total can be below hits['nugget'].
     """
-    top = retrieve_full_chunk(chunks, query, top_k)
-    holders = [c for c in top if _span_in(c.get("text", ""), spans, normalize)]
-    if not holders:
-        return "A", None
     best_rank: int | None = None
-    for holder in holders:
-        sentences = split_sentences(holder["text"])
+    found_span_chunk = False
+    for sel in select_nuggets(chunks, query, top_k, per_chunk):
+        if not _span_in(sel.chunk["text"], spans, normalize):
+            continue
+        found_span_chunk = True
+        sentences = sel.sentences
         holding = [i for i, s in enumerate(sentences) if _span_in(s, spans, normalize)]
         if not holding:
             continue  # B in this chunk; a later holder may still be C or D
-        chosen = top_nuggets(query, sentences, top_k=per_chunk)
-        if any(_span_in(s, spans, normalize) for s in chosen):
+        if any(_span_in(sentences[i], spans, normalize) for i in sel.indices):
             return "D", None
         scores = bm25_scores(query, sentences)
         order = sorted(range(len(sentences)), key=lambda i: scores[i], reverse=True)
         rank = min(order.index(i) for i in holding) + 1
         best_rank = rank if best_rank is None else min(best_rank, rank)
+    if not found_span_chunk:
+        return "A", None
     return ("B", None) if best_rank is None else ("C", best_rank)
 
 

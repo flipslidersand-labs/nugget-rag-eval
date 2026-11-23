@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from typing import NamedTuple
 
 from nugget_rag.chunker import split_sentences
 from nugget_rag.scorer import bm25_scores, top_nugget_indices
@@ -62,7 +63,15 @@ def _embed_batch(
     return vecs[0], vecs[1:]
 
 
-def retrieve_nuggets(
+class NuggetSelection(NamedTuple):
+    """One top-k chunk with its sentences and the indices picked as nuggets (document order)."""
+
+    chunk: dict
+    sentences: list[str]
+    indices: list[int]
+
+
+def select_nuggets(
     chunks: list[dict],
     query: str,
     top_k: int = 5,
@@ -70,13 +79,15 @@ def retrieve_nuggets(
     embed_fn: Callable[[list[str]], list[list[float]]] | None = None,
     embed_weight: float = 0.5,
     window: int = 0,
-) -> list[dict]:
-    """Extract top nugget sentences from query-ranked chunks, then return top-k.
+) -> list[NuggetSelection]:
+    """Pick nugget sentences from the query-ranked top-k chunks (#248).
 
-    ``window`` > 0 also returns that many neighbouring sentences around each pick (#201).
+    The single place where chunk ranking, sentence splitting and sentence selection (BM25,
+    hybrid embedding, window) are decided. ``retrieve_nuggets`` joins the picks into text;
+    ``scripts/analyze_nugget_failures.py`` classifies misses from the same picks.
 
-    When embed_fn is provided and embed_weight > 0, nugget selection uses BM25 + embedding
-    hybrid scoring. embed_weight == 0 is BM25-only and never calls embed_fn (#239).
+    When embed_fn is provided and embed_weight > 0, selection uses BM25 + embedding hybrid
+    scoring. embed_weight == 0 is BM25-only and never calls embed_fn (#239).
 
     Batching optimisation (#150): when embed_fn is provided, all sentences
     from the top-k chunks are collected into a single embed_fn call together
@@ -93,7 +104,7 @@ def retrieve_nuggets(
     if embed_fn is not None and embed_weight != 0 and all_sentences:
         query_vec, flat_sent_vecs = _embed_batch(embed_fn, query, all_sentences)
 
-    results = []
+    selections = []
     offset = 0
     for chunk, sentences in zip(ranked_chunks, chunk_sentences):
         n = len(sentences)
@@ -110,5 +121,27 @@ def retrieve_nuggets(
             sent_vecs=sent_vecs,
             window=window,
         )
-        results.append({**chunk, "nugget": _join_nuggets(sentences, nugget_idx)})
-    return results
+        selections.append(NuggetSelection(chunk, sentences, nugget_idx))
+    return selections
+
+
+def retrieve_nuggets(
+    chunks: list[dict],
+    query: str,
+    top_k: int = 5,
+    nuggets_per_chunk: int = 3,
+    embed_fn: Callable[[list[str]], list[list[float]]] | None = None,
+    embed_weight: float = 0.5,
+    window: int = 0,
+) -> list[dict]:
+    """Extract top nugget sentences from query-ranked chunks, then return top-k.
+
+    ``window`` > 0 also returns that many neighbouring sentences around each pick (#201).
+    Selection (BM25 / hybrid embedding / window, batching) is :func:`select_nuggets`.
+    """
+    selections = select_nuggets(
+        chunks, query, top_k, nuggets_per_chunk, embed_fn, embed_weight, window
+    )
+    return [
+        {**sel.chunk, "nugget": _join_nuggets(sel.sentences, sel.indices)} for sel in selections
+    ]
