@@ -4,9 +4,12 @@ Usage:
     # Generic query (baseline)
     python scripts/fetch_papers.py --api-url http://localhost:8020 --out data/chunks.json
 
-    # Per-evaluation-query fetch (recommended for accurate Recall measurement)
-    python scripts/fetch_papers.py --api-url http://localhost:8020 --out data/chunks.json \
-        --gold-set eval/gold_set.json
+    # Per-evaluation-query fetch of real, full chunks (recommended for accurate
+    # Recall measurement). Without --snippet-length 0 the API returns only the
+    # first 200 characters of each chunk, so the pool is made of fragments.
+    python scripts/fetch_papers.py --api-url http://localhost:8020 \
+        --gold-set eval/gold_set.json --chunk-mode large --snippet-length 0 \
+        --out data/chunks_large_perquery.json
 """
 
 import argparse
@@ -323,7 +326,8 @@ def main():
         "--gold-set",
         default=None,
         help="Path to gold_set.json. When provided, fetches chunks per evaluation query "
-        "for each paper so relevant chunks are guaranteed to be in the pool.",
+        "for each paper, so the top results for that query are in the pool (relevant chunks "
+        "are likely, not guaranteed, to be among them; use with --snippet-length 0).",
     )
     parser.add_argument(
         "--chunk-mode",
