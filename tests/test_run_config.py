@@ -189,4 +189,3 @@ def test_real_baselines_record_match_and_window():
     for name in ("baseline_hard.json", "baseline_gold.json"):
         base = json.loads((_REPO_ROOT / "eval" / name).read_text(encoding="utf-8"))
         assert base["match"] == "exact" and base["nugget_window"] == 0
-
