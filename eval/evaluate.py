@@ -362,19 +362,72 @@ def pop_diagnostics(result: dict) -> dict:
     return result
 
 
+@dataclass(frozen=True)
+class EvalConfig:
+    """Retrieval settings of one evaluate() run (#392). Defaults are the CLI defaults.
+
+    ``embed_fn`` is not here: it is a live client, not a setting. Invalid ``match`` /
+    ``estimator`` raise ValueError at construction.
+    """
+
+    top_k: int = 5
+    match: str = "exact"
+    estimator: str = "words"
+    nugget_window: int = 0
+    nuggets_per_chunk: int = 3
+    embed_weight: float = 0.5
+
+    def __post_init__(self) -> None:
+        if self.match not in ("exact", "normalized"):
+            raise ValueError(f"match must be 'exact' or 'normalized', got {self.match!r}")
+        _check_estimator(self.estimator)
+
+
+def _fold_legacy(config: EvalConfig | None, legacy: dict) -> EvalConfig:
+    """Merge the old per-setting keyword arguments of evaluate() into one EvalConfig.
+
+    Only the legacy arguments the caller actually passed (not None) count. Passing one together
+    with *config* is ambiguous, so it is a ValueError rather than one silently winning.
+    """
+    given = {k: v for k, v in legacy.items() if v is not None}
+    if config is None:
+        return EvalConfig(**given)
+    if given:
+        raise ValueError(
+            f"pass either config or the legacy keyword arguments {sorted(given)}, not both"
+        )
+    return config
+
+
 def evaluate(
     chunks_by_paper: dict[str, list[dict]],
     gold: list[dict],
-    top_k: int = 5,
+    config: EvalConfig | None = None,
     embed_fn: Callable[[list[str]], list[list[float]]] | None = None,
-    embed_weight: float = 0.5,
-    estimator: str = "words",
-    nugget_window: int = 0,
-    match: str = "exact",
+    *,
+    top_k: int | None = None,
+    embed_weight: float | None = None,
+    estimator: str | None = None,
+    nugget_window: int | None = None,
+    match: str | None = None,
 ) -> dict:
-    if match not in ("exact", "normalized"):
-        raise ValueError(f"match must be 'exact' or 'normalized', got {match!r}")
-    _check_estimator(estimator)
+    """Run every retrieval mode over *gold* and return recall / MRR / tokens per mode.
+
+    Settings come from *config* (default ``EvalConfig()``). The keyword arguments ``top_k``,
+    ``embed_weight``, ``estimator``, ``nugget_window`` and ``match`` are the old way to set the
+    same fields; they fold into a config, and mixing them with *config* raises ValueError.
+    """
+    cfg = _fold_legacy(
+        config,
+        {
+            "top_k": top_k,
+            "embed_weight": embed_weight,
+            "estimator": estimator,
+            "nugget_window": nugget_window,
+            "match": match,
+        },
+    )
+    top_k, match, estimator = cfg.top_k, cfg.match, cfg.estimator
     normalize = match == "normalized"
     validate_gold(gold)
     n_queries_without_chunks, warnings = check_gold_chunk_coverage(chunks_by_paper, gold)
@@ -397,9 +450,10 @@ def evaluate(
             chunks,
             query,
             top_k,
+            nuggets_per_chunk=cfg.nuggets_per_chunk,
             embed_fn=timed_embed_fn,
-            embed_weight=embed_weight,
-            window=nugget_window,
+            embed_weight=cfg.embed_weight,
+            window=cfg.nugget_window,
         ),
     }
     assert set(retrievers) == {m.name for m in MODES}, "MODES and retrievers out of sync"
@@ -489,6 +543,12 @@ def main():
         help="Also return N neighbouring sentences around each nugget (default: 0 = off)",
     )
     parser.add_argument(
+        "--nuggets-per-chunk",
+        type=_positive_int,
+        default=3,
+        help="Sentences selected from each top-k chunk for the nugget mode (default: 3)",
+    )
+    parser.add_argument(
         "--match",
         choices=["exact", "normalized"],
         default="exact",
@@ -514,12 +574,15 @@ def main():
         result = evaluate(
             chunks_by_paper,
             gold,
-            top_k=args.top_k,
+            EvalConfig(
+                top_k=args.top_k,
+                match=args.match,
+                estimator=args.token_estimator,
+                nugget_window=args.nugget_window,
+                nuggets_per_chunk=args.nuggets_per_chunk,
+                embed_weight=args.embed_weight,
+            ),
             embed_fn=embed_fn,
-            embed_weight=args.embed_weight,
-            estimator=args.token_estimator,
-            nugget_window=args.nugget_window,
-            match=args.match,
         )
     except ValueError as exc:
         sys.exit(f"[ERROR] {exc}")

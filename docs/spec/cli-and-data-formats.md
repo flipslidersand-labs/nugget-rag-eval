@@ -57,6 +57,7 @@ JSON 配列。各要素は次を持つ。
 | `--top-k` | 5 | 正の整数 |
 | `--token-estimator` | `words` | `words`（`split()`）か `chars`（`len/4`） |
 | `--nugget-window` | 0 | nugget の前後 N 文も返す。0 は無効 |
+| `--nuggets-per-chunk` | 3 | 上位チャンクごとに nugget として選ぶ文の数。正の整数 |
 | `--match` | `exact` | `exact` か `normalized` |
 | `--pool-label` | なし | 候補プールの作り方のメモ。JSON の `pool` にそのまま出る |
 | `--embedding-url` | なし | 指定すると nugget の文選びが BM25 + 埋め込みのハイブリッドになる |

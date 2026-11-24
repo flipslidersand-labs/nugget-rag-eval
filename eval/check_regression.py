@@ -30,6 +30,7 @@ from pathlib import Path
 
 from eval.cli_helpers import existing_file, float_between_0_1, positive_int
 from eval.evaluate import (
+    EvalConfig,
     evaluate,
     format_diagnostics,
     load_inputs,
@@ -185,7 +186,7 @@ def main() -> None:
     chunks_by_paper, gold = load_inputs(args.chunks, args.gold)
 
     try:
-        result = evaluate(chunks_by_paper, gold, top_k=args.top_k)
+        result = evaluate(chunks_by_paper, gold, EvalConfig(top_k=args.top_k))
     except ValueError as exc:
         sys.exit(f"[ERROR] {exc}")
 
