@@ -32,7 +32,7 @@ from eval.cli_helpers import positive_int as _positive_int
 from eval.compare import compare
 from nugget_rag.embedder import EmbedError
 from nugget_rag.paper_registry import resolve_paper_key
-from nugget_rag.retriever import retrieve_full_chunk, retrieve_nuggets
+from nugget_rag.retriever import rank_chunks, retrieve_full_chunk, retrieve_nuggets
 
 _REQUIRED_FIELDS = frozenset({"query", "answer_spans"})
 
@@ -322,17 +322,19 @@ class RetrievalMode:
     name: str  # key in the result dict (and in baseline files)
     field: str  # chunk field holding the text that is judged and counted
     label: str  # display name
-    # (chunks of one paper, query, config, embed_fn) -> top-k results
-    retrieve: Callable[[list[dict], str, EvalConfig, EmbedFn | None], list[dict]]
+    # (chunks of one paper, query, config, embed_fn) -> top-k results; with uses_ranking a fifth
+    # argument is the rank_chunks() result for (chunks, query), computed once per query (#390)
+    retrieve: Callable[..., list[dict]]
     show_misses: bool = False  # list recall misses under --verbose
     uses_embedding: bool = False  # calls embed_fn: its time is reported, the label shows the weight
+    uses_ranking: bool = False  # retrieve takes the shared BM25 chunk ranking as a fifth argument
 
 
-def _retrieve_full_chunk(chunks, query, cfg, embed_fn):
-    return retrieve_full_chunk(chunks, query, cfg.top_k)
+def _retrieve_full_chunk(chunks, query, cfg, embed_fn, ranked):
+    return retrieve_full_chunk(chunks, query, cfg.top_k, ranked=ranked)
 
 
-def _retrieve_nugget(chunks, query, cfg, embed_fn):
+def _retrieve_nugget(chunks, query, cfg, embed_fn, ranked):
     return retrieve_nuggets(
         chunks,
         query,
@@ -341,13 +343,20 @@ def _retrieve_nugget(chunks, query, cfg, embed_fn):
         embed_fn=embed_fn,
         embed_weight=cfg.embed_weight,
         window=cfg.nugget_window,
+        ranked=ranked,
     )
 
 
 MODES: tuple[RetrievalMode, ...] = (
-    RetrievalMode("full_chunk", "text", "full-chunk", _retrieve_full_chunk),
+    RetrievalMode("full_chunk", "text", "full-chunk", _retrieve_full_chunk, uses_ranking=True),
     RetrievalMode(
-        "nugget", "nugget", "nugget", _retrieve_nugget, show_misses=True, uses_embedding=True
+        "nugget",
+        "nugget",
+        "nugget",
+        _retrieve_nugget,
+        show_misses=True,
+        uses_embedding=True,
+        uses_ranking=True,
     ),
 )
 
@@ -483,11 +492,24 @@ def evaluate(
         spans = item["answer_spans"]
         chunks = chunks_by_paper.get(key, [])
 
+        # One BM25 ranking per query, shared by the modes that use it. Its time is added to each
+        # of them, so every mode's latency is what it costs on its own (#390).
+        ranked, rank_time = None, 0.0
+        if any(m.uses_ranking for m in MODES):
+            t0 = time.perf_counter()
+            ranked = rank_chunks(chunks, query)
+            rank_time = time.perf_counter() - t0
+
         for mode in MODES:
             embed_spent = 0.0
             t0 = time.perf_counter()
-            results = mode.retrieve(chunks, query, cfg, timed_embed_fn)
-            times[mode.name].append(time.perf_counter() - t0)
+            if mode.uses_ranking:
+                results = mode.retrieve(chunks, query, cfg, timed_embed_fn, ranked)
+            else:
+                results = mode.retrieve(chunks, query, cfg, timed_embed_fn)
+            times[mode.name].append(
+                time.perf_counter() - t0 + (rank_time if mode.uses_ranking else 0.0)
+            )
             if mode.uses_embedding:
                 embed_times.append(embed_spent)
 
