@@ -5,8 +5,6 @@ from __future__ import annotations
 import json
 import sys
 
-import pytest
-
 from eval import check_regression
 from eval import evaluate as ev
 from nugget_rag.paper_registry import ARXIV_MAP
@@ -31,12 +29,16 @@ def test_mode_label():
     assert ev.mode_label("full_chunk", 0.3) == "full-chunk"  # weight only labels nugget
 
 
-def test_mode_without_registered_retriever_is_rejected(monkeypatch):
-    """Adding a MODES entry without wiring its retriever must fail loudly, not silently skip."""
-    extra = ev.RetrievalMode("rerank", "text", "rerank")
+def test_added_mode_is_evaluated_from_its_table_entry_alone(monkeypatch):
+    """A MODES entry carries its retriever: nothing else in evaluate() needs touching."""
+    extra = ev.RetrievalMode("first", "text", "first", lambda chunks, query, cfg, embed: chunks[:1])
     monkeypatch.setattr(ev, "MODES", (*ev.MODES, extra))
-    with pytest.raises(AssertionError, match="out of sync"):
-        ev.evaluate(CHUNKS, GOLD)
+    res = ev.evaluate(CHUNKS, GOLD)
+    assert res["modes"] == ["full_chunk", "nugget", "first"]
+    assert res["hits"]["first"] == 1
+    assert set(res["first"]) == {"recall", "mrr", "avg_tokens"}
+    assert "first" in res["latency_ms"]
+    assert "nugget_embed_calls" not in res["latency_ms"]  # only embedding modes time embed calls
 
 
 def test_check_baseline_skips_modes_without_a_baseline():

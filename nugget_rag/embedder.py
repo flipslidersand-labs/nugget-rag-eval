@@ -28,7 +28,6 @@ from nugget_rag.http_util import (
     urlopen,
     validate_url,
 )
-from nugget_rag.vectors import cosine_similarity, embed_scores  # noqa: F401 (re-exported)
 
 MAX_BATCH_SIZE = 256
 # Response body cap. A full batch is ~256 vectors x 768 dims x ~25 B of JSON text
