@@ -27,10 +27,10 @@ def test_embed_scores_matches_per_sentence_cosine():
     assert vectors.embed_scores(q, []) == []
 
 
-def test_embedder_reexports_the_same_functions():
-    """Existing imports from nugget_rag.embedder keep working and point at vectors."""
-    assert embedder.cosine_similarity is vectors.cosine_similarity
-    assert embedder.embed_scores is vectors.embed_scores
+def test_embedder_does_not_reexport_vector_math():
+    """Vector math lives only in nugget_rag.vectors; embedder is the HTTP client (#242)."""
+    assert not hasattr(embedder, "cosine_similarity")
+    assert not hasattr(embedder, "embed_scores")
 
 
 def _imported_modules(path: Path) -> set[str]:

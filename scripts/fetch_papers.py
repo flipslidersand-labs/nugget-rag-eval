@@ -31,7 +31,7 @@ from nugget_rag.http_util import (
     urlopen,
     validate_url,
 )
-from nugget_rag.paper_registry import ARXIV_MAP as ARXIV_TO_PAPER_ID
+from nugget_rag.paper_registry import ARXIV_MAP
 from nugget_rag.schema import make_chunk
 
 # Unified timeout constants
@@ -168,18 +168,14 @@ def combine_large_chunks(chunks: list[dict], paper_id: int, target_tokens: int) 
     current_size = 0
     for chunk in sorted(chunks, key=lambda c: c["chunk_index"]):
         chunk_size = len(chunk["text"].split())
-        if current is None:
-            current = make_chunk(
-                paper_id, chunk["text"], chunk["score"], chunk_indices=[chunk["chunk_index"]]
-            )
-            current_size = chunk_size
-        elif current_size + chunk_size <= target_tokens:
+        if current is not None and current_size + chunk_size <= target_tokens:
             current["text"] += " " + chunk["text"]
             current["chunk_indices"].append(chunk["chunk_index"])
             current["score"] = max(current["score"], chunk["score"])
             current_size += chunk_size
         else:
-            combined.append(current)
+            if current is not None:
+                combined.append(current)
             current = make_chunk(
                 paper_id, chunk["text"], chunk["score"], chunk_indices=[chunk["chunk_index"]]
             )
@@ -221,7 +217,7 @@ def fetch_per_query(
         # Resolve paper_id: prefer arxiv_id field, fall back to paper_id int
         # A null/empty arxiv_id falls back to paper_id (#230).
         if item.get("arxiv_id"):
-            pid = ARXIV_TO_PAPER_ID.get(item["arxiv_id"])
+            pid = ARXIV_MAP.get(item["arxiv_id"])
             if pid is None:
                 print(
                     f"  WARNING: unknown arxiv_id '{item['arxiv_id']}', skipping", file=sys.stderr
