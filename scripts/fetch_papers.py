@@ -168,18 +168,14 @@ def combine_large_chunks(chunks: list[dict], paper_id: int, target_tokens: int) 
     current_size = 0
     for chunk in sorted(chunks, key=lambda c: c["chunk_index"]):
         chunk_size = len(chunk["text"].split())
-        if current is None:
-            current = make_chunk(
-                paper_id, chunk["text"], chunk["score"], chunk_indices=[chunk["chunk_index"]]
-            )
-            current_size = chunk_size
-        elif current_size + chunk_size <= target_tokens:
+        if current is not None and current_size + chunk_size <= target_tokens:
             current["text"] += " " + chunk["text"]
             current["chunk_indices"].append(chunk["chunk_index"])
             current["score"] = max(current["score"], chunk["score"])
             current_size += chunk_size
         else:
-            combined.append(current)
+            if current is not None:
+                combined.append(current)
             current = make_chunk(
                 paper_id, chunk["text"], chunk["score"], chunk_indices=[chunk["chunk_index"]]
             )
