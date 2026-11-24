@@ -51,6 +51,7 @@ flowchart LR
 2. ゴールドの 1 件ごとに、**その論文のチャンクだけ**を対象に検索する（実運用の全論文検索より易しい条件。README「限界」）。
 3. `retriever.retrieve_full_chunk` は BM25 の上位 k 件を返す。`retrieve_nuggets` は同じ上位 k 件を `chunker.split_sentences` で文に分け、
    `scorer.top_nuggets` で文を選ぶ。`--embedding-url` があり重みが 0 でなければ、クエリと全文を 1 回のバッチで埋め込み、BM25 と cosine の混合で選ぶ。
+   BM25 のチャンク順位付けはクエリごとに 1 回だけ行い（`retriever.rank_chunks`）、両モードで共有する。`latency_ms` には、その順位付けの時間を両モードに同じ条件で加える。
 4. 返したテキストに `answer_spans` が含まれるかを判定し（`exact` か `normalized`）、モードごとに集計する。
 5. `compare.py` が full と nugget の対応あり比較（McNemar の正確確率・bootstrap 区間）を出す。
    判別できる条件は「p < 0.05 かつ Recall 差の 95% 区間が 0 を含まない」で、測定前に固定している。

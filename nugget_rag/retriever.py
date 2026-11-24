@@ -38,8 +38,13 @@ def _join_nuggets(sentences: list[str], indices: list[int]) -> str:
     return out
 
 
-def _rank_chunks(chunks: list[dict], query: str) -> list[dict]:
-    """Rank chunks by BM25 score against query."""
+def rank_chunks(chunks: list[dict], query: str) -> list[dict]:
+    """Rank chunks by BM25 score against query (best first; ties keep the input order).
+
+    The result can be passed as ``ranked=`` to :func:`retrieve_full_chunk`,
+    :func:`select_nuggets` and :func:`retrieve_nuggets` so several retrievals over the same
+    (chunks, query) rank only once (#390).
+    """
     if not chunks:
         return []
     texts = [c.get("text", "") for c in chunks]
@@ -48,9 +53,14 @@ def _rank_chunks(chunks: list[dict], query: str) -> list[dict]:
     return [c for _, c in ranked]
 
 
-def retrieve_full_chunk(chunks: list[dict], query: str, top_k: int = 5) -> list[dict]:
-    """Return top-k chunks ranked by BM25 relevance to query."""
-    return _rank_chunks(chunks, query)[:top_k]
+def retrieve_full_chunk(
+    chunks: list[dict], query: str, top_k: int = 5, ranked: list[dict] | None = None
+) -> list[dict]:
+    """Return top-k chunks ranked by BM25 relevance to query.
+
+    ``ranked`` is ``rank_chunks(chunks, query)`` computed by the caller; it skips the ranking.
+    """
+    return (rank_chunks(chunks, query) if ranked is None else ranked)[:top_k]
 
 
 def _embed_batch(
@@ -79,6 +89,7 @@ def select_nuggets(
     embed_fn: Callable[[list[str]], list[list[float]]] | None = None,
     embed_weight: float = 0.5,
     window: int = 0,
+    ranked: list[dict] | None = None,
 ) -> list[NuggetSelection]:
     """Pick nugget sentences from the query-ranked top-k chunks (#248).
 
@@ -93,8 +104,11 @@ def select_nuggets(
     from the top-k chunks are collected into a single embed_fn call together
     with the query.  This reduces HTTP round-trips from O(top_k) to O(1)
     per query and eliminates repeated query-vector computation.
+
+    ``ranked`` is ``rank_chunks(chunks, query)`` computed by the caller (#390); it skips the
+    ranking and must be the ranking of the same chunks and query.
     """
-    ranked_chunks = _rank_chunks(chunks, query)[:top_k]
+    ranked_chunks = (rank_chunks(chunks, query) if ranked is None else ranked)[:top_k]
     chunk_sentences: list[list[str]] = [split_sentences(c["text"]) for c in ranked_chunks]
 
     # weight 0 -> embedding adds nothing to the score; skip the service call (#239)
@@ -133,14 +147,16 @@ def retrieve_nuggets(
     embed_fn: Callable[[list[str]], list[list[float]]] | None = None,
     embed_weight: float = 0.5,
     window: int = 0,
+    ranked: list[dict] | None = None,
 ) -> list[dict]:
     """Extract top nugget sentences from query-ranked chunks, then return top-k.
 
     ``window`` > 0 also returns that many neighbouring sentences around each pick (#201).
     Selection (BM25 / hybrid embedding / window, batching) is :func:`select_nuggets`.
+    ``ranked`` is a precomputed :func:`rank_chunks` result (#390).
     """
     selections = select_nuggets(
-        chunks, query, top_k, nuggets_per_chunk, embed_fn, embed_weight, window
+        chunks, query, top_k, nuggets_per_chunk, embed_fn, embed_weight, window, ranked
     )
     return [
         {**sel.chunk, "nugget": _join_nuggets(sel.sentences, sel.indices)} for sel in selections
