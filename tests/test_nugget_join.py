@@ -2,7 +2,7 @@
 
 import pytest
 
-from eval.evaluate import _normalize_for_match, recall_at_k
+from eval.metrics import _normalize_for_match, recall_at_k
 from nugget_rag.retriever import _SEAM, retrieve_full_chunk, retrieve_nuggets
 
 # Sentences 0 and 2 are the only ones sharing query terms; sentence 1 is filler between them.

@@ -2,13 +2,11 @@
 
 import pytest
 
-from eval.evaluate import (
+from eval.evaluate import evaluate, format_diagnostics
+from eval.metrics import mrr_at_k, recall_at_k
+from eval.schema import (
     build_chunks_index,
     check_gold_chunk_coverage,
-    evaluate,
-    format_diagnostics,
-    mrr_at_k,
-    recall_at_k,
     validate_chunks,
     validate_gold,
 )

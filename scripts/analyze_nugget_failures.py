@@ -24,7 +24,9 @@ import sys
 from collections import Counter
 
 from eval.cli_helpers import existing_file, positive_int
-from eval.evaluate import EvalConfig, _span_in, check_gold_chunk_coverage, evaluate, load_inputs
+from eval.evaluate import EvalConfig, evaluate, load_inputs
+from eval.metrics import span_in
+from eval.schema import check_gold_chunk_coverage
 from nugget_rag.paper_registry import resolve_paper_key
 from nugget_rag.retriever import select_nuggets
 from nugget_rag.scorer import bm25_scores
@@ -50,14 +52,14 @@ def classify(
     best_rank: int | None = None
     found_span_chunk = False
     for sel in select_nuggets(chunks, query, top_k, per_chunk):
-        if not _span_in(sel.chunk["text"], spans, normalize):
+        if not span_in(sel.chunk["text"], spans, normalize):
             continue
         found_span_chunk = True
         sentences = sel.sentences
-        holding = [i for i, s in enumerate(sentences) if _span_in(s, spans, normalize)]
+        holding = [i for i, s in enumerate(sentences) if span_in(s, spans, normalize)]
         if not holding:
             continue  # B in this chunk; a later holder may still be C or D
-        if any(_span_in(sentences[i], spans, normalize) for i in sel.indices):
+        if any(span_in(sentences[i], spans, normalize) for i in sel.indices):
             return "D", None
         scores = bm25_scores(query, sentences)
         order = sorted(range(len(sentences)), key=lambda i: scores[i], reverse=True)

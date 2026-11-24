@@ -14,7 +14,7 @@ import pathlib
 
 import pytest
 
-from eval.evaluate import validate_gold
+from eval.schema import validate_gold
 from nugget_rag.paper_registry import ARXIV_MAP, resolve_paper_key
 
 REPO_ROOT = pathlib.Path(__file__).parent.parent

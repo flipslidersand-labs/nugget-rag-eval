@@ -25,7 +25,7 @@ import sys
 from pathlib import Path
 
 from eval.cli_helpers import existing_file, load_json, write_json_atomic
-from eval.evaluate import validate_gold
+from eval.schema import validate_gold
 
 VERDICTS = {"○": "ok", "△": "fix", "×": "ng", "未判定": "none"}
 LINE = re.compile(r"^\s*(\d+)\.\s+(\S+)\s+(○|△|×|未判定)\s*(.*?)\s*$")

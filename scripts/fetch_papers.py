@@ -20,6 +20,7 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 
 from eval.cli_helpers import load_json, non_negative_int, positive_int
+from eval.schema import validate_gold
 
 # Shared with nugget_rag.embedder: scheme/netloc validation, a redirect-refusing
 # urlopen (see #147 — redirects would forward headers to arbitrary hosts) and the
@@ -345,8 +346,6 @@ def main():
     if args.gold_set:
         gold = load_json(args.gold_set, "gold-set")
         try:
-            from eval.evaluate import validate_gold
-
             validate_gold(gold)
         except ValueError as exc:
             print(f"[ERROR] {exc}", file=sys.stderr)

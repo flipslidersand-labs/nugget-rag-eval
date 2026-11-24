@@ -9,7 +9,8 @@ import pytest
 
 from eval import check_regression
 from eval.check_regression import check_baseline
-from eval.evaluate import _percentile, evaluate
+from eval.evaluate import evaluate
+from eval.metrics import percentile
 from nugget_rag.paper_registry import ARXIV_MAP
 
 RESULT = {
@@ -142,11 +143,11 @@ def test_main_baseline_regression_advisory_exits_0(monkeypatch, tmp_path, capsys
 
 
 def test_percentile_nearest_rank():
-    assert _percentile([], 95) == 0.0
-    assert _percentile([5.0], 50) == 5.0
+    assert percentile([], 95) == 0.0
+    assert percentile([5.0], 50) == 5.0
     vals = [float(i) for i in range(1, 101)]
-    assert _percentile(vals, 50) == 50.0
-    assert _percentile(vals, 95) == 95.0
+    assert percentile(vals, 50) == 50.0
+    assert percentile(vals, 95) == 95.0
 
 
 def test_evaluate_reports_latency_without_embed():

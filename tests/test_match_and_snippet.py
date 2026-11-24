@@ -6,13 +6,8 @@ import sys
 
 import pytest
 
-from eval.evaluate import (
-    _normalize_for_match,
-    evaluate,
-    main,
-    mrr_at_k,
-    recall_at_k,
-)
+from eval.evaluate import evaluate, main
+from eval.metrics import _normalize_for_match, mrr_at_k, recall_at_k
 from nugget_rag.paper_registry import ARXIV_MAP
 from scripts import fetch_papers as fp
 
