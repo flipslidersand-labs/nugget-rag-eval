@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from eval.evaluate import avg_tokens, evaluate
+from eval.evaluate import evaluate
+from eval.metrics import avg_tokens
 from tests.conftest import make_results
 
 

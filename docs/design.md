@@ -47,12 +47,12 @@ flowchart LR
     evaluate --> regression
 ```
 
-1. `evaluate.py` が chunks と gold を検証し、`paper_registry.resolve_paper_key` で論文ごとにチャンクをまとめる。
+1. `evaluate.py` が chunks と gold を読み、`schema.py` の検証と `paper_registry.resolve_paper_key` による論文ごとの索引づくりを呼ぶ。
 2. ゴールドの 1 件ごとに、**その論文のチャンクだけ**を対象に検索する（実運用の全論文検索より易しい条件。README「限界」）。
 3. `retriever.retrieve_full_chunk` は BM25 の上位 k 件を返す。`retrieve_nuggets` は同じ上位 k 件を `chunker.split_sentences` で文に分け、
    `scorer.top_nuggets` で文を選ぶ。`--embedding-url` があり重みが 0 でなければ、クエリと全文を 1 回のバッチで埋め込み、BM25 と cosine の混合で選ぶ。
    BM25 のチャンク順位付けはクエリごとに 1 回だけ行い（`retriever.rank_chunks`）、両モードで共有する。`latency_ms` には、その順位付けの時間を両モードに同じ条件で加える。
-4. 返したテキストに `answer_spans` が含まれるかを判定し（`exact` か `normalized`）、モードごとに集計する。
+4. 返したテキストに `answer_spans` が含まれるかを `metrics.py` で判定し（`exact` か `normalized`）、モードごとに集計する。
 5. `compare.py` が full と nugget の対応あり比較（McNemar の正確確率・bootstrap 区間）を出す。
    判別できる条件は「p < 0.05 かつ Recall 差の 95% 区間が 0 を含まない」で、測定前に固定している。
 6. `check_regression.py` は同じ評価を回して、閾値と基準値からの低下を判定する。CI の `eval-regression` ジョブが使う。
@@ -62,7 +62,7 @@ flowchart LR
 | ディレクトリ | 責務 | 依存 |
 | --- | --- | --- |
 | `nugget_rag/` | 検索と文選びのコア。`retriever`・`chunker`・`scorer`・`vectors`・`embedder`・`http_util`（URL 検証・redirect 拒否・再試行の共通部品）・`paper_registry` | 標準ライブラリのみ |
-| `eval/` | 評価 CLI、比較統計、ゴールドと基準値、CLI 共通の引数型（`cli_helpers.py`） | `nugget_rag` |
+| `eval/` | 評価 CLI、比較統計、ゴールドと基準値、CLI 共通の引数型（`cli_helpers.py`）、chunks と gold の検証・索引（`schema.py`）、照合と指標（`metrics.py`） | `nugget_rag` |
 | `scripts/` | データ取得・プール作成・分析・レポート生成。`eval/cli_helpers.py` を import する | `nugget_rag`・`eval`、`pdftotext`（プール作成のみ） |
 | `tests/` | pytest。`tests/fixtures/` は CI の回帰ゲート用の最小データ | |
 | `data/` | CI 回帰ゲート用の `chunks_large.json` だけ追跡する。PDF 由来のプールは gitignore | |

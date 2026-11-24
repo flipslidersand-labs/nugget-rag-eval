@@ -7,7 +7,8 @@ import sys
 
 import pytest
 
-from eval.evaluate import avg_tokens, evaluate
+from eval.evaluate import evaluate
+from eval.metrics import avg_tokens
 from nugget_rag.paper_registry import ARXIV_MAP
 
 # ── verbose output path ──────────────────────────────────────────────────────

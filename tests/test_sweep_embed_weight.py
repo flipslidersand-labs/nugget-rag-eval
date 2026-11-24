@@ -6,7 +6,7 @@ import json
 
 import pytest
 
-from eval.evaluate import build_chunks_index
+from eval.schema import build_chunks_index
 from nugget_rag.embedder import EmbedError
 from nugget_rag.paper_registry import ARXIV_MAP
 from scripts import sweep_embed_weight as sw

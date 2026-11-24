@@ -9,7 +9,8 @@ import sys
 import pytest
 
 from eval import evaluate as ev
-from eval.evaluate import EvalConfig, build_chunks_index, evaluate
+from eval.evaluate import EvalConfig, evaluate
+from eval.schema import build_chunks_index
 from nugget_rag.paper_registry import ARXIV_MAP
 
 PID = ARXIV_MAP["2410.10071"]
