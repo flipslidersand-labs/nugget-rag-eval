@@ -8,7 +8,8 @@ from pathlib import Path
 
 import pytest
 
-from eval.evaluate import build_chunks_index, evaluate
+from eval.evaluate import evaluate
+from eval.schema import build_chunks_index
 from nugget_rag.paper_registry import ARXIV_MAP
 from nugget_rag.retriever import NuggetSelection, retrieve_full_chunk
 from scripts import analyze_nugget_failures as af
