@@ -513,6 +513,14 @@ def evaluate(
         "warnings": warnings,
         "misses": misses,
         "modes": [m.name for m in MODES],
+        # The settings of this run, so a baseline can be written from / checked against it (#394).
+        "config": {
+            "top_k": cfg.top_k,
+            "match": cfg.match,
+            "nugget_window": cfg.nugget_window,
+            "embed_weight": cfg.embed_weight,
+            "nuggets_per_chunk": cfg.nuggets_per_chunk,
+        },
         # Unrounded hit counts per mode: gates compare hits / n_queries, not the rounded recall.
         "hits": {m.name: hits[m.name] for m in MODES},
     }
