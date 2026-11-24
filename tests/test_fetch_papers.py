@@ -15,10 +15,9 @@ from urllib.error import HTTPError, URLError
 import pytest
 
 from nugget_rag.http_util import validate_url
-from nugget_rag.paper_registry import PAPER_ID_TO_ARXIV
+from nugget_rag.paper_registry import ARXIV_MAP, PAPER_ID_TO_ARXIV
 from scripts.fetch_papers import (
     _MAX_RETRIES,
-    ARXIV_TO_PAPER_ID,
     FetchError,
     _sanitize_query,
     _urlopen_with_retry,
@@ -405,13 +404,13 @@ def test_fetch_per_query_small_drops_blank_snippets(mock_fetch):
 
 @patch("scripts.fetch_papers.fetch_chunks_for_paper")
 def test_fetch_per_query_resolves_arxiv_id(mock_fetch):
-    """gold に arxiv_id がある場合、ARXIV_TO_PAPER_ID で paper_id を解決する。"""
+    """gold に arxiv_id がある場合、ARXIV_MAP で paper_id を解決する。"""
     mock_fetch.return_value = [{"paper_id": 1, "chunk_index": 0, "text": "t", "score": 0.5}]
     gold = [{"arxiv_id": "2410.10071", "query": "q", "answer_spans": ["t"]}]
 
     fetch_per_query("http://api", gold, chunk_mode="small", target_tokens=512)
     called_pid = mock_fetch.call_args[0][1]
-    assert called_pid == ARXIV_TO_PAPER_ID["2410.10071"]
+    assert called_pid == ARXIV_MAP["2410.10071"]
 
 
 @patch("scripts.fetch_papers.fetch_chunks_for_paper")

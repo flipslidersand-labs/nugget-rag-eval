@@ -10,11 +10,10 @@ from nugget_rag.embedder import (
     EmbedClient,
     EmbedError,
     _is_plain_http_remote,
-    cosine_similarity,
-    embed_scores,
 )
 from nugget_rag.http_util import validate_url
 from nugget_rag.scorer import top_nuggets
+from nugget_rag.vectors import cosine_similarity, embed_scores
 
 
 def _make_cm_mock(data: bytes) -> MagicMock:
