@@ -138,7 +138,7 @@ def _run_with_read_timeout(monkeypatch, tmp_path, *extra):
 
     out = tmp_path / "out" / "chunks.json"
     monkeypatch.setattr(fp, "fetch_papers", lambda api: [{"id": 1}, {"id": 2}])
-    monkeypatch.setattr(fp.time, "sleep", lambda s: None)
+    monkeypatch.setattr("nugget_rag.http_util.time.sleep", lambda s: None)
     body = json.dumps({"results": [{"chunk_index": 0, "snippet": "t", "score": 1.0}]}).encode()
 
     def fake_urlopen(url, timeout):

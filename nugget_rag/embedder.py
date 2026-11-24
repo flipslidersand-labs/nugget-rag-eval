@@ -11,47 +11,29 @@ Usage:
 
 from __future__ import annotations
 
-import http.client
 import ipaddress
 import json
 import math
 import os
 import sys
-import time
-from urllib.error import HTTPError, URLError
+from urllib.error import HTTPError
 from urllib.parse import urljoin, urlparse
-from urllib.request import HTTPRedirectHandler, Request, build_opener
+from urllib.request import Request
 
+from nugget_rag.http_util import (
+    RETRYABLE_EXCEPTIONS,
+    is_retryable_http,
+    read_capped,
+    request_with_retry,
+    urlopen,
+    validate_url,
+)
 from nugget_rag.vectors import cosine_similarity, embed_scores  # noqa: F401 (re-exported)
 
 MAX_BATCH_SIZE = 256
 # Response body cap. A full batch is ~256 vectors x 768 dims x ~25 B of JSON text
 # (about 5 MB), so 32 MiB leaves wide headroom while still bounding memory use.
 MAX_RESPONSE_BYTES = 32 * 1024 * 1024
-
-_ALLOWED_SCHEMES = frozenset({"http", "https"})
-
-
-def _validate_url(url: str) -> None:
-    """Reject non-HTTP(S) schemes, URLs without a host, and URLs with userinfo.
-
-    This pins the scheme (blocks file://, ftp://, etc.), requires a non-empty
-    host, and refuses ``user:pass@host`` (credentials belong in EMBEDDING_API_KEY).
-    Error messages never echo the URL, since it may carry secrets. It does NOT
-    restrict target hosts: the client is meant
-    for LAN-internal services, so internal IPs are intentionally allowed.
-    Redirect following is separately disabled (see _NoRedirectHandler) so
-    request headers can never be forwarded beyond the validated initial URL.
-    """
-    parsed = urlparse(url)
-    if parsed.scheme not in _ALLOWED_SCHEMES:
-        raise ValueError(
-            f"Unsupported URL scheme: {parsed.scheme!r}. Only 'http' and 'https' are allowed."
-        )
-    if "@" in parsed.netloc:
-        raise ValueError("URL must not contain userinfo (user:pass@host)")
-    if not parsed.netloc:
-        raise ValueError("URL has no host")
 
 
 def _is_plain_http_remote(url: str) -> bool:
@@ -68,53 +50,6 @@ def _is_plain_http_remote(url: str) -> bool:
         return True
     mapped = getattr(ip, "ipv4_mapped", None)
     return not (ip.is_loopback or (mapped is not None and mapped.is_loopback))
-
-
-class _NoRedirectHandler(HTTPRedirectHandler):
-    """Refuse HTTP redirects.
-
-    The default opener re-sends all request headers (including X-API-Key) to
-    the redirect target, which may be a different host, a plaintext downgrade,
-    or an attacker-controlled URL. Raising here turns any 3xx response into an
-    HTTPError that callers surface as EmbedError/FetchError.
-    """
-
-    def redirect_request(self, req, fp, code, msg, headers, newurl):
-        raise HTTPError(
-            req.full_url,
-            code,
-            f"Redirect to {newurl!r} refused: redirects are disabled to avoid "
-            "forwarding credentials to unverified hosts",
-            headers,
-            fp,
-        )
-
-
-# Drop-in replacement for urllib.request.urlopen that never follows redirects.
-urlopen = build_opener(_NoRedirectHandler).open
-
-
-_RETRY_AFTER_MAX = 30  # seconds; upper bound honoured from a Retry-After header
-_RETRYABLE_4XX = frozenset({408, 429})
-
-
-def _is_retryable_http(code: int | None) -> bool:
-    """True for 5xx and the transient 4xx codes 408/429 (#284). Shared with fetch_papers."""
-    return code is None or code >= 500 or code in _RETRYABLE_4XX
-
-
-def _retry_delay(exc: HTTPError, backoff_delay: float) -> float:
-    """Backoff delay, raised to Retry-After (integer seconds only, capped) if present.
-
-    Non-integer / negative values (e.g. HTTP-date) are ignored.
-    """
-    hdrs = getattr(exc, "headers", None)
-    raw = hdrs.get("Retry-After") if hdrs is not None else None
-    value = raw.strip() if isinstance(raw, str) else ""
-    # len <= 4 guards int() against huge digit strings (ValueError escapes the except clause)
-    if value.isascii() and value.isdigit() and len(value) <= 4:
-        return max(backoff_delay, min(int(value), _RETRY_AFTER_MAX))
-    return backoff_delay
 
 
 class EmbedError(RuntimeError):
@@ -174,7 +109,7 @@ class EmbedClient:
         max_retries: int = 3,
         retry_backoff: float = 1.0,
     ) -> None:
-        _validate_url(base_url)
+        validate_url(base_url)
         self.base_url = base_url.rstrip("/")
         self.collection = collection
         self.timeout = timeout
@@ -208,68 +143,54 @@ class EmbedClient:
             data=body,
             headers={"Content-Type": "application/json", "X-API-Key": api_key},
         )
-        last_exc: Exception | None = None
-        for attempt in range(self.max_retries + 1):
-            delay = self.retry_backoff * (2**attempt)
-            try:
-                with urlopen(req, timeout=self.timeout) as http_resp:
-                    raw = http_resp.read(MAX_RESPONSE_BYTES + 1)
-                    # read(amt) does not raise IncompleteRead on a short body (read() does),
-                    # so keep the retry-on-truncation behaviour (#232) explicitly.
-                    declared = http_resp.headers.get("Content-Length")
-                    if (
-                        isinstance(declared, str)
-                        and declared.isascii()
-                        and declared.isdigit()
-                        and len(declared) <= 12
-                        and len(raw) < int(declared) <= MAX_RESPONSE_BYTES
-                    ):
-                        raise http.client.IncompleteRead(raw, int(declared) - len(raw))
-                if len(raw) > MAX_RESPONSE_BYTES:
-                    raise EmbedError(
-                        f"Embedding response exceeds {MAX_RESPONSE_BYTES} bytes; refusing to parse"
-                    )
-                resp = json.loads(raw)
-                if not isinstance(resp, dict):
-                    raise EmbedError(
-                        f"Unexpected embedding response format: expected object, got {type(resp).__name__}"
-                    )
-                # Select by key presence, not truthiness: an empty "vectors" list is a
-                # count mismatch, not a missing key (#329).
-                vecs = resp["vectors"] if "vectors" in resp else resp.get("embeddings")
-                if vecs is None:
-                    raise EmbedError(
-                        f"Expected 'vectors' or 'embeddings' key in response, got: {list(resp)}"
-                    )
-                if not isinstance(vecs, list):
-                    raise EmbedError(
-                        f"Unexpected embedding response format: vectors must be a list, got {type(vecs).__name__}"
-                    )
-                if len(vecs) != len(texts):
-                    raise EmbedError(
-                        f"Embedding count mismatch: sent {len(texts)} texts, got {len(vecs)} vectors"
-                    )
-                validate_vectors(vecs)
-                return vecs
-            except HTTPError as exc:
-                if not _is_retryable_http(exc.code):
-                    raise EmbedError(f"Embedding service error {exc.code}: {exc}") from exc
-                delay = _retry_delay(exc, delay)
-                exc.close()  # release the response socket before retrying (#141)
-                last_exc = exc
-            except URLError as exc:
-                last_exc = exc
-            except (TimeoutError, ConnectionError, http.client.HTTPException) as exc:
-                # read() 中のタイムアウト/切断 (HTTPError/URLError は上で捕捉済み)
-                last_exc = exc
-            except (json.JSONDecodeError, UnicodeDecodeError) as exc:
-                # 応答側の不正のみ (リクエスト側の ValueError は変換しない)
-                raise EmbedError(f"Unexpected embedding response format: {exc}") from exc
-            if attempt < self.max_retries:
-                time.sleep(delay)
-        raise EmbedError(
-            f"Embedding service failed after {self.max_retries} retries: {last_exc}"
-        ) from last_exc
+
+        def open_and_read() -> bytes:
+            with urlopen(req, timeout=self.timeout) as http_resp:
+                raw = read_capped(http_resp, MAX_RESPONSE_BYTES)
+            if len(raw) > MAX_RESPONSE_BYTES:
+                raise EmbedError(
+                    f"Embedding response exceeds {MAX_RESPONSE_BYTES} bytes; refusing to parse"
+                )
+            return raw
+
+        try:
+            raw = request_with_retry(open_and_read, self.max_retries, self.retry_backoff)
+        except HTTPError as exc:
+            if not is_retryable_http(exc.code):
+                raise EmbedError(f"Embedding service error {exc.code}: {exc}") from exc
+            raise EmbedError(
+                f"Embedding service failed after {self.max_retries} retries: {exc}"
+            ) from exc
+        except RETRYABLE_EXCEPTIONS as exc:
+            raise EmbedError(
+                f"Embedding service failed after {self.max_retries} retries: {exc}"
+            ) from exc
+        try:
+            resp = json.loads(raw)
+        except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+            # 応答側の不正のみ (リクエスト側の ValueError は変換しない)
+            raise EmbedError(f"Unexpected embedding response format: {exc}") from exc
+        if not isinstance(resp, dict):
+            raise EmbedError(
+                f"Unexpected embedding response format: expected object, got {type(resp).__name__}"
+            )
+        # Select by key presence, not truthiness: an empty "vectors" list is a
+        # count mismatch, not a missing key (#329).
+        vecs = resp["vectors"] if "vectors" in resp else resp.get("embeddings")
+        if vecs is None:
+            raise EmbedError(
+                f"Expected 'vectors' or 'embeddings' key in response, got: {list(resp)}"
+            )
+        if not isinstance(vecs, list):
+            raise EmbedError(
+                f"Unexpected embedding response format: vectors must be a list, got {type(vecs).__name__}"
+            )
+        if len(vecs) != len(texts):
+            raise EmbedError(
+                f"Embedding count mismatch: sent {len(texts)} texts, got {len(vecs)} vectors"
+            )
+        validate_vectors(vecs)
+        return vecs
 
     def embed(self, texts: list[str]) -> list[list[float]]:
         """Return embedding vectors for each text.

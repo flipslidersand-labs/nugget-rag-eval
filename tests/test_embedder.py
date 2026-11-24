@@ -10,10 +10,10 @@ from nugget_rag.embedder import (
     EmbedClient,
     EmbedError,
     _is_plain_http_remote,
-    _validate_url,
     cosine_similarity,
     embed_scores,
 )
+from nugget_rag.http_util import validate_url
 from nugget_rag.scorer import top_nuggets
 
 
@@ -46,21 +46,21 @@ def _cm_side_effect(fn):
 
 
 def test_validate_url_allows_http():
-    _validate_url("http://localhost:9092")  # should not raise
+    validate_url("http://localhost:9092")  # should not raise
 
 
 def test_validate_url_allows_https():
-    _validate_url("https://example.com/embed")  # should not raise
+    validate_url("https://example.com/embed")  # should not raise
 
 
 def test_validate_url_rejects_file_scheme():
     with pytest.raises(ValueError, match="file"):
-        _validate_url("file:///etc/passwd")
+        validate_url("file:///etc/passwd")
 
 
 def test_validate_url_rejects_ftp_scheme():
     with pytest.raises(ValueError, match="ftp"):
-        _validate_url("ftp://internal-host/resource")
+        validate_url("ftp://internal-host/resource")
 
 
 def test_validate_url_rejects_imds_url():
@@ -68,17 +68,17 @@ def test_validate_url_rejects_imds_url():
     ここではカスタムスキーム的な悪用パターンを確認する。"""
     # file:// / ftp:// は拒否される
     with pytest.raises(ValueError):
-        _validate_url("file://169.254.169.254/latest/meta-data/")
+        validate_url("file://169.254.169.254/latest/meta-data/")
 
 
 def test_validate_url_rejects_empty_netloc():
     with pytest.raises(ValueError, match="no host"):
-        _validate_url("http://")
+        validate_url("http://")
 
 
 def test_validate_url_rejects_empty_netloc_with_path():
     with pytest.raises(ValueError, match="no host"):
-        _validate_url("http:///path")
+        validate_url("http:///path")
 
 
 @pytest.mark.parametrize(
@@ -91,14 +91,14 @@ def test_validate_url_rejects_empty_netloc_with_path():
 )
 def test_validate_url_rejects_userinfo_without_echoing_url(url):
     with pytest.raises(ValueError, match="userinfo") as ei:
-        _validate_url(url)
+        validate_url(url)
     assert "secret-token" not in str(ei.value)
     assert "token-only" not in str(ei.value)
 
 
 def test_validate_url_no_host_error_does_not_echo_url():
     with pytest.raises(ValueError, match="no host") as ei:
-        _validate_url("http://?key=secret-token")
+        validate_url("http://?key=secret-token")
     assert "secret-token" not in str(ei.value)
 
 
@@ -153,7 +153,7 @@ def test_embed_empty_texts_returns_empty():
     assert _client().embed([]) == []
 
 
-@patch("nugget_rag.embedder.time.sleep")
+@patch("nugget_rag.http_util.time.sleep")
 def test_embed_url_error_raises(mock_sleep):
     from nugget_rag.embedder import EmbedError
 
@@ -162,7 +162,7 @@ def test_embed_url_error_raises(mock_sleep):
             _client().embed(["hello"])
 
 
-@patch("nugget_rag.embedder.time.sleep")
+@patch("nugget_rag.http_util.time.sleep")
 def test_embed_http_error_raises(mock_sleep):
     from nugget_rag.embedder import EmbedError
 
@@ -350,7 +350,7 @@ def _ok_response(n=1):
     return cm
 
 
-@patch("nugget_rag.embedder.time.sleep")
+@patch("nugget_rag.http_util.time.sleep")
 @patch("nugget_rag.embedder.urlopen")
 def test_retry_succeeds_on_second_attempt(mock_open, mock_sleep):
     """1 回目 URLError → 2 回目成功 → ベクトルが返る。"""
@@ -360,7 +360,7 @@ def test_retry_succeeds_on_second_attempt(mock_open, mock_sleep):
     assert mock_open.call_count == 2
 
 
-@patch("nugget_rag.embedder.time.sleep")
+@patch("nugget_rag.http_util.time.sleep")
 @patch("nugget_rag.embedder.urlopen")
 def test_retry_exhausted_raises_embed_error(mock_open, mock_sleep):
     """max_retries 回すべて URLError → EmbedError。"""
@@ -372,7 +372,7 @@ def test_retry_exhausted_raises_embed_error(mock_open, mock_sleep):
     assert mock_open.call_count == 3  # 初回 + 2 回リトライ
 
 
-@patch("nugget_rag.embedder.time.sleep")
+@patch("nugget_rag.http_util.time.sleep")
 @patch("nugget_rag.embedder.urlopen")
 def test_retry_4xx_does_not_retry(mock_open, mock_sleep):
     """4xx HTTPError はリトライせず即 EmbedError。"""
@@ -385,7 +385,7 @@ def test_retry_4xx_does_not_retry(mock_open, mock_sleep):
     assert mock_open.call_count == 1
 
 
-@patch("nugget_rag.embedder.time.sleep")
+@patch("nugget_rag.http_util.time.sleep")
 @patch("nugget_rag.embedder.urlopen")
 def test_retry_5xx_retries(mock_open, mock_sleep):
     """5xx HTTPError はリトライする。"""
@@ -398,7 +398,7 @@ def test_retry_5xx_retries(mock_open, mock_sleep):
     assert mock_open.call_count == 3
 
 
-@patch("nugget_rag.embedder.time.sleep")
+@patch("nugget_rag.http_util.time.sleep")
 @patch("nugget_rag.embedder.urlopen")
 def test_retry_5xx_closes_response_before_retry(mock_open, mock_sleep):
     """5xx HTTPError のレスポンスボディはリトライ前に close される (#141)。"""
@@ -419,7 +419,7 @@ def test_retry_5xx_closes_response_before_retry(mock_open, mock_sleep):
         close_mock.assert_called_once()
 
 
-@patch("nugget_rag.embedder.time.sleep")
+@patch("nugget_rag.http_util.time.sleep")
 @patch("nugget_rag.embedder.urlopen")
 def test_retry_max_retries_zero_no_retry(mock_open, mock_sleep):
     """max_retries=0 → リトライなし、1 回のみ試行。"""
@@ -431,7 +431,7 @@ def test_retry_max_retries_zero_no_retry(mock_open, mock_sleep):
     assert mock_open.call_count == 1
 
 
-@patch("nugget_rag.embedder.time.sleep")
+@patch("nugget_rag.http_util.time.sleep")
 @patch("nugget_rag.embedder.urlopen")
 def test_retry_backoff_called(mock_open, mock_sleep):
     """リトライ間に time.sleep が backoff * 2^attempt で呼ばれる。"""
@@ -454,7 +454,7 @@ def _read_raises_cm(exc: BaseException) -> MagicMock:
     return cm
 
 
-@patch("nugget_rag.embedder.time.sleep")
+@patch("nugget_rag.http_util.time.sleep")
 @patch("nugget_rag.embedder.urlopen")
 def test_read_timeout_exhausted_raises_embed_error(mock_open, mock_sleep):
     from nugget_rag.embedder import EmbedError
@@ -465,7 +465,7 @@ def test_read_timeout_exhausted_raises_embed_error(mock_open, mock_sleep):
     assert mock_open.call_count == 3
 
 
-@patch("nugget_rag.embedder.time.sleep")
+@patch("nugget_rag.http_util.time.sleep")
 @patch("nugget_rag.embedder.urlopen")
 def test_read_incomplete_retries_then_succeeds(mock_open, mock_sleep):
     import http.client
@@ -518,7 +518,7 @@ def test_non_list_vectors_raises_embed_error(mock_open, vecs):
         b'{"vectors": [[1e999]]}',
     ],
 )
-@patch("nugget_rag.embedder.time.sleep")
+@patch("nugget_rag.http_util.time.sleep")
 @patch("nugget_rag.embedder.urlopen")
 def test_malformed_vector_elements_raise_embed_error_without_retry(mock_open, mock_sleep, body):
     """#326: each vector must be a non-empty list of finite numbers; no retry, no value echo."""
@@ -631,7 +631,7 @@ def _http_err(code, retry_after=None):
 
 
 @pytest.mark.parametrize("code", [408, 429])
-@patch("nugget_rag.embedder.time.sleep")
+@patch("nugget_rag.http_util.time.sleep")
 @patch("nugget_rag.embedder.urlopen")
 def test_retry_408_429_then_success(mock_open, mock_sleep, code):
     mock_open.side_effect = [_http_err(code), _ok_response()]
@@ -639,7 +639,7 @@ def test_retry_408_429_then_success(mock_open, mock_sleep, code):
     assert mock_open.call_count == 2
 
 
-@patch("nugget_rag.embedder.time.sleep")
+@patch("nugget_rag.http_util.time.sleep")
 @patch("nugget_rag.embedder.urlopen")
 def test_retry_404_fails_immediately(mock_open, mock_sleep):
     from nugget_rag.embedder import EmbedError
@@ -663,7 +663,7 @@ def test_retry_404_fails_immediately(mock_open, mock_sleep):
         ("9" * 5000, 0.5),
     ],
 )
-@patch("nugget_rag.embedder.time.sleep")
+@patch("nugget_rag.http_util.time.sleep")
 @patch("nugget_rag.embedder.urlopen")
 def test_retry_after_is_capped_and_invalid_ignored(mock_open, mock_sleep, header, expected):
     mock_open.side_effect = [_http_err(429, header), _ok_response()]
@@ -712,7 +712,7 @@ def _padded_json(total: int) -> bytes:
     return base + b" " * (total - len(base))
 
 
-@patch("nugget_rag.embedder.time.sleep")
+@patch("nugget_rag.http_util.time.sleep")
 @patch("nugget_rag.embedder.urlopen")
 def test_oversized_response_raises_embed_error_without_retry(mock_open, mock_sleep):
     cm = _make_cm_mock(b"x" * (MAX_RESPONSE_BYTES + 1))
@@ -731,7 +731,7 @@ def test_response_at_size_limit_is_accepted(mock_open):
     assert EmbedClient("http://localhost:9092").embed(["a"]) == [[0.0]]
 
 
-@patch("nugget_rag.embedder.time.sleep")
+@patch("nugget_rag.http_util.time.sleep")
 @patch("nugget_rag.embedder.urlopen")
 def test_truncated_body_retries_like_incomplete_read(mock_open, mock_sleep):
     """read(amt) には IncompleteRead が出ないため、Content-Length 不足を自前で再試行扱いにする。"""
