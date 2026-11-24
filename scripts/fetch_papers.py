@@ -13,19 +13,24 @@ Usage:
 """
 
 import argparse
-import http.client
 import json
 import sys
-import time
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 
-# Shared with nugget_rag.embedder: scheme/netloc validation and a
-# redirect-refusing urlopen (see #147 — redirects would forward headers
-# to arbitrary hosts).
 from eval.cli_helpers import load_json, non_negative_int, positive_int
-from nugget_rag.embedder import _is_retryable_http, _retry_delay, _validate_url, urlopen
+
+# Shared with nugget_rag.embedder: scheme/netloc validation, a redirect-refusing
+# urlopen (see #147 — redirects would forward headers to arbitrary hosts) and the
+# retry loop.
+from nugget_rag.http_util import (
+    READ_ERRORS,
+    read_capped,
+    request_with_retry,
+    urlopen,
+    validate_url,
+)
 from nugget_rag.paper_registry import ARXIV_MAP as ARXIV_TO_PAPER_ID
 from nugget_rag.schema import make_chunk
 
@@ -35,7 +40,7 @@ _TIMEOUT_PAPERS = 15
 DEFAULT_SNIPPET_LENGTH = 200
 _TIMEOUT_CHUNKS = 30
 
-# Retry policy (mirrors nugget_rag.embedder.EmbedClient exponential backoff)
+# Retry policy (exponential backoff, shared with the embedding client via http_util)
 _MAX_RETRIES = 3
 _RETRY_BACKOFF = 1.0
 
@@ -43,11 +48,8 @@ _RETRY_BACKOFF = 1.0
 # A larger body is a FetchError, not retried.
 MAX_RESPONSE_BYTES = 32 * 1024 * 1024
 
-# Errors raised by read() after the headers arrived (timeout / disconnect /
-# truncated body). Same set embedder retries (#232).
-_READ_ERRORS = (TimeoutError, ConnectionError, http.client.HTTPException)
 # Everything _urlopen_with_retry can raise that callers convert to FetchError.
-_FETCH_ERRORS = (URLError, HTTPError, *_READ_ERRORS)
+_FETCH_ERRORS = (URLError, HTTPError, *READ_ERRORS)
 
 
 class FetchError(Exception):
@@ -71,45 +73,19 @@ def _urlopen_with_retry(
         FetchError: the body is larger than MAX_RESPONSE_BYTES (not retried).
         HTTPError | URLError | TimeoutError | ConnectionError | HTTPException: on non-retryable errors or after retries exhausted.
     """
-    last_exc: Exception | None = None
-    for attempt in range(max_retries + 1):
-        delay = retry_backoff * (2**attempt)
-        try:
-            with urlopen(url, timeout=timeout) as http_resp:
-                raw = http_resp.read(MAX_RESPONSE_BYTES + 1)
-                # read(amt) does not raise IncompleteRead on a short body (read() does),
-                # so keep the retry-on-truncation behaviour (#232) explicitly.
-                declared = http_resp.headers.get("Content-Length")
-                if (
-                    isinstance(declared, str)
-                    and declared.isascii()
-                    and declared.isdigit()
-                    and len(declared) <= 12
-                    and len(raw) < int(declared) <= MAX_RESPONSE_BYTES
-                ):
-                    raise http.client.IncompleteRead(raw, int(declared) - len(raw))
-            if len(raw) > MAX_RESPONSE_BYTES:
-                raise FetchError(f"Response exceeds {MAX_RESPONSE_BYTES} bytes; refusing to parse")
-            return raw
-        except HTTPError as exc:
-            if not _is_retryable_http(exc.code):
-                exc.close()  # release the response socket before re-raising (#313)
-                raise
-            last_exc = exc
-            delay = _retry_delay(exc, delay)
-            exc.close()  # release the response socket before retrying / final raise (#280)
-        except URLError as exc:
-            last_exc = exc
-        except _READ_ERRORS as exc:
-            last_exc = exc
-        if attempt < max_retries:
-            time.sleep(delay)
-    assert last_exc is not None  # loop always runs at least once
-    raise last_exc
+
+    def open_and_read() -> bytes:
+        with urlopen(url, timeout=timeout) as http_resp:
+            raw = read_capped(http_resp, MAX_RESPONSE_BYTES)
+        if len(raw) > MAX_RESPONSE_BYTES:
+            raise FetchError(f"Response exceeds {MAX_RESPONSE_BYTES} bytes; refusing to parse")
+        return raw
+
+    return request_with_retry(open_and_read, max_retries, retry_backoff)
 
 
 def fetch_papers(api_url: str, limit: int = 100) -> list[dict]:
-    _validate_url(api_url)
+    validate_url(api_url)
     url = f"{api_url}/papers?{urlencode({'limit': limit, 'sort': 'score'})}"
     try:
         body = _urlopen_with_retry(url, timeout=_TIMEOUT_PAPERS)
@@ -144,7 +120,7 @@ def fetch_chunks_for_paper(
     limit: int = 20,
     snippet_length: int = DEFAULT_SNIPPET_LENGTH,
 ) -> list[dict]:
-    _validate_url(api_url)
+    validate_url(api_url)
     safe_query = _sanitize_query(query)
     params = {
         "q": safe_query,
@@ -310,7 +286,7 @@ def _api_url_type(v: str) -> str:
             f"Missing URL scheme for {stripped!r}. Did you mean 'http://{stripped}'?"
         )
     try:
-        _validate_url(stripped)
+        validate_url(stripped)
     except ValueError as exc:
         raise argparse.ArgumentTypeError(str(exc)) from exc
     return stripped
