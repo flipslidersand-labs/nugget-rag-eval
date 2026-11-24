@@ -312,6 +312,9 @@ def _latency_summary(values_s: list[float]) -> dict:
     }
 
 
+EmbedFn = Callable[[list[str]], list[list[float]]]
+
+
 @dataclass(frozen=True)
 class RetrievalMode:
     """One retrieval mode to evaluate. Add an entry to MODES to add a mode."""
@@ -319,21 +322,63 @@ class RetrievalMode:
     name: str  # key in the result dict (and in baseline files)
     field: str  # chunk field holding the text that is judged and counted
     label: str  # display name
+    # (chunks of one paper, query, config, embed_fn) -> top-k results
+    retrieve: Callable[[list[dict], str, EvalConfig, EmbedFn | None], list[dict]]
     show_misses: bool = False  # list recall misses under --verbose
+    uses_embedding: bool = False  # calls embed_fn: its time is reported, the label shows the weight
+
+
+def _retrieve_full_chunk(chunks, query, cfg, embed_fn):
+    return retrieve_full_chunk(chunks, query, cfg.top_k)
+
+
+def _retrieve_nugget(chunks, query, cfg, embed_fn):
+    return retrieve_nuggets(
+        chunks,
+        query,
+        cfg.top_k,
+        nuggets_per_chunk=cfg.nuggets_per_chunk,
+        embed_fn=embed_fn,
+        embed_weight=cfg.embed_weight,
+        window=cfg.nugget_window,
+    )
 
 
 MODES: tuple[RetrievalMode, ...] = (
-    RetrievalMode("full_chunk", "text", "full-chunk"),
-    RetrievalMode("nugget", "nugget", "nugget", show_misses=True),
+    RetrievalMode("full_chunk", "text", "full-chunk", _retrieve_full_chunk),
+    RetrievalMode(
+        "nugget", "nugget", "nugget", _retrieve_nugget, show_misses=True, uses_embedding=True
+    ),
 )
 
 
 def mode_label(name: str, embed_weight: float | None = None) -> str:
-    """Display label for a mode; nugget shows the embed weight when embeddings are used."""
-    label = next(m.label for m in MODES if m.name == name)
-    if name == "nugget" and embed_weight is not None:
-        return f"nugget(e{embed_weight:.1f})"
-    return label
+    """Display label for a mode; an embedding mode shows the embed weight when embeddings are used."""
+    mode = next(m for m in MODES if m.name == name)
+    if mode.uses_embedding and embed_weight is not None:
+        return f"{mode.label}(e{embed_weight:.1f})"
+    return mode.label
+
+
+@dataclass(frozen=True)
+class EvalConfig:
+    """Retrieval settings of one evaluate() run (#392). Defaults are the CLI defaults.
+
+    ``embed_fn`` is not here: it is a live client, not a setting. Invalid ``match`` /
+    ``estimator`` raise ValueError at construction.
+    """
+
+    top_k: int = 5
+    match: str = "exact"
+    estimator: str = "words"
+    nugget_window: int = 0
+    nuggets_per_chunk: int = 3
+    embed_weight: float = 0.5
+
+    def __post_init__(self) -> None:
+        if self.match not in ("exact", "normalized"):
+            raise ValueError(f"match must be 'exact' or 'normalized', got {self.match!r}")
+        _check_estimator(self.estimator)
 
 
 def format_diagnostics(result: dict, verbose: bool = False, prefix: str = "") -> list[str]:
@@ -360,27 +405,6 @@ def pop_diagnostics(result: dict) -> dict:
     result.pop("warnings", None)
     result.pop("misses", None)
     return result
-
-
-@dataclass(frozen=True)
-class EvalConfig:
-    """Retrieval settings of one evaluate() run (#392). Defaults are the CLI defaults.
-
-    ``embed_fn`` is not here: it is a live client, not a setting. Invalid ``match`` /
-    ``estimator`` raise ValueError at construction.
-    """
-
-    top_k: int = 5
-    match: str = "exact"
-    estimator: str = "words"
-    nugget_window: int = 0
-    nuggets_per_chunk: int = 3
-    embed_weight: float = 0.5
-
-    def __post_init__(self) -> None:
-        if self.match not in ("exact", "normalized"):
-            raise ValueError(f"match must be 'exact' or 'normalized', got {self.match!r}")
-        _check_estimator(self.estimator)
 
 
 def _fold_legacy(config: EvalConfig | None, legacy: dict) -> EvalConfig:
@@ -444,20 +468,6 @@ def evaluate(
             finally:
                 embed_spent += time.perf_counter() - t0
 
-    retrievers: dict[str, Callable[[list[dict], str], list[dict]]] = {
-        "full_chunk": lambda chunks, query: retrieve_full_chunk(chunks, query, top_k),
-        "nugget": lambda chunks, query: retrieve_nuggets(
-            chunks,
-            query,
-            top_k,
-            nuggets_per_chunk=cfg.nuggets_per_chunk,
-            embed_fn=timed_embed_fn,
-            embed_weight=cfg.embed_weight,
-            window=cfg.nugget_window,
-        ),
-    }
-    assert set(retrievers) == {m.name for m in MODES}, "MODES and retrievers out of sync"
-
     hits = {m.name: 0 for m in MODES}
     tokens = {m.name: 0.0 for m in MODES}
     mrr_sum = {m.name: 0.0 for m in MODES}
@@ -476,9 +486,9 @@ def evaluate(
         for mode in MODES:
             embed_spent = 0.0
             t0 = time.perf_counter()
-            results = retrievers[mode.name](chunks, query)
+            results = mode.retrieve(chunks, query, cfg, timed_embed_fn)
             times[mode.name].append(time.perf_counter() - t0)
-            if mode.name == "nugget":
+            if mode.uses_embedding:
                 embed_times.append(embed_spent)
 
             hit = recall_at_k(results, spans, mode.field, normalize)
