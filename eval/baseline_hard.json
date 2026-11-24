@@ -3,6 +3,7 @@
   "gold": "eval/gold_set_hard.json",
   "pool": "python scripts/build_pool_from_pdfs.py --pdf-dir data/papers --target-words 300 (354 chunks)",
   "top_k": 5,
+  "match": "exact",
   "nugget_window": 0,
   "full_chunk": {
     "recall": 0.595

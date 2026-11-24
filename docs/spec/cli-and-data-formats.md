@@ -40,9 +40,10 @@ JSON 配列。各要素は次を持つ。
 ### 基準値（`check_regression.py --baseline`）
 
 `eval/baseline_hard.json` の形。`full_chunk.recall` と `nugget.recall`（モードごとの記録値）に加えて、
-`top_k`・`gold`・`n`・`nugget_window`・`pool`・`_comment` を持つ。
-モード名が 1 つも一致しない、または `top_k`・`gold`・`n` が今回の実行と違うときは FAIL（キーが無い古い形式は照合しない）。
+`top_k`・`match`・`nugget_window`・`gold`・`n`・`pool`・`_comment` を持つ。
+モード名が 1 つも一致しない、または `top_k`・`match`・`nugget_window`・`gold`・`n` が今回の実行と違うときは FAIL（キーが無い古い形式は、既定値とみなさず照合しない）。
 `--advisory` のときは FAIL ではなく `[WARN]`（終了コード 0）で、「比較不能」と出す。
+`check_regression.py --write-baseline PATH` が `gold`・`top_k`・`match`・`nugget_window`・各モードの `recall`・`n` を書き出す（`pool` と `_comment` は手書き）。同じ引数で `--baseline PATH` を付けた実行は PASS する。
 ファイルが無いときは低下チェックを飛ばす。
 
 ## CLI
@@ -73,6 +74,7 @@ JSON 配列。各要素は次を持つ。
 | `n_queries` | gold のクエリ数 |
 | `n_queries_without_chunks` | gold の論文キーに対応するチャンクが `--chunks` に無いクエリ数。そのクエリは静かに Recall 0 になるので、0 でなければ標準エラーに `[WARN]` も出る。全クエリが該当なしのときは Recall 0 を出さず `[ERROR]` で終了コード 1 |
 | `modes` | 評価したモード名の配列（`full_chunk`, `nugget`） |
+| `config` | この実行の設定 `top_k`・`match`・`nugget_window`・`embed_weight`・`nuggets_per_chunk` |
 | `hits` | モードごとの正解クエリ数（丸め前） |
 | `full_chunk`, `nugget` | モードごとの `recall`・`mrr`・`avg_tokens` |
 | `latency_ms` | モードごとのレイテンシ（`p50`・`p95`） |
@@ -90,12 +92,15 @@ Recall が下がっていないかを見る CI 用のゲート。
 | `--chunks`, `--gold` | 必須 | 同上 |
 | `--threshold` | 0.95 | 0〜1。いずれかのモードの Recall@k がこれ未満なら失敗 |
 | `--top-k` | 5 | |
+| `--match` | `exact` | `exact` か `normalized`。基準の `match` と照合する |
+| `--nugget-window` | 0 | 0 以上の整数。基準の `nugget_window` と照合する |
+| `--write-baseline` | なし | 今回の設定・`n`・`gold`・各モードの Recall を PATH に書いて終了コード 0（判定はしない）。`--baseline` とは併用不可 |
 | `--baseline` | なし | 記録した Recall の JSON |
 | `--max-drop` | 0.05 | 基準値からの許容低下幅 |
-| `--advisory` | off | 基準値からの低下を `[WARN]` で出して終了コード 0。基準の `top_k`・`gold`・`n` が今回と違う、またはモード名が 1 つも一致しない場合も `[WARN]`（終了コード 0）で、「比較不能」と併記する |
+| `--advisory` | off | 基準値からの低下を `[WARN]` で出して終了コード 0。基準の `top_k`・`match`・`nugget_window`・`gold`・`n` が今回と違う、またはモード名が 1 つも一致しない場合も `[WARN]`（終了コード 0）で、「比較不能」と併記する |
 | `--verbose`, `-v` | off | 失敗クエリの詳細を標準エラーに出す |
 
-終了コード: 閾値未満 → 1（`[FAIL]`）。基準値からの低下、または基準の `top_k`・`gold`・`n` の不一致、またはモード名が 1 つも一致しない → 1（`--advisory` なら 0。不一致は比較不能なので数値の差は意味を持たない）。入力不正 → 1（`[ERROR]`）。通れば `[PASS]` で 0。
+終了コード: 閾値未満 → 1（`[FAIL]`）。基準値からの低下、または基準の `top_k`・`match`・`nugget_window`・`gold`・`n` の不一致、またはモード名が 1 つも一致しない → 1（`--advisory` なら 0。不一致は比較不能なので数値の差は意味を持たない）。入力不正 → 1（`[ERROR]`）。通れば `[PASS]` で 0。
 閾値の判定は丸め前の Recall で行う。
 
 ### `scripts/fetch_papers.py`

@@ -3,6 +3,7 @@
   "gold": "eval/gold_set.json",
   "pool": "data/chunks_large.json (22 chunks)",
   "top_k": 5,
+  "match": "exact",
   "nugget_window": 0,
   "full_chunk": {
     "recall": 1.0

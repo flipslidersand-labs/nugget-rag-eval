@@ -18,6 +18,9 @@ Usage:
         --gold eval/gold_set_hard.json \
         --threshold 0 \
         --baseline eval/baseline_hard.json --max-drop 0.05 --advisory
+
+    # Record a baseline from this run (same --top-k/--match/--nugget-window as the later check):
+    python eval/check_regression.py --chunks ... --gold ... --write-baseline eval/baseline_x.json
 """
 
 from __future__ import annotations
@@ -28,7 +31,13 @@ import math
 import sys
 from pathlib import Path
 
-from eval.cli_helpers import existing_file, float_between_0_1, positive_int
+from eval.cli_helpers import (
+    existing_file,
+    float_between_0_1,
+    non_negative_int,
+    positive_int,
+    write_json_atomic,
+)
 from eval.evaluate import (
     EvalConfig,
     evaluate,
@@ -72,7 +81,7 @@ def _same_path(a: object, b: str) -> bool:
 # Marks recall-drop messages; any other baseline failure means "not comparable".
 _DROP_MARK = " dropped "
 _INCOMPARABLE_NOTE = (
-    "[WARN] 比較不能 (not comparable): baseline と今回で top_k/gold/n/モード が違うため、"
+    "[WARN] 比較不能 (not comparable): baseline と今回で top_k/match/nugget_window/gold/n/モード が違うため、"
     "数値の差は意味を持たない"
 )
 
@@ -89,9 +98,10 @@ def check_baseline(
     Returns (failures, note). A missing baseline file is not a failure: the
     note says the drop check was skipped. Failures list modes whose recall
     fell by more than *max_drop* below the baseline, a baseline sharing no
-    mode with this run, and a baseline whose recorded top_k / gold / n differ
-    from this run. Metadata keys absent from the baseline (old format) are
-    not checked.
+    mode with this run, and a baseline whose recorded top_k / match /
+    nugget_window / gold / n differ from this run. Metadata keys absent from
+    the baseline (old format) are not checked (not assumed to be the defaults);
+    match / nugget_window are read from ``result["config"]`` and skipped if absent.
     """
     path = Path(baseline_path)
     if not path.is_file():
@@ -121,6 +131,20 @@ def check_baseline(
         # A recorded value that differs (or cannot be compared) means the numbers are not comparable.
         if "top_k" in baseline and top_k is not None and not _same_int(baseline["top_k"], top_k):
             failures.append(f"baseline top_k {baseline['top_k']!r} != current top_k {top_k}")
+        config = result.get("config") or {}
+        if "match" in baseline and "match" in config and baseline["match"] != config["match"]:
+            failures.append(
+                f"baseline match {baseline['match']!r} != current match {config['match']}"
+            )
+        if (
+            "nugget_window" in baseline
+            and "nugget_window" in config
+            and not _same_int(baseline["nugget_window"], config["nugget_window"])
+        ):
+            failures.append(
+                f"baseline nugget_window {baseline['nugget_window']!r} "
+                f"!= current nugget_window {config['nugget_window']}"
+            )
         if "n" in baseline and not _same_int(baseline["n"], result.get("n_queries")):
             failures.append(f"baseline n {baseline['n']!r} != current n {result.get('n_queries')}")
         if (
@@ -141,6 +165,33 @@ def check_baseline(
     return failures, ""
 
 
+def _baseline_gold_path(gold_path: str) -> str:
+    """Repo-root relative POSIX path when *gold_path* is inside the repo, else the absolute path."""
+    resolved = Path(gold_path).resolve()
+    try:
+        return resolved.relative_to(_REPO_ROOT).as_posix()
+    except ValueError:
+        return str(resolved)
+
+
+def build_baseline(result: dict, gold_path: str) -> dict:
+    """The checkable part of a baseline (config, n, gold, per-mode recall) of one evaluate() run.
+
+    ``_comment`` and ``pool`` are free text and stay hand-written.
+    """
+    config = result["config"]
+    baseline: dict = {
+        "gold": _baseline_gold_path(gold_path),
+        "top_k": config["top_k"],
+        "match": config["match"],
+        "nugget_window": config["nugget_window"],
+    }
+    for mode in result["modes"]:
+        baseline[mode] = {"recall": result[mode]["recall"]}
+    baseline["n"] = result["n_queries"]
+    return baseline
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Recall@5 regression check")
     parser.add_argument(
@@ -157,6 +208,26 @@ def main() -> None:
     )
     parser.add_argument(
         "--top-k", type=positive_int, default=5, help="Top-k for retrieval (default: 5)"
+    )
+    parser.add_argument(
+        "--match",
+        choices=["exact", "normalized"],
+        default="exact",
+        help="Span matching, as in evaluate.py (default: exact). Checked against the baseline.",
+    )
+    parser.add_argument(
+        "--nugget-window",
+        type=non_negative_int,
+        default=0,
+        help="Context sentences on each side of a nugget (default: 0). "
+        "Checked against the baseline.",
+    )
+    parser.add_argument(
+        "--write-baseline",
+        default=None,
+        metavar="PATH",
+        help="Write this run's config, n, gold and per-mode recall to PATH and exit 0 "
+        "(no gate). Not combinable with --baseline.",
     )
     parser.add_argument(
         "--baseline",
@@ -182,17 +253,30 @@ def main() -> None:
         help="Print failing query details to stderr when recall drops below threshold",
     )
     args = parser.parse_args()
+    if args.write_baseline and args.baseline:
+        parser.error("--write-baseline and --baseline cannot be used together")
 
     chunks_by_paper, gold = load_inputs(args.chunks, args.gold)
 
     try:
-        result = evaluate(chunks_by_paper, gold, EvalConfig(top_k=args.top_k))
+        result = evaluate(
+            chunks_by_paper,
+            gold,
+            EvalConfig(top_k=args.top_k, match=args.match, nugget_window=args.nugget_window),
+        )
     except ValueError as exc:
         sys.exit(f"[ERROR] {exc}")
 
     for line in format_diagnostics(result, verbose=args.verbose):
         print(line, file=sys.stderr)
     pop_diagnostics(result)
+
+    if args.write_baseline:
+        write_json_atomic(
+            Path(args.write_baseline), build_baseline(result, args.gold), trailing_newline=True
+        )
+        print(f"[WRITTEN] baseline: {args.write_baseline}")
+        return
 
     threshold = args.threshold
 
