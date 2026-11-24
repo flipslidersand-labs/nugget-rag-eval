@@ -31,7 +31,7 @@ from nugget_rag.http_util import (
     urlopen,
     validate_url,
 )
-from nugget_rag.paper_registry import ARXIV_MAP as ARXIV_TO_PAPER_ID
+from nugget_rag.paper_registry import ARXIV_MAP
 from nugget_rag.schema import make_chunk
 
 # Unified timeout constants
@@ -221,7 +221,7 @@ def fetch_per_query(
         # Resolve paper_id: prefer arxiv_id field, fall back to paper_id int
         # A null/empty arxiv_id falls back to paper_id (#230).
         if item.get("arxiv_id"):
-            pid = ARXIV_TO_PAPER_ID.get(item["arxiv_id"])
+            pid = ARXIV_MAP.get(item["arxiv_id"])
             if pid is None:
                 print(
                     f"  WARNING: unknown arxiv_id '{item['arxiv_id']}', skipping", file=sys.stderr
